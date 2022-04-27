@@ -1,0 +1,19 @@
+[
+    {
+        "listen": "0.0.0.0",
+        "port": 1234,
+        "protocol": "socks",
+        "settings": {
+            "auth": "noauth",
+            "accounts": [
+                {
+                    "user": "my-username",
+                    "pass": "my-password"
+                }
+            ],
+            "udp": false,
+            "ip": "127.0.0.1",
+            "userLevel": 0
+        }
+    }
+]
