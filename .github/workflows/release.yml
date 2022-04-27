@@ -141,6 +141,7 @@ jobs:
           cp ${GITHUB_WORKSPACE}/main/dns.json ./build_assets/dns.json
           cp ${GITHUB_WORKSPACE}/main/route.json ./build_assets/route.json
           cp ${GITHUB_WORKSPACE}/main/custom_outbound.json ./build_assets/custom_outbound.json
+          cp ${GITHUB_WORKSPACE}/main/custom_inbound.json ./build_assets/custom_inbound.json
           cp ${GITHUB_WORKSPACE}/main/rulelist ./build_assets/rulelist
           cp ${GITHUB_WORKSPACE}/main/config.yml.example ./build_assets/config.yml
           LIST=('geoip geoip geoip' 'domain-list-community dlc geosite')
