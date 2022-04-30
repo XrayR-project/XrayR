@@ -52,7 +52,7 @@ A Xray backend framework that can easily support many panels.
 ## 软件安装
 ### 一键安装
 ```
-bash <(curl -Ls https://raw.githubusercontent.com/XrayR-project/XrayR-release/master/install.sh)
+wget -N https://raw.githubusercontent.com/XrayR-project/XrayR-release/master/install.sh && bash install.sh
 ```
 ### 使用Docker部署软件
 [Docker部署教程](https://crackair.gitbook.io/xrayr-project/xrayr-xia-zai-he-an-zhuang/install/docker)
