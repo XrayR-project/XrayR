@@ -19,7 +19,7 @@ require (
 	github.com/stretchr/testify v1.7.2
 	github.com/tklauser/go-sysconf v0.3.10 // indirect
 	github.com/urfave/cli v1.22.9
-	github.com/xtls/xray-core v1.5.6
+	github.com/xtls/xray-core v1.5.7
 	golang.org/x/net v0.0.0-20220531201128-c960675eff93
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/protobuf v1.28.0
@@ -123,8 +123,8 @@ require (
 	github.com/rogpeppe/go-internal v1.8.1 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/sacloud/libsacloud v1.36.2 // indirect
-	github.com/sagernet/sing v0.0.0-20220601033944-4e04bbd3d84d // indirect
-	github.com/sagernet/sing-shadowsocks v0.0.0-20220601034426-ee9be8af94e4 // indirect
+	github.com/sagernet/sing v0.0.0-20220605012533-e0f722558141 // indirect
+	github.com/sagernet/sing-shadowsocks v0.0.0-20220605012719-1e22882ea853 // indirect
 	github.com/scaleway/scaleway-sdk-go v1.0.0-beta.9 // indirect
 	github.com/seiflotfy/cuckoofilter v0.0.0-20220411075957-e3b120b3f5fb // indirect
 	github.com/sirupsen/logrus v1.8.1 // indirect

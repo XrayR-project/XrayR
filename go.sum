@@ -669,10 +669,10 @@ github.com/russross/blackfriday/v2 v2.1.0/go.mod h1:+Rmxgy9KzJVeS9/2gXHxylqXiyQD
 github.com/ryanuber/columnize v0.0.0-20160712163229-9b3edd62028f/go.mod h1:sm1tb6uqfes/u+d4ooFouqFdy9/2g9QGwK3SQygK0Ts=
 github.com/sacloud/libsacloud v1.36.2 h1:aosI7clbQ9IU0Hj+3rpk3SKJop5nLPpLThnWCivPqjI=
 github.com/sacloud/libsacloud v1.36.2/go.mod h1:P7YAOVmnIn3DKHqCZcUKYUXmSwGBm3yS7IBEjKVSrjg=
-github.com/sagernet/sing v0.0.0-20220601033944-4e04bbd3d84d h1:BNhKTknI2tBPUOPDV3lcgwOX6iZimL7K3TPdTdp5hiA=
-github.com/sagernet/sing v0.0.0-20220601033944-4e04bbd3d84d/go.mod h1:w2HnJzXKHpD6F5Z/9XlSD4qbcpHY2RSZuQnFzqgELMg=
-github.com/sagernet/sing-shadowsocks v0.0.0-20220601034426-ee9be8af94e4 h1:POJZphM4VaovhB/7GjJTG+pUTcI/Q9jaOHBqTL6jq1E=
-github.com/sagernet/sing-shadowsocks v0.0.0-20220601034426-ee9be8af94e4/go.mod h1:8NNH8ACh+C0oZb4ielvRJHYA4kFmhDdSQxmwAa+N8PM=
+github.com/sagernet/sing v0.0.0-20220605012533-e0f722558141 h1:YN9EeHRIFYKei1woz2OucLTSpiNrULAHH+jl6upDemQ=
+github.com/sagernet/sing v0.0.0-20220605012533-e0f722558141/go.mod h1:w2HnJzXKHpD6F5Z/9XlSD4qbcpHY2RSZuQnFzqgELMg=
+github.com/sagernet/sing-shadowsocks v0.0.0-20220605012719-1e22882ea853 h1:t1pn8v3kPvlaST/fY7GsPV8yIUFJDXzNcmSYQ+nrbEM=
+github.com/sagernet/sing-shadowsocks v0.0.0-20220605012719-1e22882ea853/go.mod h1:Afu8UIFlEwxTnlidTMSWqWHIduAWOrwY0tFr2LxBACQ=
 github.com/scaleway/scaleway-sdk-go v1.0.0-beta.9 h1:0roa6gXKgyta64uqh52AQG3wzZXH21unn+ltzQSXML0=
 github.com/scaleway/scaleway-sdk-go v1.0.0-beta.9/go.mod h1:fCa7OJZ/9DRTnOKmxvT6pn+LPWUptQAmHF/SBJUGEcg=
 github.com/sean-/seed v0.0.0-20170313163322-e2103e2c3529/go.mod h1:DxrIzT+xaE7yg65j358z/aeFdxmN0P9QXhEzd20vsDc=
@@ -798,8 +798,8 @@ github.com/xeipuuv/gojsonschema v1.2.0/go.mod h1:anYRn/JVcOK2ZgGU+IjEV4nwlhoK5sQ
 github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2/go.mod h1:UETIi67q53MR2AWcXfiuqkDkRtnGDLqkBTpCHuJHxtU=
 github.com/xtls/go v0.0.0-20210920065950-d4af136d3672 h1:4mkzGhKqt3JO1BWYjtD3iRFyAx4ow67hmSqOcGjuxqQ=
 github.com/xtls/go v0.0.0-20210920065950-d4af136d3672/go.mod h1:YGGVbz9cOxyKFUmhW7LGaLZaMA0cPlHJinvAmVxEMSU=
-github.com/xtls/xray-core v1.5.6 h1:yJHvJUC/IlC++IPLs4QzhNzDZm4UOudHBp+xPyZnw0k=
-github.com/xtls/xray-core v1.5.6/go.mod h1:U/1/w4LUdfdQD6BjWV5QExmQnGHnl2TmIYErmzd/X60=
+github.com/xtls/xray-core v1.5.7 h1:xQqUpRtzVHL/to2sDmvgn9GelD0jIwC0I8B36hbDgDo=
+github.com/xtls/xray-core v1.5.7/go.mod h1:H4q5qoCwtsYeF06Zsb0tk8oV8UuaQ9NdnOaPv49Cj7I=
 github.com/yuin/goldmark v1.1.25/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 github.com/yuin/goldmark v1.1.27/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 github.com/yuin/goldmark v1.1.32/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
@@ -990,8 +990,8 @@ golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208/go.mod h1:RxMgew5VJxzue5/jJ
 golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
 golang.org/x/sync v0.0.0-20201207232520-09787c993a3a/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
 golang.org/x/sync v0.0.0-20210220032951-036812b2e83c/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
-golang.org/x/sync v0.0.0-20220513210516-0976fa681c29 h1:w8s32wxx3sY+OjLlv9qltkLU5yvJzxjjgiHWLjdIcw4=
 golang.org/x/sync v0.0.0-20220513210516-0976fa681c29/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
+golang.org/x/sync v0.0.0-20220601150217-0de741cfad7f h1:Ax0t5p6N38Ga0dThY21weqDEyz2oklo4IvDkpigvkD8=
 golang.org/x/sys v0.0.0-20180622082034-63fc586f45fe/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
 golang.org/x/sys v0.0.0-20180823144017-11551d06cbcc/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
 golang.org/x/sys v0.0.0-20180830151530-49385e6e1522/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
