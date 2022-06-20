@@ -16,7 +16,7 @@ require (
 	github.com/r3labs/diff/v2 v2.15.1
 	github.com/shirou/gopsutil v3.21.11+incompatible
 	github.com/spf13/viper v1.12.0
-	github.com/stretchr/testify v1.7.2
+	github.com/stretchr/testify v1.7.3
 	github.com/tklauser/go-sysconf v0.3.10 // indirect
 	github.com/urfave/cli v1.22.9
 	github.com/xtls/xray-core v1.5.7
