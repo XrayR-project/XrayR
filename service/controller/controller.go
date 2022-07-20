@@ -8,11 +8,16 @@ import (
 	"time"
 
 	"github.com/XrayR-project/XrayR/api"
+	"github.com/XrayR-project/XrayR/app/mydispatcher"
 	"github.com/XrayR-project/XrayR/common/legocmd"
 	"github.com/XrayR-project/XrayR/common/serverstatus"
 	"github.com/xtls/xray-core/common/protocol"
 	"github.com/xtls/xray-core/common/task"
 	"github.com/xtls/xray-core/core"
+	"github.com/xtls/xray-core/features/inbound"
+	"github.com/xtls/xray-core/features/outbound"
+	"github.com/xtls/xray-core/features/routing"
+	"github.com/xtls/xray-core/features/stats"
 )
 
 type Controller struct {
@@ -26,15 +31,23 @@ type Controller struct {
 	nodeInfoMonitorPeriodic *task.Periodic
 	userReportPeriodic      *task.Periodic
 	panelType               string
+	ihm                     inbound.Manager
+	ohm                     outbound.Manager
+	stm                     stats.Manager
+	dispatcher              *mydispatcher.DefaultDispatcher
 }
 
 // New return a Controller service with default parameters.
 func New(server *core.Instance, api api.API, config *Config, panelType string) *Controller {
 	controller := &Controller{
-		server:    server,
-		config:    config,
-		apiClient: api,
-		panelType: panelType,
+		server:     server,
+		config:     config,
+		apiClient:  api,
+		panelType:  panelType,
+		ihm:        server.GetFeature(inbound.ManagerType()).(inbound.Manager),
+		ohm:        server.GetFeature(outbound.ManagerType()).(outbound.Manager),
+		stm:        server.GetFeature(stats.ManagerType()).(stats.Manager),
+		dispatcher: server.GetFeature(routing.DispatcherType()).(*mydispatcher.DefaultDispatcher),
 	}
 	return controller
 }
