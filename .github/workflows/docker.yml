@@ -4,6 +4,11 @@ on:
   push:
     branches:
       - master
+    paths:
+      - "**/*.go"
+      - "go.mod"
+      - "go.sum"
+      - ".github/workflows/*.yml"
     tags:
       - 'v*'
   pull_request:
