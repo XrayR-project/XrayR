@@ -74,8 +74,8 @@ jobs:
             goarch: mips
           # END MIPS
           # BEGIN PPC
-          - goos: linux
-            goarch: ppc64
+          # - goos: linux # Removed due to the unsupport of shirou/gopsutil 
+          #   goarch: ppc64
           - goos: linux
             goarch: ppc64le
           # END PPC
