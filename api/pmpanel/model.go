@@ -9,7 +9,7 @@ type NodeInfoResponse struct {
 	Method          string  `json:"method"`
 	TrafficRate     float64 `json:"trafficRate"`
 	RawServerString string  `json:"outServer"`
-	Port            int     `json:"outPort"`
+	Port            uint32  `json:"outPort"`
 	AlterId         uint16  `json:"alterId"`
 	Network         string  `json:"network"`
 	Security        string  `json:"security"`

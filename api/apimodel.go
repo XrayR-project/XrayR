@@ -31,7 +31,7 @@ type NodeStatus struct {
 type NodeInfo struct {
 	NodeType          string // Must be V2ray, Trojan, and Shadowsocks
 	NodeID            int
-	Port              int
+	Port              uint32
 	SpeedLimit        uint64 // Bps
 	AlterID           uint16
 	TransportProtocol string
@@ -50,7 +50,7 @@ type UserInfo struct {
 	UID           int
 	Email         string
 	Passwd        string
-	Port          int
+	Port          uint32
 	Method        string
 	SpeedLimit    uint64 // Bps
 	DeviceLimit   int

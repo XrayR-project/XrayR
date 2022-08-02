@@ -20,7 +20,7 @@ type V2rayNodeInfo struct {
 	Cert          string `json:"pem"`
 	V2License     string `json:"v2_license"`
 	V2AlterID     uint16 `json:"v2_alter_id"`
-	V2Port        int    `json:"v2_port"`
+	V2Port        uint32 `json:"v2_port"`
 	V2Method      string `json:"v2_method"`
 	V2Net         string `json:"v2_net"`
 	V2Type        string `json:"v2_type"`
@@ -37,7 +37,7 @@ type ShadowsocksNodeInfo struct {
 	SpeedLimit  uint64 `json:"speed_limit"`
 	ClientLimit int    `json:"client_limit"`
 	Method      string `json:"method"`
-	Port        int    `json:"port"`
+	Port        uint32 `json:"port"`
 }
 
 type TrojanNodeInfo struct {
@@ -46,7 +46,7 @@ type TrojanNodeInfo struct {
 	SpeedLimit  uint64 `json:"speed_limit"`
 	ClientLimit int    `json:"client_limit"`
 	PushPort    int    `json:"push_port"`
-	TrojanPort  int    `json:"trojan_port"`
+	TrojanPort  uint32 `json:"trojan_port"`
 }
 
 // Node status report

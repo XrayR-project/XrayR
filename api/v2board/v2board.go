@@ -219,7 +219,7 @@ func (c *APIClient) GetUserList() (UserList *[]api.UserInfo, err error) {
 			user.Email = response.Get("data").GetIndex(i).Get("secret").MustString()
 			user.Passwd = response.Get("data").GetIndex(i).Get("secret").MustString()
 			user.Method = response.Get("data").GetIndex(i).Get("cipher").MustString()
-			user.Port = response.Get("data").GetIndex(i).Get("port").MustInt()
+			user.Port = uint32(response.Get("data").GetIndex(i).Get("port").MustUint64())
 		case "Trojan":
 			user.UUID = response.Get("data").GetIndex(i).Get("trojan_user").Get("password").MustString()
 			user.Email = response.Get("data").GetIndex(i).Get("trojan_user").Get("password").MustString()
@@ -308,7 +308,7 @@ func (c *APIClient) ParseTrojanNodeResponse(nodeInfoResponse *simplejson.Json) (
 	if c.EnableXTLS {
 		TLSType = "xtls"
 	}
-	port := nodeInfoResponse.Get("local_port").MustInt()
+	port := uint32(nodeInfoResponse.Get("local_port").MustUint64())
 	host := nodeInfoResponse.Get("ssl").Get("sni").MustString()
 
 	// Create GeneralNodeInfo
@@ -326,7 +326,7 @@ func (c *APIClient) ParseTrojanNodeResponse(nodeInfoResponse *simplejson.Json) (
 
 // ParseSSNodeResponse parse the response for the given nodeinfor format
 func (c *APIClient) ParseSSNodeResponse() (*api.NodeInfo, error) {
-	var port int
+	var port uint32
 	var method string
 	userInfo, err := c.GetUserList()
 	if err != nil {
@@ -372,7 +372,7 @@ func (c *APIClient) ParseV2rayNodeResponse(nodeInfoResponse *simplejson.Json) (*
 		return nil, fmt.Errorf("Unable to find inbound(s) in the nodeInfo.")
 	}
 
-	port := inboundInfo.Get("port").MustInt()
+	port := uint32(inboundInfo.Get("port").MustUint64())
 	transportProtocol := inboundInfo.Get("streamSettings").Get("network").MustString()
 
 	switch transportProtocol {

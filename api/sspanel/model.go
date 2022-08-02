@@ -49,7 +49,7 @@ type UserResponse struct {
 	ID            int     `json:"id"`
 	Email         string  `json:"email"`
 	Passwd        string  `json:"passwd"`
-	Port          int     `json:"port"`
+	Port          uint32  `json:"port"`
 	Method        string  `json:"method"`
 	SpeedLimit    float64 `json:"node_speedlimit"`
 	DeviceLimit   int     `json:"node_connector"`

@@ -382,10 +382,12 @@ func (c *APIClient) ParseV2rayNodeResponse(nodeInfoResponse *NodeInfoResponse) (
 	}
 	//nodeInfo.RawServerString = strings.ToLower(nodeInfo.RawServerString)
 	serverConf := strings.Split(nodeInfoResponse.RawServerString, ";")
-	port, err := strconv.Atoi(serverConf[1])
+
+	parsedPort, err := strconv.ParseInt(serverConf[1], 10, 32)
 	if err != nil {
 		return nil, err
 	}
+	port := uint32(parsedPort)
 
 	parsedAlterID, err := strconv.ParseInt(serverConf[2], 10, 16)
 	if err != nil {
@@ -467,7 +469,7 @@ func (c *APIClient) ParseV2rayNodeResponse(nodeInfoResponse *NodeInfoResponse) (
 
 // ParseSSNodeResponse parse the response for the given nodeinfor format
 func (c *APIClient) ParseSSNodeResponse(nodeInfoResponse *NodeInfoResponse) (*api.NodeInfo, error) {
-	var port int = 0
+	var port uint32 = 0
 	var speedlimit uint64 = 0
 	var method string
 	path := "/mod_mu/users"
@@ -524,10 +526,11 @@ func (c *APIClient) ParseSSPluginNodeResponse(nodeInfoResponse *NodeInfoResponse
 	var speedlimit uint64 = 0
 
 	serverConf := strings.Split(nodeInfoResponse.RawServerString, ";")
-	port, err := strconv.Atoi(serverConf[1])
+	parsedPort, err := strconv.ParseInt(serverConf[1], 10, 32)
 	if err != nil {
 		return nil, err
 	}
+	port := uint32(parsedPort)
 	port = port - 1 // Shadowsocks-Plugin requires two ports, one for ss the other for other stream protocol
 	if port <= 0 {
 		return nil, fmt.Errorf("Shadowsocks-Plugin listen port must bigger than 1")
@@ -618,10 +621,11 @@ func (c *APIClient) ParseTrojanNodeResponse(nodeInfoResponse *NodeInfoResponse) 
 		p = outsidePort
 	}
 
-	port, err := strconv.Atoi(p)
+	parsedPort, err := strconv.ParseInt(p, 10, 32)
 	if err != nil {
 		return nil, err
 	}
+	port := uint32(parsedPort)
 
 	serverConf := strings.Split(nodeInfoResponse.RawServerString, ";")
 	extraServerConf := strings.Split(serverConf[1], "|")
@@ -742,10 +746,11 @@ func (c *APIClient) ParseSSPanelNodeInfo(nodeInfoResponse *NodeInfoResponse) (*a
 		speedlimit = uint64((nodeInfoResponse.SpeedLimit * 1000000) / 8)
 	}
 
-	port, err := strconv.Atoi(nodeConfig.OffsetPortNode)
+	parsedPort, err := strconv.ParseInt(nodeConfig.OffsetPortNode, 10, 32)
 	if err != nil {
 		return nil, err
 	}
+	port := uint32(parsedPort)
 
 	if c.NodeType == "Shadowsocks" {
 		transportProtocol = "tcp"
