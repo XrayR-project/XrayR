@@ -3,7 +3,6 @@ package controller
 import (
 	"fmt"
 	"log"
-	"math"
 	"reflect"
 	"time"
 
@@ -346,19 +345,14 @@ func (c *Controller) addNewUser(userInfo *[]api.UserInfo, nodeInfo *api.NodeInfo
 		if nodeInfo.EnableVless {
 			users = c.buildVlessUser(userInfo)
 		} else {
-			alterID := 0
+			var alterID uint16 = 0
 			if c.panelType == "V2board" {
 				// use latest userInfo
 				alterID = (*userInfo)[0].AlterID
 			} else {
 				alterID = nodeInfo.AlterID
 			}
-			if alterID >= 0 && alterID < math.MaxUint16 {
-				users = c.buildVmessUser(userInfo, uint16(alterID))
-			} else {
-				users = c.buildVmessUser(userInfo, 0)
-				return fmt.Errorf("AlterID should between 0 to 1<<16 - 1, set it to 0 for now")
-			}
+			users = c.buildVmessUser(userInfo, alterID)
 		}
 	} else if nodeInfo.NodeType == "Trojan" {
 		users = c.buildTrojanUser(userInfo)

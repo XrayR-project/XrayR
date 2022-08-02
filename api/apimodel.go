@@ -25,7 +25,7 @@ type NodeStatus struct {
 	CPU    float64
 	Mem    float64
 	Disk   float64
-	Uptime int
+	Uptime uint64
 }
 
 type NodeInfo struct {
@@ -33,7 +33,7 @@ type NodeInfo struct {
 	NodeID            int
 	Port              int
 	SpeedLimit        uint64 // Bps
-	AlterID           int
+	AlterID           uint16
 	TransportProtocol string
 	FakeType          string
 	Host              string
@@ -59,7 +59,7 @@ type UserInfo struct {
 	Obfs          string
 	ObfsParam     string
 	UUID          string
-	AlterID       int
+	AlterID       uint16
 }
 
 type OnlineUser struct {

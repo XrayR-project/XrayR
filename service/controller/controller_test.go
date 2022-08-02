@@ -62,7 +62,7 @@ func TestController(t *testing.T) {
 		NodeType: "V2ray",
 	}
 	apiclient := sspanel.New(apiConfig)
-	c := New(server, apiclient, controlerconfig)
+	c := New(server, apiclient, controlerconfig, "SSpanel")
 	fmt.Println("Sleep 1s")
 	err = c.Start()
 	if err != nil {

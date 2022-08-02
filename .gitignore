@@ -13,3 +13,4 @@ main/cert
 main/config.yml
 ./vscode
 .idea/*
+.DS_Store

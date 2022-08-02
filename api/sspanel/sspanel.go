@@ -239,7 +239,7 @@ func (c *APIClient) GetUserList() (UserList *[]api.UserInfo, err error) {
 func (c *APIClient) ReportNodeStatus(nodeStatus *api.NodeStatus) (err error) {
 	path := fmt.Sprintf("/mod_mu/nodes/%d/info", c.NodeID)
 	systemload := SystemLoad{
-		Uptime: strconv.Itoa(nodeStatus.Uptime),
+		Uptime: strconv.FormatUint(nodeStatus.Uptime, 10),
 		Load:   fmt.Sprintf("%.2f %.2f %.2f", nodeStatus.CPU/100, nodeStatus.CPU/100, nodeStatus.CPU/100),
 	}
 
@@ -386,10 +386,13 @@ func (c *APIClient) ParseV2rayNodeResponse(nodeInfoResponse *NodeInfoResponse) (
 	if err != nil {
 		return nil, err
 	}
-	alterID, err := strconv.Atoi(serverConf[2])
+
+	parsedAlterID, err := strconv.ParseInt(serverConf[2], 10, 16)
 	if err != nil {
 		return nil, err
 	}
+	alterID := uint16(parsedAlterID)
+
 	// Compatible with more node types config
 	for _, value := range serverConf[3:5] {
 		switch value {
@@ -727,7 +730,7 @@ func (c *APIClient) ParseSSPanelNodeInfo(nodeInfoResponse *NodeInfoResponse) (*a
 
 	var speedlimit uint64 = 0
 	var EnableTLS, EnableVless bool
-	var AlterID int = 0
+	var AlterID uint16 = 0
 	var TLSType, transportProtocol string
 
 	nodeConfig := new(CustomConfig)
@@ -751,9 +754,12 @@ func (c *APIClient) ParseSSPanelNodeInfo(nodeInfoResponse *NodeInfoResponse) (*a
 	if c.NodeType == "V2ray" {
 		transportProtocol = nodeConfig.Network
 		TLSType = nodeConfig.Security
-		if AlterID, err = strconv.Atoi(nodeConfig.AlterID); err != nil {
+		if parsedAlterID, err := strconv.ParseInt(nodeConfig.AlterID, 10, 16); err != nil {
 			return nil, err
+		} else {
+			AlterID = uint16(parsedAlterID)
 		}
+
 		if TLSType == "tls" || TLSType == "xtls" {
 			EnableTLS = true
 		}

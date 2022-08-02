@@ -238,7 +238,7 @@ func (c *APIClient) ReportNodeStatus(nodeStatus *api.NodeStatus) (err error) {
 	}
 
 	systemload := NodeStatus{
-		Uptime: nodeStatus.Uptime,
+		Uptime: int(nodeStatus.Uptime),
 		CPU:    fmt.Sprintf("%d%%", int(nodeStatus.CPU)),
 		Mem:    fmt.Sprintf("%d%%", int(nodeStatus.Mem)),
 		Disk:   fmt.Sprintf("%d%%", int(nodeStatus.Disk)),

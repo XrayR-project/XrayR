@@ -226,7 +226,7 @@ func (c *APIClient) GetUserList() (UserList *[]api.UserInfo, err error) {
 		case "V2ray":
 			user.UUID = response.Get("data").GetIndex(i).Get("v2ray_user").Get("uuid").MustString()
 			user.Email = response.Get("data").GetIndex(i).Get("v2ray_user").Get("email").MustString()
-			user.AlterID = response.Get("data").GetIndex(i).Get("v2ray_user").Get("alter_id").MustInt()
+			user.AlterID = uint16(response.Get("data").GetIndex(i).Get("v2ray_user").Get("alter_id").MustUint64())
 		}
 		userList[i] = user
 	}
@@ -355,7 +355,7 @@ func (c *APIClient) ParseV2rayNodeResponse(nodeInfoResponse *simplejson.Json) (*
 	var path, host, serviceName string
 	var header json.RawMessage
 	var enableTLS bool
-	var alterID int = 0
+	var alterID uint16 = 0
 	if c.EnableXTLS {
 		TLSType = "xtls"
 	}

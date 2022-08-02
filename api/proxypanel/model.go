@@ -19,7 +19,7 @@ type V2rayNodeInfo struct {
 	Key           string `json:"key"`
 	Cert          string `json:"pem"`
 	V2License     string `json:"v2_license"`
-	V2AlterID     int    `json:"v2_alter_id"`
+	V2AlterID     uint16 `json:"v2_alter_id"`
 	V2Port        int    `json:"v2_port"`
 	V2Method      string `json:"v2_method"`
 	V2Net         string `json:"v2_net"`
