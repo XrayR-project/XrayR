@@ -774,19 +774,22 @@ func (c *APIClient) ParseSSPanelNodeInfo(nodeInfoResponse *NodeInfoResponse) (*a
 	}
 
 	if c.NodeType == "Trojan" {
-		transportProtocol = nodeConfig.Network
-		TLSType = nodeConfig.Security
-		if nodeConfig.Grpc == "1" {
-			transportProtocol = "grpc"
 		EnableTLS = true
-		TLSType = "tls"
-		} else {
-			transportProtocol = "tcp"
-		EnableTLS = true
-		TLSType = "tls"
-		}
+		TLSType = nodeConfig.Security // try to read security from config
 		if nodeConfig.EnableXtls == "1" {
 			TLSType = "xtls"
+		}
+		if TLSType == "" {
+			TLSType = "tls" // default
+		}
+
+		// Select transport protocol
+		transportProtocol = nodeConfig.Network // try to read transport protocol from config
+		if nodeConfig.Grpc == "1" {
+			transportProtocol = "grpc"
+		}
+		if nodeConfig.Network != "" {
+			transportProtocol = "tcp" // default
 		}
 	}
 
