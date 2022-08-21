@@ -17,7 +17,6 @@ import (
 	"github.com/go-resty/resty/v2"
 )
 
-var path = "/modules/servers/V2RaySocks/api/web_api.php"
 
 // APIClient create an api client to the panel.
 type APIClient struct {
@@ -52,7 +51,6 @@ func New(apiConfig *api.Config) *APIClient {
 			log.Print(v.Err)
 		}
 	})
-	client.SetBaseURL(apiConfig.APIHost)
 	// Create Key for each requests
 	client.SetQueryParams(map[string]string{
 		"node_id": strconv.Itoa(apiConfig.NodeID),
@@ -155,9 +153,9 @@ func (c *APIClient) GetNodeInfo() (nodeInfo *api.NodeInfo, err error) {
 			"nodetype": nodeType,
 		}).
 		ForceContentType("application/json").
-		Get(path)
+		Get(c.APIHost)
 
-	response, err := c.parseResponse(res, path, err)
+	response, err := c.parseResponse(res, "", err)
 	c.access.Lock()
 	defer c.access.Unlock()
 	c.ConfigResp = response
@@ -199,9 +197,9 @@ func (c *APIClient) GetUserList() (UserList *[]api.UserInfo, err error) {
 			"nodetype": nodeType,
 		}).
 		ForceContentType("application/json").
-		Get(path)
+		Get(c.APIHost)
 
-	response, err := c.parseResponse(res, path, err)
+	response, err := c.parseResponse(res, "", err)
 	if err != nil {
 		return nil, err
 	}
@@ -254,8 +252,8 @@ func (c *APIClient) ReportUserTraffic(userTraffic *[]api.UserTraffic) error {
 		}).
 		SetBody(data).
 		ForceContentType("application/json").
-		Post(path)
-	_, err = c.parseResponse(res, path, err)
+		Post(c.APIHost)
+	_, err = c.parseResponse(res, "", err)
 	if err != nil {
 		return err
 	}
