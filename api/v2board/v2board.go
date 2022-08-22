@@ -8,6 +8,7 @@ import (
 	"os"
 	"regexp"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -278,6 +279,7 @@ func (c *APIClient) GetNodeRule() (*[]api.DetectRule, error) {
 	defer c.access.Unlock()
 	ruleListResponse := c.ConfigResp.Get("routing").Get("rules").GetIndex(1).Get("domain").MustStringArray()
 	for i, rule := range ruleListResponse {
+		rule = strings.TrimPrefix(rule, "regexp:")
 		ruleListItem := api.DetectRule{
 			ID:      i,
 			Pattern: regexp.MustCompile(rule),

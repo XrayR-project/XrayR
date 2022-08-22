@@ -17,7 +17,6 @@ import (
 	"github.com/go-resty/resty/v2"
 )
 
-
 // APIClient create an api client to the panel.
 type APIClient struct {
 	client        *resty.Client
@@ -273,6 +272,7 @@ func (c *APIClient) GetNodeRule() (*[]api.DetectRule, error) {
 	defer c.access.Unlock()
 	ruleListResponse := c.ConfigResp.Get("routing").Get("rules").GetIndex(1).Get("domain").MustStringArray()
 	for i, rule := range ruleListResponse {
+		rule = strings.TrimPrefix(rule, "regexp:")
 		ruleListItem := api.DetectRule{
 			ID:      i,
 			Pattern: regexp.MustCompile(rule),
@@ -362,17 +362,9 @@ func (c *APIClient) ParseV2rayNodeResponse(nodeInfoResponse *simplejson.Json) (*
 		TLSType = "xtls"
 	}
 
-	inboundInfo := simplejson.New()
-	if tmpInboundInfo, ok := nodeInfoResponse.CheckGet("inbound"); ok {
-		inboundInfo = tmpInboundInfo
-		// Compatible with v2board 1.5.5-dev
-	} else if tmpInboundInfo, ok := nodeInfoResponse.CheckGet("inbounds"); ok {
-		tmpInboundInfo := tmpInboundInfo.MustArray()
-		marshalByte, _ := json.Marshal(tmpInboundInfo[0].(map[string]interface{}))
-		inboundInfo, _ = simplejson.NewJson(marshalByte)
-	} else {
-		return nil, fmt.Errorf("Unable to find inbound(s) in the nodeInfo.")
-	}
+	tmpInboundInfo := nodeInfoResponse.Get("inbounds").MustArray()
+	marshalByte, _ := json.Marshal(tmpInboundInfo[0].(map[string]interface{}))
+	inboundInfo, _ := simplejson.NewJson(marshalByte)
 
 	port := uint32(inboundInfo.Get("port").MustUint64())
 	transportProtocol := inboundInfo.Get("streamSettings").Get("network").MustString()
