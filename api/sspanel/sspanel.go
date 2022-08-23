@@ -785,11 +785,11 @@ func (c *APIClient) ParseSSPanelNodeInfo(nodeInfoResponse *NodeInfoResponse) (*a
 
 		// Select transport protocol
 		transportProtocol = nodeConfig.Network // try to read transport protocol from config
+		if nodeConfig.Network == "" {
+			transportProtocol = "tcp" // default
+		}
 		if nodeConfig.Grpc == "1" {
 			transportProtocol = "grpc"
-		}
-		if nodeConfig.Network != "" {
-			transportProtocol = "tcp" // default
 		}
 	}
 
