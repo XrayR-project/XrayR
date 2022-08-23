@@ -1,6 +1,9 @@
 # XrayR
 [![](https://img.shields.io/badge/TgChat-@XrayR讨论-blue.svg)](https://t.me/XrayR_project)
 [![](https://img.shields.io/badge/Channel-@XrayR通知-blue.svg)](https://t.me/XrayR_channel)
+![](https://github.com/XrayR-project/XrayR/actions/workflows/release.yml/badge.svg)
+![](https://github.com/XrayR-project/XrayR/actions/workflows/docker.yml/badge.svg)
+[![Github All Releases](https://img.shields.io/github/downloads/XrayR-project/XrayR/total.svg)]()
 
 A Xray backend framework that can easily support many panels.
 

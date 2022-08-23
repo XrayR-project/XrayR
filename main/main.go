@@ -56,7 +56,7 @@ func getConfig() *viper.Viper {
 	}
 
 	if err := config.ReadInConfig(); err != nil {
-		log.Panicf("Fatal error config file: %s \n", err)
+		log.Panicf("Config file error: %s \n", err)
 	}
 
 	config.WatchConfig() // Watch the config
@@ -73,7 +73,9 @@ func main() {
 
 	config := getConfig()
 	panelConfig := &panel.Config{}
-	config.Unmarshal(panelConfig)
+	if err := config.Unmarshal(panelConfig); err != nil {
+		log.Panicf("Parse config file %s failed: %s \n", configFile, err)
+	}
 	p := panel.New(panelConfig)
 	lastTime := time.Now()
 	config.OnConfigChange(func(e fsnotify.Event) {
@@ -84,7 +86,9 @@ func main() {
 			p.Close()
 			// Delete old instance and trigger GC
 			runtime.GC()
-			config.Unmarshal(panelConfig)
+			if err := config.Unmarshal(panelConfig); err != nil {
+				log.Panicf("Parse config file %s failed: %s \n", configFile, err)
+			}
 			p.Start()
 			lastTime = time.Now()
 		}
