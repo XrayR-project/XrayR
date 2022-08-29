@@ -427,21 +427,36 @@ func (c *Controller) userInfoMonitor() (err error) {
 	}
 
 	// Get User traffic
-	userTraffic := make([]api.UserTraffic, 0)
+	var userTraffic []api.UserTraffic
+	var upCounterList []stats.Counter
+	var downCounterList []stats.Counter
 	for _, user := range *c.userList {
-		up, down := c.getTraffic(c.buildUserTag(&user))
+		up, down, upCounter, downCounter := c.getTraffic(c.buildUserTag(&user))
 		if up > 0 || down > 0 {
 			userTraffic = append(userTraffic, api.UserTraffic{
 				UID:      user.UID,
 				Email:    user.Email,
 				Upload:   up,
 				Download: down})
+
+			if upCounter != nil {
+				upCounterList = append(upCounterList, upCounter)
+			}
+			if downCounter != nil {
+				downCounterList = append(downCounterList, downCounter)
+			}
 		}
 	}
-	if len(userTraffic) > 0 && !c.config.DisableUploadTraffic {
-		err = c.apiClient.ReportUserTraffic(&userTraffic)
+	if len(userTraffic) > 0 {
+		var err error // Define an empty error
+		if !c.config.DisableUploadTraffic {
+			err = c.apiClient.ReportUserTraffic(&userTraffic)
+		}
+		// If report traffic error, not clear the traffic
 		if err != nil {
 			log.Print(err)
+		} else {
+			c.resetTraffic(&upCounterList, &downCounterList)
 		}
 	}
 
