@@ -113,7 +113,7 @@ func (c *Controller) getTraffic(email string) (up int64, down int64, upCounter s
 	} else {
 		upCounter = nil
 	}
-	if downCounter != nil && upCounter.Value() != 0 {
+	if downCounter != nil && downCounter.Value() != 0 {
 		down = downCounter.Value()
 	} else {
 		downCounter = nil
