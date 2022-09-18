@@ -39,12 +39,12 @@ func New() (*LegoCMD, error) {
 	configPath := os.Getenv("XRAY_LOCATION_CONFIG")
 	if configPath != "" {
 		path = configPath
-	} else if cwd, err := os.Getwd(); err==nil{
+	} else if cwd, err := os.Getwd(); err == nil {
 		path = cwd
 	} else {
 		path = "."
 	}
-	
+
 	defaultPath = filepath.Join(path, "cert")
 
 	app.Flags = cmd.CreateFlags(defaultPath)
@@ -79,7 +79,7 @@ func (l *LegoCMD) DNSCert(domain, email, provider string, DNSEnv map[string]stri
 	}()
 	// Set Env for DNS configuration
 	for key, value := range DNSEnv {
-		os.Setenv(key, value)
+		os.Setenv(strings.ToUpper(key), value)
 	}
 	// First check if the certificate exists
 	CertPath, KeyPath, err = checkCertfile(domain)
