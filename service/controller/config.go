@@ -1,19 +1,27 @@
 package controller
 
 type Config struct {
-	ListenIP             string            `mapstructure:"ListenIP"`
-	SendIP               string            `mapstructure:"SendIP"`
-	UpdatePeriodic       int               `mapstructure:"UpdatePeriodic"`
-	CertConfig           *CertConfig       `mapstructure:"CertConfig"`
-	EnableDNS            bool              `mapstructure:"EnableDNS"`
-	DNSType              string            `mapstructure:"DNSType"`
-	DisableUploadTraffic bool              `mapstructure:"DisableUploadTraffic"`
-	DisableGetRule       bool              `mapstructure:"DisableGetRule"`
-	EnableProxyProtocol  bool              `mapstructure:"EnableProxyProtocol"`
-	EnableFallback       bool              `mapstructure:"EnableFallback"`
-	DisableIVCheck       bool              `mapstructure:"DisableIVCheck"`
-	DisableSniffing      bool              `mapstructure:"DisableSniffing"`
-	FallBackConfigs      []*FallBackConfig `mapstructure:"FallBackConfigs"`
+	ListenIP             string                `mapstructure:"ListenIP"`
+	SendIP               string                `mapstructure:"SendIP"`
+	UpdatePeriodic       int                   `mapstructure:"UpdatePeriodic"`
+	CertConfig           *CertConfig           `mapstructure:"CertConfig"`
+	EnableDNS            bool                  `mapstructure:"EnableDNS"`
+	DNSType              string                `mapstructure:"DNSType"`
+	DisableUploadTraffic bool                  `mapstructure:"DisableUploadTraffic"`
+	DisableGetRule       bool                  `mapstructure:"DisableGetRule"`
+	EnableProxyProtocol  bool                  `mapstructure:"EnableProxyProtocol"`
+	EnableFallback       bool                  `mapstructure:"EnableFallback"`
+	DisableIVCheck       bool                  `mapstructure:"DisableIVCheck"`
+	DisableSniffing      bool                  `mapstructure:"DisableSniffing"`
+	AutoSpeedLimitConfig *AutoSpeedLimitConfig `mapstructure:"AutoSpeedLimitConfig"`
+	FallBackConfigs      []*FallBackConfig     `mapstructure:"FallBackConfigs"`
+}
+
+type AutoSpeedLimitConfig struct {
+	Limit         int `mapstructure:"Limit"` // mbps
+	WarnTimes     int `mapstructure:"WarnTimes"`
+	LimitSpeed    int `mapstructure:"LimitSpeed"`    // mbps
+	LimitDuration int `mapstructure:"LimitDuration"` // minute
 }
 
 type CertConfig struct {
