@@ -11,7 +11,7 @@ require (
 	github.com/imdario/mergo v0.3.13
 	github.com/juju/ratelimit v1.0.2
 	github.com/r3labs/diff/v2 v2.15.1
-	github.com/shirou/gopsutil/v3 v3.22.8
+	github.com/shirou/gopsutil/v3 v3.22.9
 	github.com/spf13/viper v1.13.0
 	github.com/stretchr/testify v1.8.0
 	github.com/urfave/cli v1.22.10
