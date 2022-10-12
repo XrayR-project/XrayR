@@ -3,18 +3,20 @@ package limiter
 import (
 	"io"
 
-	"github.com/juju/ratelimit"
+	"context"
+
 	"github.com/xtls/xray-core/common"
 	"github.com/xtls/xray-core/common/buf"
+	"golang.org/x/time/rate"
 )
 
 type Writer struct {
 	writer  buf.Writer
-	limiter *ratelimit.Bucket
+	limiter *rate.Limiter
 	w       io.Writer
 }
 
-func (l *Limiter) RateWriter(writer buf.Writer, limiter *ratelimit.Bucket) buf.Writer {
+func (l *Limiter) RateWriter(writer buf.Writer, limiter *rate.Limiter) buf.Writer {
 	return &Writer{
 		writer:  writer,
 		limiter: limiter,
@@ -26,6 +28,7 @@ func (w *Writer) Close() error {
 }
 
 func (w *Writer) WriteMultiBuffer(mb buf.MultiBuffer) error {
-	w.limiter.Wait(int64(mb.Len()))
+	ctx := context.Background()
+	w.limiter.WaitN(ctx, int(mb.Len()))
 	return w.writer.WriteMultiBuffer(mb)
 }

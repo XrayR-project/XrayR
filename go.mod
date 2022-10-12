@@ -9,7 +9,6 @@ require (
 	github.com/go-acme/lego/v4 v4.9.0
 	github.com/go-resty/resty/v2 v2.7.0
 	github.com/imdario/mergo v0.3.13
-	github.com/juju/ratelimit v1.0.2
 	github.com/r3labs/diff/v2 v2.15.1
 	github.com/shirou/gopsutil/v3 v3.22.9
 	github.com/spf13/viper v1.13.0
@@ -17,6 +16,7 @@ require (
 	github.com/urfave/cli v1.22.10
 	github.com/xtls/xray-core v1.6.0
 	golang.org/x/net v0.0.0-20220909164309-bea034e7d591
+	golang.org/x/time v0.0.0-20220224211638-0e9765cccd65
 	google.golang.org/protobuf v1.28.1
 )
 
@@ -164,7 +164,6 @@ require (
 	golang.org/x/oauth2 v0.0.0-20220909003341-f21342109be1 // indirect
 	golang.org/x/sys v0.0.0-20220915200043-7b5979e65e41 // indirect
 	golang.org/x/text v0.3.7 // indirect
-	golang.org/x/time v0.0.0-20220224211638-0e9765cccd65 // indirect
 	golang.org/x/tools v0.1.12 // indirect
 	google.golang.org/api v0.84.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect

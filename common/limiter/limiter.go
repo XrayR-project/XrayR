@@ -4,10 +4,9 @@ package limiter
 import (
 	"fmt"
 	"sync"
-	"time"
 
 	"github.com/XrayR-project/XrayR/api"
-	"github.com/juju/ratelimit"
+	"golang.org/x/time/rate"
 )
 
 type UserInfo struct {
@@ -20,7 +19,7 @@ type InboundInfo struct {
 	Tag            string
 	NodeSpeedLimit uint64
 	UserInfo       *sync.Map // Key: Email value: UserInfo
-	BucketHub      *sync.Map // key: Email, value: *ratelimit.Bucket
+	BucketHub      *sync.Map // key: Email, value: *rate.Limiter
 	UserOnlineIP   *sync.Map // Key: Email Value: *sync.Map: Key: IP, Value: UID
 }
 
@@ -65,7 +64,17 @@ func (l *Limiter) UpdateInboundLimiter(tag string, updatedUserList *[]api.UserIn
 				SpeedLimit:  u.SpeedLimit,
 				DeviceLimit: u.DeviceLimit,
 			})
-			inboundInfo.BucketHub.Delete(fmt.Sprintf("%s|%s|%d", tag, u.Email, u.UID)) // Delete old limiter bucket
+			// Update old limiter bucket
+			limit := determineRate(inboundInfo.NodeSpeedLimit, u.SpeedLimit)
+			if limit > 0 {
+				if bucket, ok := inboundInfo.BucketHub.Load(fmt.Sprintf("%s|%s|%d", tag, u.Email, u.UID)); ok {
+					limiter := bucket.(*rate.Limiter)
+					limiter.SetLimit(rate.Limit(limit))
+					limiter.SetBurst(int(limit))
+				}
+			} else {
+				inboundInfo.BucketHub.Delete(fmt.Sprintf("%s|%s|%d", tag, u.Email, u.UID))
+			}
 		}
 	} else {
 		return fmt.Errorf("no such inbound in limiter: %s", tag)
@@ -108,7 +117,7 @@ func (l *Limiter) GetOnlineDevice(tag string) (*[]api.OnlineUser, error) {
 	return &onlineUser, nil
 }
 
-func (l *Limiter) GetUserBucket(tag string, email string, ip string) (limiter *ratelimit.Bucket, SpeedLimit bool, Reject bool) {
+func (l *Limiter) GetUserBucket(tag string, email string, ip string) (limiter *rate.Limiter, SpeedLimit bool, Reject bool) {
 	if value, ok := l.InboundInfo.Load(tag); ok {
 		inboundInfo := value.(*InboundInfo)
 		nodeLimit := inboundInfo.NodeSpeedLimit
@@ -142,9 +151,9 @@ func (l *Limiter) GetUserBucket(tag string, email string, ip string) (limiter *r
 		}
 		limit := determineRate(nodeLimit, userLimit) // If need the Speed limit
 		if limit > 0 {
-			limiter := ratelimit.NewBucketWithQuantum(time.Duration(int64(time.Second)), int64(limit), int64(limit)) // Byte/s
+			limiter := rate.NewLimiter(rate.Limit(limit), int(limit)) // Byte/s
 			if v, ok := inboundInfo.BucketHub.LoadOrStore(email, limiter); ok {
-				bucket := v.(*ratelimit.Bucket)
+				bucket := v.(*rate.Limiter)
 				return bucket, true, false
 			} else {
 				return limiter, true, false

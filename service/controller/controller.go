@@ -20,8 +20,9 @@ import (
 )
 
 type LimitInfo struct {
-	end              int64
-	originSpeedLimit uint64
+	end               int64
+	currentSpeedLimit int
+	originSpeedLimit  uint64
 }
 
 type Controller struct {
@@ -425,11 +426,12 @@ func compareUserList(old, new *[]api.UserInfo) (deleted, added []api.UserInfo) {
 
 func limitUser(c *Controller, user api.UserInfo, silentUsers *[]api.UserInfo) {
 	c.limitedUsers[user] = LimitInfo{
-		end:              time.Now().Unix() + int64(c.config.AutoSpeedLimitConfig.LimitDuration*60),
-		originSpeedLimit: user.SpeedLimit,
+		end:               time.Now().Unix() + int64(c.config.AutoSpeedLimitConfig.LimitDuration*60),
+		currentSpeedLimit: c.config.AutoSpeedLimitConfig.LimitSpeed,
+		originSpeedLimit:  user.SpeedLimit,
 	}
-	log.Printf("    User: %s Speed: %d End: %s", user.Email, user.SpeedLimit, time.Unix(c.limitedUsers[user].end, 0).Format("01-02 15:04:05"))
-	user.SpeedLimit = uint64(c.config.AutoSpeedLimitConfig.LimitSpeed) * 1024 * 1024 / 8
+	log.Printf("Limit User: %s Speed: %d End: %s", c.buildUserTag(&user), c.config.AutoSpeedLimitConfig.LimitSpeed, time.Unix(c.limitedUsers[user].end, 0).Format("01-02 15:04:05"))
+	user.SpeedLimit = uint64((c.config.AutoSpeedLimitConfig.LimitSpeed * 1000000) / 8)
 	*silentUsers = append(*silentUsers, user)
 }
 
@@ -457,10 +459,10 @@ func (c *Controller) userInfoMonitor() (err error) {
 			if time.Now().Unix() > limitInfo.end {
 				user.SpeedLimit = limitInfo.originSpeedLimit
 				toReleaseUsers = append(toReleaseUsers, user)
-				log.Printf("    User: %s Speed: %d End: nil (Unlimit)", user.Email, user.SpeedLimit)
+				log.Printf("User: %s Speed: %d End: nil (Unlimit)", c.buildUserTag(&user), user.SpeedLimit)
 				delete(c.limitedUsers, user)
 			} else {
-				log.Printf("    User: %s Speed: %d End: %s", user.Email, user.SpeedLimit, time.Unix(c.limitedUsers[user].end, 0).Format("01-02 15:04:05"))
+				log.Printf("User: %s Speed: %d End: %s", c.buildUserTag(&user), limitInfo.currentSpeedLimit, time.Unix(c.limitedUsers[user].end, 0).Format("01-02 15:04:05"))
 			}
 		}
 		if len(toReleaseUsers) > 0 {
@@ -482,7 +484,7 @@ func (c *Controller) userInfoMonitor() (err error) {
 		if up > 0 || down > 0 {
 			// Over speed users
 			if AutoSpeedLimit > 0 {
-				if down > AutoSpeedLimit*1024*1024*UpdatePeriodic/8 {
+				if down > AutoSpeedLimit*1000000*UpdatePeriodic/8 || up > AutoSpeedLimit*1000000*UpdatePeriodic/8 {
 					if _, ok := c.limitedUsers[user]; !ok {
 						if c.config.AutoSpeedLimitConfig.WarnTimes == 0 {
 							limitUser(c, user, &limitedUsers)
