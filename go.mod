@@ -5,7 +5,7 @@ go 1.19
 require (
 	github.com/bitly/go-simplejson v0.5.0
 	github.com/deckarep/golang-set v1.8.0
-	github.com/fsnotify/fsnotify v1.5.4
+	github.com/fsnotify/fsnotify v1.6.0
 	github.com/go-acme/lego/v4 v4.9.0
 	github.com/go-resty/resty/v2 v2.7.0
 	github.com/imdario/mergo v0.3.13
