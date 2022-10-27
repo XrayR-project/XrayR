@@ -11,8 +11,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/XrayR-project/XrayR/api"
 	"github.com/go-resty/resty/v2"
+
+	"github.com/XrayR-project/XrayR/api"
 )
 
 // APIClient create a api client to the panel.
@@ -76,7 +77,7 @@ func readLocalRuleList(path string) (LocalRuleList []api.DetectRule) {
 		// open the file
 		file, err := os.Open(path)
 
-		//handle errors while opening
+		// handle errors while opening
 		if err != nil {
 			log.Printf("Error when opening file: %s", err)
 			return LocalRuleList
@@ -234,7 +235,7 @@ func (c *APIClient) ReportNodeStatus(nodeStatus *api.NodeStatus) (err error) {
 	return nil
 }
 
-//ReportNodeOnlineUsers reports online user ip
+// ReportNodeOnlineUsers reports online user ip
 func (c *APIClient) ReportNodeOnlineUsers(onlineUserList *[]api.OnlineUser) error {
 	var nodeType = ""
 	switch c.NodeType {

@@ -3,11 +3,12 @@ package all
 import (
 	// The following are necessary as they register handlers in their init functions.
 
+	_ "github.com/xtls/xray-core/app/proxyman/inbound"
+	_ "github.com/xtls/xray-core/app/proxyman/outbound"
+
 	// Required features. Can't remove unless there is replacements.
 	// _ "github.com/xtls/xray-core/app/dispatcher"
 	_ "github.com/XrayR-project/XrayR/app/mydispatcher"
-	_ "github.com/xtls/xray-core/app/proxyman/inbound"
-	_ "github.com/xtls/xray-core/app/proxyman/outbound"
 
 	// Default commander and all its services. This is an optional feature.
 	_ "github.com/xtls/xray-core/app/commander"

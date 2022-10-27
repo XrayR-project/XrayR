@@ -11,8 +11,9 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/XrayR-project/XrayR/common/legocmd/cmd"
 	"github.com/urfave/cli"
+
+	"github.com/XrayR-project/XrayR/common/legocmd/cmd"
 )
 
 var version = "dev"
@@ -134,7 +135,7 @@ func (l *LegoCMD) HTTPCert(domain, email string) (CertPath string, KeyPath strin
 	return CertPath, KeyPath, nil
 }
 
-//RenewCert renew a domain cert
+// RenewCert renew a domain cert
 func (l *LegoCMD) RenewCert(domain, email, certMode, provider string, DNSEnv map[string]string) (CertPath string, KeyPath string, err error) {
 	var argstring string
 	defer func() (string, string, error) {

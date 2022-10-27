@@ -5,11 +5,12 @@ import (
 	"crypto/x509"
 	"time"
 
-	"github.com/XrayR-project/XrayR/common/legocmd/log"
 	"github.com/go-acme/lego/v4/certcrypto"
 	"github.com/go-acme/lego/v4/certificate"
 	"github.com/go-acme/lego/v4/lego"
 	"github.com/urfave/cli"
+
+	"github.com/XrayR-project/XrayR/common/legocmd/log"
 )
 
 const (

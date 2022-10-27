@@ -1,4 +1,5 @@
 # XrayR
+
 [![](https://img.shields.io/badge/TgChat-@XrayR讨论-blue.svg)](https://t.me/XrayR_project)
 [![](https://img.shields.io/badge/Channel-@XrayR通知-blue.svg)](https://t.me/XrayR_channel)
 ![](https://img.shields.io/github/stars/XrayR-project/XrayR)
@@ -14,11 +15,13 @@ A Xray backend framework that can easily support many panels.
 如果您喜欢本项目，可以右上角点个star+watch，持续关注本项目的进展。
 
 使用教程：[详细使用教程](https://xrayr-project.github.io/XrayR-doc/)
+
 ## 免责声明
 
 本项目只是本人个人学习开发并维护，本人不保证任何可用性，也不对使用本软件造成的任何后果负责。
 
 ## 特点
+
 * 永久开源且免费。
 * 支持V2ray，Trojan， Shadowsocks多种协议。
 * 支持Vless和XTLS等新特性。
@@ -45,6 +48,7 @@ A Xray backend framework that can easily support many panels.
 | 节点端口限速    | √     | √      | √           |
 | 按照用户限速    | √     | √      | √           |
 | 自定义DNS       | √     | √      | √           |
+
 ## 支持前端
 
 | 前端                                                   | v2ray | trojan | shadowsocks                    |
@@ -56,14 +60,19 @@ A Xray backend framework that can easily support many panels.
 | [WHMCS (V2RaySocks)](https://v2raysocks.doxtex.com/)   | √     | √      | √                              |
 
 ## 软件安装
+
 ### 一键安装
+
 ```
 wget -N https://raw.githubusercontent.com/XrayR-project/XrayR-release/master/install.sh && bash install.sh
 ```
+
 ### 使用Docker部署软件
+
 [Docker部署教程](https://xrayr-project.github.io/XrayR-doc/xrayr-xia-zai-he-an-zhuang/install/docker)
 
 ### 手动安装
+
 [手动安装教程](https://xrayr-project.github.io/XrayR-doc/xrayr-xia-zai-he-an-zhuang/install/manual)
 
 ## 配置文件及详细使用教程

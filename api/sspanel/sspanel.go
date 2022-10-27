@@ -13,8 +13,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/XrayR-project/XrayR/api"
 	"github.com/go-resty/resty/v2"
+
+	"github.com/XrayR-project/XrayR/api"
 )
 
 var (
@@ -89,7 +90,7 @@ func readLocalRuleList(path string) (LocalRuleList []api.DetectRule) {
 		// open the file
 		file, err := os.Open(path)
 
-		//handle errors while opening
+		// handle errors while opening
 		if err != nil {
 			log.Printf("Error when opening file: %s", err)
 			return LocalRuleList
@@ -257,7 +258,7 @@ func (c *APIClient) ReportNodeStatus(nodeStatus *api.NodeStatus) (err error) {
 	return nil
 }
 
-//ReportNodeOnlineUsers reports online user ip
+// ReportNodeOnlineUsers reports online user ip
 func (c *APIClient) ReportNodeOnlineUsers(onlineUserList *[]api.OnlineUser) error {
 	c.access.Lock()
 	defer c.access.Unlock()
@@ -380,7 +381,7 @@ func (c *APIClient) ParseV2rayNodeResponse(nodeInfoResponse *NodeInfoResponse) (
 	if nodeInfoResponse.RawServerString == "" {
 		return nil, fmt.Errorf("No server info in response")
 	}
-	//nodeInfo.RawServerString = strings.ToLower(nodeInfo.RawServerString)
+	// nodeInfo.RawServerString = strings.ToLower(nodeInfo.RawServerString)
 	serverConf := strings.Split(nodeInfoResponse.RawServerString, ";")
 
 	parsedPort, err := strconv.ParseInt(serverConf[1], 10, 32)

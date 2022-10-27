@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/XrayR-project/XrayR/api"
 	"golang.org/x/time/rate"
+
+	"github.com/XrayR-project/XrayR/api"
 )
 
 type UserInfo struct {

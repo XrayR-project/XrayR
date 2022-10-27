@@ -11,14 +11,14 @@ on:
       - "go.sum"
       - ".github/workflows/*.yml"
   pull_request:
-    types: [opened, synchronize, reopened]
+    types: [ opened, synchronize, reopened ]
     paths:
       - "**/*.go"
       - "go.mod"
       - "go.sum"
       - ".github/workflows/*.yml"
   release:
-    types: [published]
+    types: [ published ]
 
 jobs:
 
@@ -26,8 +26,8 @@ jobs:
     strategy:
       matrix:
         # Include amd64 on all platforms.
-        goos: [windows, freebsd, openbsd, linux, dragonfly, darwin]
-        goarch: [amd64, 386]
+        goos: [ windows, freebsd, openbsd, linux, dragonfly, darwin ]
+        goarch: [ amd64, 386 ]
         exclude:
           # Exclude i386 on darwin and dragonfly.
           - goarch: 386
@@ -92,7 +92,7 @@ jobs:
           # END S390X
           # END Other architectures
       fail-fast: false
-      
+
     runs-on: ubuntu-latest
     env:
       GOOS: ${{ matrix.goos }}
@@ -102,14 +102,14 @@ jobs:
     steps:
       - name: Checkout codebase
         uses: actions/checkout@v2
-      - name: Show workflow information 
+      - name: Show workflow information
         id: get_filename
         run: |
           export _NAME=$(jq ".[\"$GOOS-$GOARCH$GOARM$GOMIPS\"].friendlyName" -r < .github/build/friendly-filenames.json)
           echo "GOOS: $GOOS, GOARCH: $GOARCH, GOARM: $GOARM, GOMIPS: $GOMIPS, RELEASE_NAME: $_NAME"
           echo "::set-output name=ASSET_NAME::$_NAME"
           echo "ASSET_NAME=$_NAME" >> $GITHUB_ENV
-    
+
       - name: Set up Go
         uses: actions/setup-go@v2
         with:
@@ -123,7 +123,7 @@ jobs:
         run: |
           mkdir -p build_assets
           go build -v -o build_assets/XrayR -trimpath -ldflags "-s -w -buildid=" ./main
-    
+
       - name: Build Mips softfloat XrayR
         if: matrix.goarch == 'mips' || matrix.goarch == 'mipsle'
         run: |
