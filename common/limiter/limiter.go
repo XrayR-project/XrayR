@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/go-redis/redis/v8"
 	"golang.org/x/time/rate"
 
 	"github.com/XrayR-project/XrayR/api"
@@ -26,6 +27,11 @@ type InboundInfo struct {
 
 type Limiter struct {
 	InboundInfo *sync.Map // Key: Tag, Value: *InboundInfo
+	r           *redis.Client
+	g           struct {
+		limit  int
+		expiry int
+	}
 }
 
 func New() *Limiter {
@@ -34,7 +40,18 @@ func New() *Limiter {
 	}
 }
 
-func (l *Limiter) AddInboundLimiter(tag string, nodeSpeedLimit uint64, userList *[]api.UserInfo) error {
+func (l *Limiter) AddInboundLimiter(tag string, nodeSpeedLimit uint64, userList *[]api.UserInfo, globalDeviceLimit *GlobalDeviceLimitConfig) error {
+	// global limit
+	if globalDeviceLimit.Limit > 0 {
+		l.r = redis.NewClient(&redis.Options{
+			Addr:     globalDeviceLimit.RedisAddr,
+			Password: globalDeviceLimit.RedisPassword,
+			DB:       globalDeviceLimit.RedisDB,
+		})
+		l.g.limit = globalDeviceLimit.Limit
+		l.g.expiry = globalDeviceLimit.Expiry
+	}
+
 	inboundInfo := &InboundInfo{
 		Tag:            tag,
 		NodeSpeedLimit: nodeSpeedLimit,

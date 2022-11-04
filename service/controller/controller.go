@@ -17,6 +17,7 @@ import (
 	"github.com/XrayR-project/XrayR/api"
 	"github.com/XrayR-project/XrayR/app/mydispatcher"
 	"github.com/XrayR-project/XrayR/common/legocmd"
+	"github.com/XrayR-project/XrayR/common/limiter"
 	"github.com/XrayR-project/XrayR/common/serverstatus"
 )
 
@@ -89,8 +90,12 @@ func (c *Controller) Start() error {
 	// sync controller userList
 	c.userList = userInfo
 
+	// Init global device limit
+	if c.config.GlobalDeviceLimitConfig == nil {
+		c.config.GlobalDeviceLimitConfig = &limiter.GlobalDeviceLimitConfig{Limit: 0}
+	}
 	// Add Limiter
-	if err := c.AddInboundLimiter(c.Tag, newNodeInfo.SpeedLimit, userInfo); err != nil {
+	if err := c.AddInboundLimiter(c.Tag, newNodeInfo.SpeedLimit, userInfo, c.config.GlobalDeviceLimitConfig); err != nil {
 		log.Print(err)
 	}
 	// Add Rule Manager
@@ -231,7 +236,7 @@ func (c *Controller) nodeInfoMonitor() (err error) {
 			return nil
 		}
 		// Add Limiter
-		if err := c.AddInboundLimiter(c.Tag, newNodeInfo.SpeedLimit, newUserInfo); err != nil {
+		if err := c.AddInboundLimiter(c.Tag, newNodeInfo.SpeedLimit, newUserInfo, c.config.GlobalDeviceLimitConfig); err != nil {
 			log.Print(err)
 			return nil
 		}

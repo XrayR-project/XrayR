@@ -12,6 +12,7 @@ import (
 	"github.com/xtls/xray-core/proxy"
 
 	"github.com/XrayR-project/XrayR/api"
+	"github.com/XrayR-project/XrayR/common/limiter"
 )
 
 func (c *Controller) removeInbound(tag string) error {
@@ -131,8 +132,8 @@ func (c *Controller) resetTraffic(upCounterList *[]stats.Counter, downCounterLis
 	}
 }
 
-func (c *Controller) AddInboundLimiter(tag string, nodeSpeedLimit uint64, userList *[]api.UserInfo) error {
-	err := c.dispatcher.Limiter.AddInboundLimiter(tag, nodeSpeedLimit, userList)
+func (c *Controller) AddInboundLimiter(tag string, nodeSpeedLimit uint64, userList *[]api.UserInfo, globalDeviceLimitConfig *limiter.GlobalDeviceLimitConfig) error {
+	err := c.dispatcher.Limiter.AddInboundLimiter(tag, nodeSpeedLimit, userList, globalDeviceLimitConfig)
 	return err
 }
 
