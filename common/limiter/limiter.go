@@ -2,8 +2,11 @@
 package limiter
 
 import (
+	"context"
 	"fmt"
+	"strings"
 	"sync"
+	"time"
 
 	"github.com/go-redis/redis/v8"
 	"golang.org/x/time/rate"
@@ -139,16 +142,42 @@ func (l *Limiter) GetUserBucket(tag string, email string, ip string) (limiter *r
 	if value, ok := l.InboundInfo.Load(tag); ok {
 		inboundInfo := value.(*InboundInfo)
 		nodeLimit := inboundInfo.NodeSpeedLimit
-		var userLimit uint64 = 0
-		var deviceLimit int = 0
-		var uid int = 0
+		var (
+			userLimit                           uint64 = 0
+			deviceLimit, uid, globalDeviceLimit int
+		)
+
 		if v, ok := inboundInfo.UserInfo.Load(email); ok {
 			u := v.(UserInfo)
 			uid = u.UID
 			userLimit = u.SpeedLimit
 			deviceLimit = u.DeviceLimit
 		}
-		// Report online device
+
+		// Global device limit
+		if globalDeviceLimit > 0 {
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+			defer cancel()
+
+			trimEmail := strings.Split(email, "|")[1]
+			exist, err := l.r.Exists(ctx, trimEmail).Result()
+			if err != nil {
+				newError(fmt.Sprintf("Redis: %v", err)).AtError().WriteToLog()
+			} else {
+				if exist == 0 {
+					l.r.HSet(ctx, trimEmail, ip, uid)
+					l.r.Expire(ctx, trimEmail, time.Duration(l.g.expiry)*time.Minute)
+				} else {
+					l.r.HSet(ctx, trimEmail, ip, uid)
+				}
+				if l.r.HLen(ctx, trimEmail).Val() > int64(l.g.limit) {
+					l.r.HDel(ctx, trimEmail, ip)
+					return nil, false, true
+				}
+			}
+		}
+
+		// Local device limit
 		ipMap := new(sync.Map)
 		ipMap.Store(ip, uid)
 		// If any device is online
