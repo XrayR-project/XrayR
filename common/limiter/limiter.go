@@ -143,8 +143,8 @@ func (l *Limiter) GetUserBucket(tag string, email string, ip string) (limiter *r
 		inboundInfo := value.(*InboundInfo)
 		nodeLimit := inboundInfo.NodeSpeedLimit
 		var (
-			userLimit                           uint64 = 0
-			deviceLimit, uid, globalDeviceLimit int
+			userLimit        uint64 = 0
+			deviceLimit, uid int
 		)
 
 		if v, ok := inboundInfo.UserInfo.Load(email); ok {
@@ -155,7 +155,7 @@ func (l *Limiter) GetUserBucket(tag string, email string, ip string) (limiter *r
 		}
 
 		// Global device limit
-		if globalDeviceLimit > 0 {
+		if l.g.limit > 0 {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 			defer cancel()
 
