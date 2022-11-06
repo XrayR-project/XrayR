@@ -1,9 +1,8 @@
 package limiter
 
 import (
-	"io"
-
 	"context"
+	"io"
 
 	"github.com/xtls/xray-core/common"
 	"github.com/xtls/xray-core/common/buf"

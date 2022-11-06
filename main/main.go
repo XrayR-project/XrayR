@@ -12,9 +12,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/XrayR-project/XrayR/panel"
 	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/viper"
+
+	"github.com/XrayR-project/XrayR/panel"
 )
 
 var (
@@ -96,7 +97,7 @@ func main() {
 	p.Start()
 	defer p.Close()
 
-	//Explicitly triggering GC to remove garbage from config loading.
+	// Explicitly triggering GC to remove garbage from config loading.
 	runtime.GC()
 	// Running backend
 	{

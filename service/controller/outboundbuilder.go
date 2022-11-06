@@ -4,13 +4,14 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/XrayR-project/XrayR/api"
 	"github.com/xtls/xray-core/common/net"
 	"github.com/xtls/xray-core/core"
 	"github.com/xtls/xray-core/infra/conf"
+
+	"github.com/XrayR-project/XrayR/api"
 )
 
-//OutboundBuilder build freedom outbund config for addoutbound
+// OutboundBuilder build freedom outbund config for addoutbound
 func OutboundBuilder(config *Config, nodeInfo *api.NodeInfo, tag string) (*core.OutboundHandlerConfig, error) {
 	outboundDetourConfig := &conf.OutboundDetourConfig{}
 	outboundDetourConfig.Protocol = "freedom"

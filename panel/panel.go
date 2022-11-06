@@ -8,6 +8,14 @@ import (
 
 	"github.com/XrayR-project/XrayR/app/mydispatcher"
 
+	"github.com/imdario/mergo"
+	"github.com/r3labs/diff/v2"
+	"github.com/xtls/xray-core/app/proxyman"
+	"github.com/xtls/xray-core/app/stats"
+	"github.com/xtls/xray-core/common/serial"
+	"github.com/xtls/xray-core/core"
+	"github.com/xtls/xray-core/infra/conf"
+
 	"github.com/XrayR-project/XrayR/api"
 	"github.com/XrayR-project/XrayR/api/pmpanel"
 	"github.com/XrayR-project/XrayR/api/proxypanel"
@@ -17,13 +25,6 @@ import (
 	_ "github.com/XrayR-project/XrayR/main/distro/all"
 	"github.com/XrayR-project/XrayR/service"
 	"github.com/XrayR-project/XrayR/service/controller"
-	"github.com/imdario/mergo"
-	"github.com/r3labs/diff/v2"
-	"github.com/xtls/xray-core/app/proxyman"
-	"github.com/xtls/xray-core/app/stats"
-	"github.com/xtls/xray-core/common/serial"
-	"github.com/xtls/xray-core/core"
-	"github.com/xtls/xray-core/infra/conf"
 )
 
 // Panel Structure

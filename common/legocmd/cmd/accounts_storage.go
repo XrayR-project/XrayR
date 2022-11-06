@@ -13,11 +13,12 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/XrayR-project/XrayR/common/legocmd/log"
 	"github.com/go-acme/lego/v4/certcrypto"
 	"github.com/go-acme/lego/v4/lego"
 	"github.com/go-acme/lego/v4/registration"
 	"github.com/urfave/cli"
+
+	"github.com/XrayR-project/XrayR/common/legocmd/log"
 )
 
 const (
@@ -30,36 +31,35 @@ const (
 //
 // rootPath:
 //
-//     ./.lego/accounts/
-//          │      └── root accounts directory
-//          └── "path" option
+//	./.lego/accounts/
+//	     │      └── root accounts directory
+//	     └── "path" option
 //
 // rootUserPath:
 //
-//     ./.lego/accounts/localhost_14000/hubert@hubert.com/
-//          │      │             │             └── userID ("email" option)
-//          │      │             └── CA server ("server" option)
-//          │      └── root accounts directory
-//          └── "path" option
+//	./.lego/accounts/localhost_14000/hubert@hubert.com/
+//	     │      │             │             └── userID ("email" option)
+//	     │      │             └── CA server ("server" option)
+//	     │      └── root accounts directory
+//	     └── "path" option
 //
 // keysPath:
 //
-//     ./.lego/accounts/localhost_14000/hubert@hubert.com/keys/
-//          │      │             │             │           └── root keys directory
-//          │      │             │             └── userID ("email" option)
-//          │      │             └── CA server ("server" option)
-//          │      └── root accounts directory
-//          └── "path" option
+//	./.lego/accounts/localhost_14000/hubert@hubert.com/keys/
+//	     │      │             │             │           └── root keys directory
+//	     │      │             │             └── userID ("email" option)
+//	     │      │             └── CA server ("server" option)
+//	     │      └── root accounts directory
+//	     └── "path" option
 //
 // accountFilePath:
 //
-//     ./.lego/accounts/localhost_14000/hubert@hubert.com/account.json
-//          │      │             │             │             └── account file
-//          │      │             │             └── userID ("email" option)
-//          │      │             └── CA server ("server" option)
-//          │      └── root accounts directory
-//          └── "path" option
-//
+//	./.lego/accounts/localhost_14000/hubert@hubert.com/account.json
+//	     │      │             │             │             └── account file
+//	     │      │             │             └── userID ("email" option)
+//	     │      │             └── CA server ("server" option)
+//	     │      └── root accounts directory
+//	     └── "path" option
 type AccountsStorage struct {
 	userID          string
 	rootPath        string

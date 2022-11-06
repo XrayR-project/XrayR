@@ -8,12 +8,13 @@ import (
 	"syscall"
 	"testing"
 
+	"github.com/xtls/xray-core/core"
+	"github.com/xtls/xray-core/infra/conf"
+
 	"github.com/XrayR-project/XrayR/api"
 	"github.com/XrayR-project/XrayR/api/sspanel"
 	_ "github.com/XrayR-project/XrayR/main/distro/all"
 	. "github.com/XrayR-project/XrayR/service/controller"
-	"github.com/xtls/xray-core/core"
-	"github.com/xtls/xray-core/infra/conf"
 )
 
 func TestController(t *testing.T) {
@@ -68,7 +69,7 @@ func TestController(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	//Explicitly triggering GC to remove garbage from config loading.
+	// Explicitly triggering GC to remove garbage from config loading.
 	runtime.GC()
 
 	{

@@ -9,11 +9,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/XrayR-project/XrayR/common/legocmd/log"
 	"github.com/go-acme/lego/v4/certcrypto"
 	"github.com/go-acme/lego/v4/lego"
 	"github.com/go-acme/lego/v4/registration"
 	"github.com/urfave/cli"
+
+	"github.com/XrayR-project/XrayR/common/legocmd/log"
 )
 
 const filePerm os.FileMode = 0o600

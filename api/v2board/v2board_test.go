@@ -82,7 +82,7 @@ func TestReportReportUserTraffic(t *testing.T) {
 			Download: 114514,
 		}
 	}
-	//client.Debug()
+	// client.Debug()
 	err = client.ReportUserTraffic(&generalUserTraffic)
 	if err != nil {
 		t.Error(err)

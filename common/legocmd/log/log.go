@@ -57,4 +57,3 @@ func Warnf(format string, args ...interface{}) {
 func Infof(format string, args ...interface{}) {
 	Printf("[INFO] "+format, args...)
 }
-
