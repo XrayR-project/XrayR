@@ -44,6 +44,7 @@ type Controller struct {
 	ohm                     outbound.Manager
 	stm                     stats.Manager
 	dispatcher              *mydispatcher.DefaultDispatcher
+	startAt                 time.Time
 }
 
 // New return a Controller service with default parameters.
@@ -57,6 +58,7 @@ func New(server *core.Instance, api api.API, config *Config, panelType string) *
 		ohm:        server.GetFeature(outbound.ManagerType()).(outbound.Manager),
 		stm:        server.GetFeature(stats.ManagerType()).(stats.Manager),
 		dispatcher: server.GetFeature(routing.DispatcherType()).(*mydispatcher.DefaultDispatcher),
+		startAt:    time.Now(),
 	}
 	return controller
 }
@@ -123,19 +125,15 @@ func (c *Controller) Start() error {
 		c.limitedUsers = make(map[api.UserInfo]LimitInfo)
 		c.warnedUsers = make(map[api.UserInfo]int)
 	}
-	log.Printf("[%s: %d] Start monitor node status", c.nodeInfo.NodeType, c.nodeInfo.NodeID)
-	// delay to start nodeInfoMonitor
-	go func() {
-		time.Sleep(time.Duration(c.config.UpdatePeriodic) * time.Second)
-		_ = c.nodeInfoMonitorPeriodic.Start()
-	}()
 
+	// start nodeInfoMonitor
+	log.Printf("[%s: %d] Start monitor node status", c.nodeInfo.NodeType, c.nodeInfo.NodeID)
+	go c.nodeInfoMonitorPeriodic.Start()
+
+	// start userReport
 	log.Printf("[%s: %d] Start report node status", c.nodeInfo.NodeType, c.nodeInfo.NodeID)
-	// delay to start userReport
-	go func() {
-		time.Sleep(time.Duration(c.config.UpdatePeriodic) * time.Second)
-		_ = c.userReportPeriodic.Start()
-	}()
+	go c.userReportPeriodic.Start()
+
 	return nil
 }
 
@@ -158,6 +156,11 @@ func (c *Controller) Close() error {
 }
 
 func (c *Controller) nodeInfoMonitor() (err error) {
+	// delay to start
+	if time.Since(c.startAt) < time.Duration(c.config.UpdatePeriodic)*time.Second {
+		return nil
+	}
+
 	// First fetch Node Info
 	newNodeInfo, err := c.apiClient.GetNodeInfo()
 	if err != nil {
@@ -442,6 +445,11 @@ func limitUser(c *Controller, user api.UserInfo, silentUsers *[]api.UserInfo) {
 }
 
 func (c *Controller) userInfoMonitor() (err error) {
+	// delay to start
+	if time.Since(c.startAt) < time.Duration(c.config.UpdatePeriodic)*time.Second {
+		return nil
+	}
+
 	// Get server status
 	CPU, Mem, Disk, Uptime, err := serverstatus.GetSystemInfo()
 	if err != nil {
