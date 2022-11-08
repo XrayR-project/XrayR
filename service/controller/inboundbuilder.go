@@ -1,4 +1,4 @@
-// Package generate the InbounderConfig used by add inbound
+// Package controller Package generate the InboundConfig used by add inbound
 package controller
 
 import (
@@ -11,7 +11,7 @@ import (
 	"github.com/xtls/xray-core/infra/conf"
 
 	"github.com/XrayR-project/XrayR/api"
-	"github.com/XrayR-project/XrayR/common/legocmd"
+	"github.com/XrayR-project/XrayR/common/mylego"
 )
 
 // InboundBuilder build Inbound config for different protocol
@@ -20,10 +20,10 @@ func InboundBuilder(config *Config, nodeInfo *api.NodeInfo, tag string) (*core.I
 	// Build Listen IP address
 	if nodeInfo.NodeType == "Shadowsocks-Plugin" {
 		// Shdowsocks listen in 127.0.0.1 for safety
-		inboundDetourConfig.ListenOn = &conf.Address{net.ParseAddress("127.0.0.1")}
+		inboundDetourConfig.ListenOn = &conf.Address{Address: net.ParseAddress("127.0.0.1")}
 	} else if config.ListenIP != "" {
 		ipAddress := net.ParseAddress(config.ListenIP)
-		inboundDetourConfig.ListenOn = &conf.Address{ipAddress}
+		inboundDetourConfig.ListenOn = &conf.Address{Address: ipAddress}
 	}
 
 	// Build Port
@@ -115,12 +115,12 @@ func InboundBuilder(config *Config, nodeInfo *api.NodeInfo, tag string) (*core.I
 			NetworkList: []string{"tcp", "udp"},
 		}
 	} else {
-		return nil, fmt.Errorf("Unsupported node type: %s, Only support: V2ray, Trojan, Shadowsocks, and Shadowsocks-Plugin", nodeInfo.NodeType)
+		return nil, fmt.Errorf("unsupported node type: %s, Only support: V2ray, Trojan, Shadowsocks, and Shadowsocks-Plugin", nodeInfo.NodeType)
 	}
 
 	setting, err := json.Marshal(proxySetting)
 	if err != nil {
-		return nil, fmt.Errorf("Marshal proxy %s config fialed: %s", nodeInfo.NodeType, err)
+		return nil, fmt.Errorf("marshal proxy %s config fialed: %s", nodeInfo.NodeType, err)
 	}
 
 	// Build streamSettings
@@ -196,53 +196,53 @@ func InboundBuilder(config *Config, nodeInfo *api.NodeInfo, tag string) (*core.I
 	return inboundDetourConfig.Build()
 }
 
-func getCertFile(certConfig *CertConfig) (certFile string, keyFile string, err error) {
+func getCertFile(certConfig *mylego.CertConfig) (certFile string, keyFile string, err error) {
 	if certConfig.CertMode == "file" {
 		if certConfig.CertFile == "" || certConfig.KeyFile == "" {
-			return "", "", fmt.Errorf("Cert file path or key file path not exist")
+			return "", "", fmt.Errorf("cert file path or key file path not exist")
 		}
 		return certConfig.CertFile, certConfig.KeyFile, nil
 	} else if certConfig.CertMode == "dns" {
-		lego, err := legocmd.New()
+		lego, err := mylego.New(certConfig)
 		if err != nil {
 			return "", "", err
 		}
-		certPath, keyPath, err := lego.DNSCert(certConfig.CertDomain, certConfig.Email, certConfig.Provider, certConfig.DNSEnv)
+		certPath, keyPath, err := lego.DNSCert()
 		if err != nil {
 			return "", "", err
 		}
 		return certPath, keyPath, err
 	} else if certConfig.CertMode == "http" {
-		lego, err := legocmd.New()
+		lego, err := mylego.New(certConfig)
 		if err != nil {
 			return "", "", err
 		}
-		certPath, keyPath, err := lego.HTTPCert(certConfig.CertDomain, certConfig.Email)
+		certPath, keyPath, err := lego.HTTPCert()
 		if err != nil {
 			return "", "", err
 		}
 		return certPath, keyPath, err
 	}
 
-	return "", "", fmt.Errorf("Unsupported certmode: %s", certConfig.CertMode)
+	return "", "", fmt.Errorf("unsupported certmode: %s", certConfig.CertMode)
 }
 
 func buildVlessFallbacks(fallbackConfigs []*FallBackConfig) ([]*conf.VLessInboundFallback, error) {
 	if fallbackConfigs == nil {
-		return nil, fmt.Errorf("You must provide FallBackConfigs")
+		return nil, fmt.Errorf("you must provide FallBackConfigs")
 	}
 
 	vlessFallBacks := make([]*conf.VLessInboundFallback, len(fallbackConfigs))
 	for i, c := range fallbackConfigs {
 
 		if c.Dest == "" {
-			return nil, fmt.Errorf("Dest is required for fallback fialed")
+			return nil, fmt.Errorf("dest is required for fallback fialed")
 		}
 
 		var dest json.RawMessage
 		dest, err := json.Marshal(c.Dest)
 		if err != nil {
-			return nil, fmt.Errorf("Marshal dest %s config fialed: %s", dest, err)
+			return nil, fmt.Errorf("marshal dest %s config fialed: %s", dest, err)
 		}
 		vlessFallBacks[i] = &conf.VLessInboundFallback{
 			Name: c.SNI,
@@ -257,20 +257,20 @@ func buildVlessFallbacks(fallbackConfigs []*FallBackConfig) ([]*conf.VLessInboun
 
 func buildTrojanFallbacks(fallbackConfigs []*FallBackConfig) ([]*conf.TrojanInboundFallback, error) {
 	if fallbackConfigs == nil {
-		return nil, fmt.Errorf("You must provide FallBackConfigs")
+		return nil, fmt.Errorf("you must provide FallBackConfigs")
 	}
 
 	trojanFallBacks := make([]*conf.TrojanInboundFallback, len(fallbackConfigs))
 	for i, c := range fallbackConfigs {
 
 		if c.Dest == "" {
-			return nil, fmt.Errorf("Dest is required for fallback fialed")
+			return nil, fmt.Errorf("dest is required for fallback fialed")
 		}
 
 		var dest json.RawMessage
 		dest, err := json.Marshal(c.Dest)
 		if err != nil {
-			return nil, fmt.Errorf("Marshal dest %s config fialed: %s", dest, err)
+			return nil, fmt.Errorf("marshal dest %s config fialed: %s", dest, err)
 		}
 		trojanFallBacks[i] = &conf.TrojanInboundFallback{
 			Name: c.SNI,

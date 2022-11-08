@@ -2,13 +2,14 @@ package controller
 
 import (
 	"github.com/XrayR-project/XrayR/common/limiter"
+	"github.com/XrayR-project/XrayR/common/mylego"
 )
 
 type Config struct {
 	ListenIP                string                           `mapstructure:"ListenIP"`
 	SendIP                  string                           `mapstructure:"SendIP"`
 	UpdatePeriodic          int                              `mapstructure:"UpdatePeriodic"`
-	CertConfig              *CertConfig                      `mapstructure:"CertConfig"`
+	CertConfig              *mylego.CertConfig               `mapstructure:"CertConfig"`
 	EnableDNS               bool                             `mapstructure:"EnableDNS"`
 	DNSType                 string                           `mapstructure:"DNSType"`
 	DisableUploadTraffic    bool                             `mapstructure:"DisableUploadTraffic"`
@@ -27,17 +28,6 @@ type AutoSpeedLimitConfig struct {
 	WarnTimes     int `mapstructure:"WarnTimes"`
 	LimitSpeed    int `mapstructure:"LimitSpeed"`    // mbps
 	LimitDuration int `mapstructure:"LimitDuration"` // minute
-}
-
-type CertConfig struct {
-	CertMode         string            `mapstructure:"CertMode"` // none, file, http, dns
-	RejectUnknownSni bool              `mapstructure:"RejectUnknownSni"`
-	CertDomain       string            `mapstructure:"CertDomain"`
-	CertFile         string            `mapstructure:"CertFile"`
-	KeyFile          string            `mapstructure:"KeyFile"`
-	Provider         string            `mapstructure:"Provider"` // alidns, cloudflare, gandi, godaddy....
-	Email            string            `mapstructure:"Email"`
-	DNSEnv           map[string]string `mapstructure:"DNSEnv"`
 }
 
 type FallBackConfig struct {

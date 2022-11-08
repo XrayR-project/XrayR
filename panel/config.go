@@ -6,13 +6,13 @@ import (
 )
 
 type Config struct {
-	LogConfig          *LogConfig       `mapstructure:"Log"`
-	DnsConfigPath      string           `mapstructure:"DnsConfigPath"`
-	InboundConfigPath  string           `mapstructure:"InboundConfigPath"`
-	OutboundConfigPath string           `mapstructure:"OutboundConfigPath"`
-	RouteConfigPath    string           `mapstructure:"RouteConfigPath"`
-	ConnetionConfig    *ConnetionConfig `mapstructure:"ConnetionConfig"`
-	NodesConfig        []*NodesConfig   `mapstructure:"Nodes"`
+	LogConfig          *LogConfig        `mapstructure:"Log"`
+	DnsConfigPath      string            `mapstructure:"DnsConfigPath"`
+	InboundConfigPath  string            `mapstructure:"InboundConfigPath"`
+	OutboundConfigPath string            `mapstructure:"OutboundConfigPath"`
+	RouteConfigPath    string            `mapstructure:"RouteConfigPath"`
+	ConnectionConfig   *ConnectionConfig `mapstructure:"ConnectionConfig"`
+	NodesConfig        []*NodesConfig    `mapstructure:"Nodes"`
 }
 
 type NodesConfig struct {
@@ -27,7 +27,7 @@ type LogConfig struct {
 	ErrorPath  string `mapstructure:"ErrorPath"`
 }
 
-type ConnetionConfig struct {
+type ConnectionConfig struct {
 	Handshake    uint32 `mapstructure:"handshake"`
 	ConnIdle     uint32 `mapstructure:"connIdle"`
 	UplinkOnly   uint32 `mapstructure:"uplinkOnly"`

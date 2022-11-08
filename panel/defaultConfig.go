@@ -10,8 +10,8 @@ func getDefaultLogConfig() *LogConfig {
 	}
 }
 
-func getDefaultConnetionConfig() *ConnetionConfig {
-	return &ConnetionConfig{
+func getDefaultConnectionConfig() *ConnectionConfig {
+	return &ConnectionConfig{
 		Handshake:    4,
 		ConnIdle:     30,
 		UplinkOnly:   2,

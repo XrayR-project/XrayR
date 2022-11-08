@@ -13,6 +13,7 @@ import (
 
 	"github.com/XrayR-project/XrayR/api"
 	"github.com/XrayR-project/XrayR/api/sspanel"
+	"github.com/XrayR-project/XrayR/common/mylego"
 	_ "github.com/XrayR-project/XrayR/main/distro/all"
 	. "github.com/XrayR-project/XrayR/service/controller"
 )
@@ -46,7 +47,7 @@ func TestController(t *testing.T) {
 	if err = server.Start(); err != nil {
 		t.Errorf("Failed to start instance: %s", err)
 	}
-	certConfig := &CertConfig{
+	certConfig := &mylego.CertConfig{
 		CertMode:   "http",
 		CertDomain: "test.ss.tk",
 		Provider:   "alidns",

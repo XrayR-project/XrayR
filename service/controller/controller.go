@@ -16,8 +16,8 @@ import (
 
 	"github.com/XrayR-project/XrayR/api"
 	"github.com/XrayR-project/XrayR/app/mydispatcher"
-	"github.com/XrayR-project/XrayR/common/legocmd"
 	"github.com/XrayR-project/XrayR/common/limiter"
+	"github.com/XrayR-project/XrayR/common/mylego"
 	"github.com/XrayR-project/XrayR/common/serverstatus"
 )
 
@@ -221,12 +221,12 @@ func (c *Controller) nodeInfoMonitor() (err error) {
 
 	// Check Cert
 	if c.nodeInfo.EnableTLS && (c.config.CertConfig.CertMode == "dns" || c.config.CertConfig.CertMode == "http") {
-		lego, err := legocmd.New()
+		lego, err := mylego.New(c.config.CertConfig)
 		if err != nil {
 			log.Print(err)
 		}
 		// Xray-core supports the OcspStapling certification hot renew
-		_, _, err = lego.RenewCert(c.config.CertConfig.CertDomain, c.config.CertConfig.Email, c.config.CertConfig.CertMode, c.config.CertConfig.Provider, c.config.CertConfig.DNSEnv)
+		_, _, _, err = lego.RenewCert()
 		if err != nil {
 			log.Print(err)
 		}

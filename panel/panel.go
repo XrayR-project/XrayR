@@ -123,7 +123,7 @@ func (p *Panel) loadCore(panelConfig *Config) *core.Instance {
 		outBoundConfig = append(outBoundConfig, oc)
 	}
 	// Policy config
-	levelPolicyConfig := parseConnectionConfig(panelConfig.ConnetionConfig)
+	levelPolicyConfig := parseConnectionConfig(panelConfig.ConnectionConfig)
 	corePolicyConfig := &conf.PolicyConfig{}
 	corePolicyConfig.Levels = map[uint32]*conf.Policy{0: levelPolicyConfig}
 	policyConfig, _ := corePolicyConfig.Build()
@@ -219,11 +219,11 @@ func (p *Panel) Close() {
 	return
 }
 
-func parseConnectionConfig(c *ConnetionConfig) (policy *conf.Policy) {
-	connetionConfig := getDefaultConnetionConfig()
+func parseConnectionConfig(c *ConnectionConfig) (policy *conf.Policy) {
+	connetionConfig := getDefaultConnectionConfig()
 	if c != nil {
 		if _, err := diff.Merge(connetionConfig, c, connetionConfig); err != nil {
-			log.Panicf("Read ConnetionConfig failed: %s", err)
+			log.Panicf("Read ConnectionConfig failed: %s", err)
 		}
 	}
 	policy = &conf.Policy{

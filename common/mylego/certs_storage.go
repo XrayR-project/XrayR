@@ -1,22 +1,17 @@
-package cmd
+package mylego
 
 import (
 	"bytes"
 	"crypto/x509"
 	"encoding/json"
-	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
-	"time"
 
 	"github.com/go-acme/lego/v4/certcrypto"
 	"github.com/go-acme/lego/v4/certificate"
-	"github.com/urfave/cli"
 	"golang.org/x/net/idna"
-
-	"github.com/XrayR-project/XrayR/common/legocmd/log"
 )
 
 const (
@@ -24,7 +19,7 @@ const (
 	baseArchivesFolderName     = "archives"
 )
 
-// CertificatesStorage a certificates storage.
+// CertificatesStorage a certificates' storage.
 //
 // rootPath:
 //
@@ -38,31 +33,19 @@ const (
 //	     │      └── archived certificates directory
 //	     └── "path" option
 type CertificatesStorage struct {
-	rootPath    string
-	archivePath string
-	pem         bool
-	filename    string // Deprecated
+	rootPath string
+	pem      bool
 }
 
 // NewCertificatesStorage create a new certificates storage.
-func NewCertificatesStorage(ctx *cli.Context) *CertificatesStorage {
+func NewCertificatesStorage(path string) *CertificatesStorage {
 	return &CertificatesStorage{
-		rootPath:    filepath.Join(ctx.GlobalString("path"), baseCertificatesFolderName),
-		archivePath: filepath.Join(ctx.GlobalString("path"), baseArchivesFolderName),
-		pem:         ctx.GlobalBool("pem"),
-		filename:    ctx.GlobalString("filename"),
+		rootPath: filepath.Join(path, baseCertificatesFolderName),
 	}
 }
 
 func (s *CertificatesStorage) CreateRootFolder() {
 	err := createNonExistingFolder(s.rootPath)
-	if err != nil {
-		log.Panicf("Could not check/create path: %v", err)
-	}
-}
-
-func (s *CertificatesStorage) CreateArchiveFolder() {
-	err := createNonExistingFolder(s.archivePath)
 	if err != nil {
 		log.Panicf("Could not check/create path: %v", err)
 	}
@@ -144,7 +127,7 @@ func (s *CertificatesStorage) ExistsFile(domain, extension string) bool {
 }
 
 func (s *CertificatesStorage) ReadFile(domain, extension string) ([]byte, error) {
-	return ioutil.ReadFile(s.GetFileName(domain, extension))
+	return os.ReadFile(s.GetFileName(domain, extension))
 }
 
 func (s *CertificatesStorage) GetFileName(domain, extension string) string {
@@ -163,36 +146,11 @@ func (s *CertificatesStorage) ReadCertificate(domain, extension string) ([]*x509
 }
 
 func (s *CertificatesStorage) WriteFile(domain, extension string, data []byte) error {
-	var baseFileName string
-	if s.filename != "" {
-		baseFileName = s.filename
-	} else {
-		baseFileName = sanitizedDomain(domain)
-	}
+	var baseFileName = sanitizedDomain(domain)
 
 	filePath := filepath.Join(s.rootPath, baseFileName+extension)
 
-	return ioutil.WriteFile(filePath, data, filePerm)
-}
-
-func (s *CertificatesStorage) MoveToArchive(domain string) error {
-	matches, err := filepath.Glob(filepath.Join(s.rootPath, sanitizedDomain(domain)+".*"))
-	if err != nil {
-		return err
-	}
-
-	for _, oldFile := range matches {
-		date := strconv.FormatInt(time.Now().Unix(), 10)
-		filename := date + "." + filepath.Base(oldFile)
-		newFile := filepath.Join(s.archivePath, filename)
-
-		err = os.Rename(oldFile, newFile)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return os.WriteFile(filePath, data, filePerm)
 }
 
 // sanitizedDomain Make sure no funny chars are in the cert names (like wildcards ;)).
