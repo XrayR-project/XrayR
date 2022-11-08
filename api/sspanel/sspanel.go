@@ -21,7 +21,7 @@ import (
 var (
 	firstPortRe  = regexp.MustCompile(`(?m)port=(?P<outport>\d+)#?`) // First Port
 	secondPortRe = regexp.MustCompile(`(?m)port=\d+#(\d+)`)          // Second Port
-	hostRe       = regexp.MustCompile(`(?m)host=([\w\.]+)\|?`)       // Host
+	hostRe       = regexp.MustCompile(`(?m)host=([\w.]+)\|?`)        // Host
 )
 
 // APIClient create a api client to the panel.
