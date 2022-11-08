@@ -85,7 +85,7 @@ func TestGetUserList(t *testing.T) {
 func TestReportNodeStatus(t *testing.T) {
 	client := CreateClient()
 	nodeStatus := &api.NodeStatus{
-		1, 1, 1, 256,
+		CPU: 1, Mem: 1, Disk: 1, Uptime: 256,
 	}
 	err := client.ReportNodeStatus(nodeStatus)
 	if err != nil {
@@ -150,8 +150,8 @@ func TestReportIllegal(t *testing.T) {
 	client := CreateClient()
 
 	detectResult := []api.DetectResult{
-		api.DetectResult{1, 2},
-		api.DetectResult{1, 3},
+		{1, 2},
+		{1, 3},
 	}
 	client.Debug()
 	err := client.ReportIllegal(&detectResult)

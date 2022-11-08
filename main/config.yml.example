@@ -6,7 +6,7 @@ DnsConfigPath: # /etc/XrayR/dns.json # Path to dns config, check https://xtls.gi
 RouteConfigPath: # /etc/XrayR/route.json # Path to route config, check https://xtls.github.io/config/routing.html for help
 InboundConfigPath: # /etc/XrayR/custom_inbound.json # Path to custom inbound config, check https://xtls.github.io/config/inbound.html for help
 OutboundConfigPath: # /etc/XrayR/custom_outbound.json # Path to custom outbound config, check https://xtls.github.io/config/outbound.html for help
-ConnetionConfig:
+ConnectionConfig:
   Handshake: 4 # Handshake time limit, Second
   ConnIdle: 30 # Connection idle time limit, Second
   UplinkOnly: 2 # Time limit when the connection downstream is closed, Second

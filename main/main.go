@@ -75,7 +75,7 @@ func main() {
 	config := getConfig()
 	panelConfig := &panel.Config{}
 	if err := config.Unmarshal(panelConfig); err != nil {
-		log.Panicf("Parse config file %s failed: %s \n", configFile, err)
+		log.Panicf("Parse config file %v failed: %s \n", configFile, err)
 	}
 	p := panel.New(panelConfig)
 	lastTime := time.Now()
@@ -88,7 +88,7 @@ func main() {
 			// Delete old instance and trigger GC
 			runtime.GC()
 			if err := config.Unmarshal(panelConfig); err != nil {
-				log.Panicf("Parse config file %s failed: %s \n", configFile, err)
+				log.Panicf("Parse config file %v failed: %s \n", configFile, err)
 			}
 			p.Start()
 			lastTime = time.Now()

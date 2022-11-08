@@ -95,7 +95,7 @@ func readLocalRuleList(path string) (LocalRuleList []api.DetectRule) {
 		// handle first encountered error while reading
 		if err := fileScanner.Err(); err != nil {
 			log.Fatalf("Error while reading file: %s", err)
-			return make([]api.DetectRule, 0)
+			return
 		}
 
 		file.Close()
@@ -131,7 +131,7 @@ func (c *APIClient) parseResponse(res *resty.Response, path string, err error) (
 
 	if response.Ret != 200 {
 		res, _ := json.Marshal(&response)
-		return nil, fmt.Errorf("Ret %s invalid", string(res))
+		return nil, fmt.Errorf("ret %s invalid", string(res))
 	}
 	return response, nil
 }
@@ -168,7 +168,7 @@ func (c *APIClient) GetNodeInfo() (nodeInfo *api.NodeInfo, err error) {
 	nodeInfoResponse := new(NodeInfoResponse)
 
 	if err := json.Unmarshal(response.Data, nodeInfoResponse); err != nil {
-		return nil, fmt.Errorf("Unmarshal %s failed: %s", reflect.TypeOf(nodeInfoResponse), err)
+		return nil, fmt.Errorf("unmarshal %s failed: %s", reflect.TypeOf(nodeInfoResponse), err)
 	}
 	switch c.NodeType {
 	case "V2ray":
@@ -178,7 +178,7 @@ func (c *APIClient) GetNodeInfo() (nodeInfo *api.NodeInfo, err error) {
 	case "Shadowsocks":
 		nodeInfo, err = c.ParseSSNodeResponse(nodeInfoResponse)
 	default:
-		return nil, fmt.Errorf("Unsupported Node type: %s", c.NodeType)
+		return nil, fmt.Errorf("unsupported Node type: %s", c.NodeType)
 	}
 
 	if err != nil {
@@ -220,12 +220,12 @@ func (c *APIClient) GetUserList() (UserList *[]api.UserInfo, err error) {
 
 	var userListResponse *[]UserResponse
 	if err := json.Unmarshal(response.Data, &userListResponse); err != nil {
-		return nil, fmt.Errorf("Unmarshal %s failed: %s", reflect.TypeOf(userListResponse), err)
+		return nil, fmt.Errorf("unmarshal %s failed: %s", reflect.TypeOf(userListResponse), err)
 	}
 	userList, err := c.ParseUserListResponse(userListResponse)
 	if err != nil {
 		res, _ := json.Marshal(userListResponse)
-		return nil, fmt.Errorf("Parse user list failed: %s", string(res))
+		return nil, fmt.Errorf("parse user list failed: %s", string(res))
 	}
 	return userList, nil
 }
@@ -339,7 +339,7 @@ func (c *APIClient) GetNodeRule() (*[]api.DetectRule, error) {
 	ruleListResponse := new([]RuleItem)
 
 	if err := json.Unmarshal(response.Data, ruleListResponse); err != nil {
-		return nil, fmt.Errorf("Unmarshal %s failed: %s", reflect.TypeOf(ruleListResponse), err)
+		return nil, fmt.Errorf("unmarshal %s failed: %s", reflect.TypeOf(ruleListResponse), err)
 	}
 
 	for _, r := range *ruleListResponse {
@@ -473,7 +473,7 @@ func (c *APIClient) ParseTrojanNodeResponse(nodeInfoResponse *NodeInfoResponse) 
 
 // ParseUserListResponse parse the response for the given nodeinfo format
 func (c *APIClient) ParseUserListResponse(userInfoResponse *[]UserResponse) (*[]api.UserInfo, error) {
-	var deviceLimit int = 0
+	var deviceLimit = 0
 	var speedlimit uint64 = 0
 	userList := make([]api.UserInfo, len(*userInfoResponse))
 	for i, user := range *userInfoResponse {

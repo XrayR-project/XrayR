@@ -58,7 +58,7 @@ func (c *Controller) addOutbound(config *core.OutboundHandlerConfig) error {
 func (c *Controller) addUsers(users []*protocol.User, tag string) error {
 	handler, err := c.ihm.GetHandler(context.Background(), tag)
 	if err != nil {
-		return fmt.Errorf("No such inbound tag: %s", err)
+		return fmt.Errorf("no such inbound tag: %s", err)
 	}
 	inboundInstance, ok := handler.(proxy.GetInbound)
 	if !ok {
@@ -85,7 +85,7 @@ func (c *Controller) addUsers(users []*protocol.User, tag string) error {
 func (c *Controller) removeUsers(users []string, tag string) error {
 	handler, err := c.ihm.GetHandler(context.Background(), tag)
 	if err != nil {
-		return fmt.Errorf("No such inbound tag: %s", err)
+		return fmt.Errorf("no such inbound tag: %s", err)
 	}
 	inboundInstance, ok := handler.(proxy.GetInbound)
 	if !ok {

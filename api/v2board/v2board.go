@@ -100,7 +100,7 @@ func readLocalRuleList(path string) (LocalRuleList []api.DetectRule) {
 		// handle first encountered error while reading
 		if err := fileScanner.Err(); err != nil {
 			log.Fatalf("Error while reading file: %s", err)
-			return make([]api.DetectRule, 0)
+			return
 		}
 
 		file.Close()
@@ -134,7 +134,7 @@ func (c *APIClient) parseResponse(res *resty.Response, path string, err error) (
 	}
 	rtn, err := simplejson.NewJson(res.Body())
 	if err != nil {
-		return nil, fmt.Errorf("Ret %s invalid", res.String())
+		return nil, fmt.Errorf("ret %s invalid", res.String())
 	}
 	return rtn, nil
 }
@@ -354,7 +354,7 @@ func (c *APIClient) ParseSSNodeResponse() (*api.NodeInfo, error) {
 
 // ParseV2rayNodeResponse parse the response for the given nodeinfor format
 func (c *APIClient) ParseV2rayNodeResponse(nodeInfoResponse *simplejson.Json) (*api.NodeInfo, error) {
-	var TLSType string = "tls"
+	var TLSType = "tls"
 	var path, host, serviceName string
 	var header json.RawMessage
 	var enableTLS bool
@@ -372,7 +372,7 @@ func (c *APIClient) ParseV2rayNodeResponse(nodeInfoResponse *simplejson.Json) (*
 		marshalByte, _ := json.Marshal(tmpInboundInfo[0].(map[string]interface{}))
 		inboundInfo, _ = simplejson.NewJson(marshalByte)
 	} else {
-		return nil, fmt.Errorf("Unable to find inbound(s) in the nodeInfo.")
+		return nil, fmt.Errorf("unable to find inbound(s) in the nodeInfo")
 	}
 
 	port := uint32(inboundInfo.Get("port").MustUint64())

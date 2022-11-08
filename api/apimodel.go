@@ -5,7 +5,7 @@ import (
 	"regexp"
 )
 
-// API config
+// Config API config
 type Config struct {
 	APIHost             string  `mapstructure:"ApiHost"`
 	NodeID              int     `mapstructure:"NodeID"`
@@ -20,7 +20,7 @@ type Config struct {
 	DisableCustomConfig bool    `mapstructure:"DisableCustomConfig"`
 }
 
-// Node status
+// NodeStatus Node status
 type NodeStatus struct {
 	CPU    float64
 	Mem    float64

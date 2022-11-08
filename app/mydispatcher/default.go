@@ -20,7 +20,7 @@ import (
 	"github.com/xtls/xray-core/features/outbound"
 	"github.com/xtls/xray-core/features/policy"
 	"github.com/xtls/xray-core/features/routing"
-	routing_session "github.com/xtls/xray-core/features/routing/session"
+	routingSession "github.com/xtls/xray-core/features/routing/session"
 	"github.com/xtls/xray-core/features/stats"
 	"github.com/xtls/xray-core/transport"
 	"github.com/xtls/xray-core/transport/pipe"
@@ -99,7 +99,7 @@ type DefaultDispatcher struct {
 	dns         dns.Client
 	fdns        dns.FakeDNSEngine
 	Limiter     *limiter.Limiter
-	RuleManager *rule.RuleManager
+	RuleManager *rule.Manager
 }
 
 func init() {
@@ -173,7 +173,7 @@ func (d *DefaultDispatcher) getLink(ctx context.Context, network net.Network, sn
 						newError("[fakedns client] create a new map").WriteToLog(session.ExportIDToError(ctx))
 					}
 					domain := addr.Domain()
-					ips, err := d.dns.LookupIP(domain, dns.IPOption{true, true, false})
+					ips, err := d.dns.LookupIP(domain, dns.IPOption{IPv4Enable: true, IPv6Enable: true})
 					if err == nil {
 						for _, ip := range ips {
 							ip2domain.Store(ip.String(), domain)
@@ -315,13 +315,13 @@ func (d *DefaultDispatcher) Dispatch(ctx context.Context, destination net.Destin
 	}
 
 	sniffingRequest := content.SniffingRequest
-	inbound, outbound, err := d.getLink(ctx, destination.Network, sniffingRequest)
+	in, out, err := d.getLink(ctx, destination.Network, sniffingRequest)
 	if err != nil {
 		return nil, err
 	}
 	switch {
 	case !sniffingRequest.Enabled:
-		go d.routedDispatch(ctx, outbound, destination)
+		go d.routedDispatch(ctx, out, destination)
 	case destination.Network != net.Network_TCP:
 		// Only metadata sniff will be used for non tcp connection
 		result, err := sniffer(ctx, nil, true)
@@ -338,13 +338,13 @@ func (d *DefaultDispatcher) Dispatch(ctx context.Context, destination net.Destin
 				}
 			}
 		}
-		go d.routedDispatch(ctx, outbound, destination)
+		go d.routedDispatch(ctx, out, destination)
 	default:
 		go func() {
 			cReader := &cachedReader{
-				reader: outbound.Reader.(*pipe.Reader),
+				reader: out.Reader.(*pipe.Reader),
 			}
-			outbound.Reader = cReader
+			out.Reader = cReader
 			result, err := sniffer(ctx, cReader, sniffingRequest.MetadataOnly)
 			if err == nil {
 				content.Protocol = result.Protocol()
@@ -359,10 +359,10 @@ func (d *DefaultDispatcher) Dispatch(ctx context.Context, destination net.Destin
 					ob.Target = destination
 				}
 			}
-			d.routedDispatch(ctx, outbound, destination)
+			d.routedDispatch(ctx, out, destination)
 		}()
 	}
-	return inbound, nil
+	return in, nil
 }
 
 // DispatchLink implements routing.Dispatcher.
@@ -502,7 +502,7 @@ func (d *DefaultDispatcher) routedDispatch(ctx context.Context, link *transport.
 		}
 	}
 
-	routingLink := routing_session.AsRoutingContext(ctx)
+	routingLink := routingSession.AsRoutingContext(ctx)
 	inTag := routingLink.GetInboundTag()
 	isPickRoute := 0
 	if forcedOutboundTag := session.GetForcedOutboundTagFromContext(ctx); forcedOutboundTag != "" {

@@ -179,8 +179,8 @@ func (c *Controller) nodeInfoMonitor() (err error) {
 	// If nodeInfo changed
 	if !reflect.DeepEqual(c.nodeInfo, newNodeInfo) {
 		// Remove old tag
-		oldtag := c.Tag
-		err := c.removeOldTag(oldtag)
+		oldTag := c.Tag
+		err := c.removeOldTag(oldTag)
 		if err != nil {
 			log.Print(err)
 			return nil
@@ -202,7 +202,7 @@ func (c *Controller) nodeInfoMonitor() (err error) {
 		}
 		nodeInfoChanged = true
 		// Remove Old limiter
-		if err = c.DeleteInboundLimiter(oldtag); err != nil {
+		if err = c.DeleteInboundLimiter(oldTag); err != nil {
 			log.Print(err)
 			return nil
 		}
@@ -271,12 +271,12 @@ func (c *Controller) nodeInfoMonitor() (err error) {
 	return nil
 }
 
-func (c *Controller) removeOldTag(oldtag string) (err error) {
-	err = c.removeInbound(oldtag)
+func (c *Controller) removeOldTag(oldTag string) (err error) {
+	err = c.removeInbound(oldTag)
 	if err != nil {
 		return err
 	}
-	err = c.removeOutbound(oldtag)
+	err = c.removeOutbound(oldTag)
 	if err != nil {
 		return err
 	}
@@ -312,7 +312,7 @@ func (c *Controller) addNewTag(newNodeInfo *api.NodeInfo) (err error) {
 }
 
 func (c *Controller) addInboundForSSPlugin(newNodeInfo api.NodeInfo) (err error) {
-	// Shadowsocks-Plugin require a seaperate inbound for other TransportProtocol likes: ws, grpc
+	// Shadowsocks-Plugin require a separate inbound for other TransportProtocol likes: ws, grpc
 	fakeNodeInfo := newNodeInfo
 	fakeNodeInfo.TransportProtocol = "tcp"
 	fakeNodeInfo.EnableTLS = false
@@ -396,33 +396,33 @@ func (c *Controller) addNewUser(userInfo *[]api.UserInfo, nodeInfo *api.NodeInfo
 }
 
 func compareUserList(old, new *[]api.UserInfo) (deleted, added []api.UserInfo) {
-	msrc := make(map[api.UserInfo]byte) // 按源数组建索引
-	mall := make(map[api.UserInfo]byte) // 源+目所有元素建索引
+	mSrc := make(map[api.UserInfo]byte) // 按源数组建索引
+	mAll := make(map[api.UserInfo]byte) // 源+目所有元素建索引
 
 	var set []api.UserInfo // 交集
 
 	// 1.源数组建立map
 	for _, v := range *old {
-		msrc[v] = 0
-		mall[v] = 0
+		mSrc[v] = 0
+		mAll[v] = 0
 	}
 	// 2.目数组中，存不进去，即重复元素，所有存不进去的集合就是并集
 	for _, v := range *new {
-		l := len(mall)
-		mall[v] = 1
-		if l != len(mall) { // 长度变化，即可以存
-			l = len(mall)
+		l := len(mAll)
+		mAll[v] = 1
+		if l != len(mAll) { // 长度变化，即可以存
+			l = len(mAll)
 		} else { // 存不了，进并集
 			set = append(set, v)
 		}
 	}
 	// 3.遍历交集，在并集中找，找到就从并集中删，删完后就是补集（即并-交=所有变化的元素）
 	for _, v := range set {
-		delete(mall, v)
+		delete(mAll, v)
 	}
 	// 4.此时，mall是补集，所有元素去源中找，找到就是删除的，找不到的必定能在目数组中找到，即新加的
-	for v := range mall {
-		_, exist := msrc[v]
+	for v := range mAll {
+		_, exist := mSrc[v]
 		if exist {
 			deleted = append(deleted, v)
 		} else {

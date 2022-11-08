@@ -24,7 +24,7 @@ func TestController(t *testing.T) {
 		LogConfig: &conf.LogConfig{LogLevel: "debug"},
 	}
 	policyConfig := &conf.PolicyConfig{}
-	policyConfig.Levels = map[uint32]*conf.Policy{0: &conf.Policy{
+	policyConfig.Levels = map[uint32]*conf.Policy{0: {
 		StatsUserUplink:   true,
 		StatsUserDownlink: true,
 	}}
@@ -53,7 +53,7 @@ func TestController(t *testing.T) {
 		Provider:   "alidns",
 		Email:      "ss@ss.com",
 	}
-	controlerconfig := &Config{
+	controlerConfig := &Config{
 		UpdatePeriodic: 5,
 		CertConfig:     certConfig,
 	}
@@ -63,8 +63,8 @@ func TestController(t *testing.T) {
 		NodeID:   41,
 		NodeType: "V2ray",
 	}
-	apiclient := sspanel.New(apiConfig)
-	c := New(server, apiclient, controlerconfig, "SSpanel")
+	apiClient := sspanel.New(apiConfig)
+	c := New(server, apiClient, controlerConfig, "SSpanel")
 	fmt.Println("Sleep 1s")
 	err = c.Start()
 	if err != nil {

@@ -16,7 +16,6 @@ import (
 
 const (
 	baseCertificatesFolderName = "certificates"
-	baseArchivesFolderName     = "archives"
 )
 
 // CertificatesStorage a certificates' storage.
