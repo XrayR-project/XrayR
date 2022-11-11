@@ -44,7 +44,8 @@ Nodes:
         RedisAddr: 127.0.0.1:6379 # The redis server address
         RedisPassword: YOUR PASSWORD # Redis password
         RedisDB: 0 # Redis DB
-        Expiry: 60 # Expiry time (minute)
+        Timeout: 5 # Timeout for redis request
+        Expiry: 60 # Expiry time (second)
       FallBackConfigs:  # Support multiple fallbacks
         -
           SNI: # TLS SNI(Server Name Indication), Empty for any

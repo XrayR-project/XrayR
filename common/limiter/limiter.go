@@ -4,7 +4,7 @@ package limiter
 import (
 	"context"
 	"fmt"
-	"strings"
+	"strconv"
 	"sync"
 	"time"
 
@@ -32,8 +32,9 @@ type Limiter struct {
 	InboundInfo *sync.Map // Key: Tag, Value: *InboundInfo
 	r           *redis.Client
 	g           struct {
-		limit  int
-		expiry int
+		limit   int
+		timeout int
+		expiry  int
 	}
 }
 
@@ -52,6 +53,7 @@ func (l *Limiter) AddInboundLimiter(tag string, nodeSpeedLimit uint64, userList 
 			DB:       globalDeviceLimit.RedisDB,
 		})
 		l.g.limit = globalDeviceLimit.Limit
+		l.g.timeout = globalDeviceLimit.Timeout
 		l.g.expiry = globalDeviceLimit.Expiry
 	}
 
@@ -156,23 +158,25 @@ func (l *Limiter) GetUserBucket(tag string, email string, ip string) (limiter *r
 
 		// Global device limit
 		if l.g.limit > 0 {
-			ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second*time.Duration(l.g.timeout))
 			defer cancel()
-
-			trimEmail := strings.Split(email, "|")[1]
-			exist, err := l.r.Exists(ctx, trimEmail).Result()
-			if err != nil {
+			uidString := strconv.Itoa(uid)
+			// If any device is online
+			if exists, err := l.r.Exists(ctx, uidString).Result(); err != nil {
 				newError(fmt.Sprintf("Redis: %v", err)).AtError().WriteToLog()
+			} else if exists == 0 { // No user is online
+				l.r.SAdd(ctx, uidString, ip)
+				l.r.Expire(ctx, uidString, time.Second*time.Duration(l.g.expiry))
 			} else {
-				if exist == 0 {
-					l.r.HSet(ctx, trimEmail, ip, uid)
-					l.r.Expire(ctx, trimEmail, time.Duration(l.g.expiry)*time.Minute)
-				} else {
-					l.r.HSet(ctx, trimEmail, ip, uid)
-				}
-				if l.r.HLen(ctx, trimEmail).Val() > int64(l.g.limit) {
-					l.r.HDel(ctx, trimEmail, ip)
-					return nil, false, true
+				// If this ip is a new device
+				if online, err := l.r.SIsMember(ctx, uidString, ip).Result(); err != nil {
+					newError(fmt.Sprintf("Redis: %v", err)).AtError().WriteToLog()
+				} else if !online {
+					l.r.SAdd(ctx, uidString, ip)
+					if l.r.SCard(ctx, uidString).Val() > int64(l.g.limit) {
+						l.r.SRem(ctx, uidString, ip)
+						return nil, false, true
+					}
 				}
 			}
 		}
