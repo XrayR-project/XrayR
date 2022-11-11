@@ -2,7 +2,6 @@ package mylego
 
 type CertConfig struct {
 	CertMode                string            `mapstructure:"CertMode"` // none, file, http, dns
-	VerifyClientCertificate bool              `mapstructure:"VerifyClientCertificate"`
 	CertDomain              string            `mapstructure:"CertDomain"`
 	CertFile                string            `mapstructure:"CertFile"`
 	KeyFile                 string            `mapstructure:"KeyFile"`

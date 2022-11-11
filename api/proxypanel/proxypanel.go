@@ -428,7 +428,7 @@ func (c *APIClient) ParseV2rayNodeResponse(nodeInfoResponse *json.RawMessage) (*
 	if c.SpeedLimit > 0 {
 		speedlimit = uint64((c.SpeedLimit * 1000000) / 8)
 	} else {
-		speedlimit = (v2rayNodeInfo.SpeedLimit * 1000000) / 8
+		speedlimit = uint64((v2rayNodeInfo.SpeedLimit * 1000000) / 8)
 	}
 
 	if c.DeviceLimit == 0 && v2rayNodeInfo.ClientLimit > 0 {
@@ -464,7 +464,7 @@ func (c *APIClient) ParseSSNodeResponse(nodeInfoResponse *json.RawMessage) (*api
 	if c.SpeedLimit > 0 {
 		speedlimit = uint64((c.SpeedLimit * 1000000) / 8)
 	} else {
-		speedlimit = (shadowsocksNodeInfo.SpeedLimit * 1000000) / 8
+		speedlimit = uint64((shadowsocksNodeInfo.SpeedLimit * 1000000) / 8)
 	}
 
 	if c.DeviceLimit == 0 && shadowsocksNodeInfo.ClientLimit > 0 {
@@ -501,7 +501,7 @@ func (c *APIClient) ParseTrojanNodeResponse(nodeInfoResponse *json.RawMessage) (
 	if c.SpeedLimit > 0 {
 		speedlimit = uint64((c.SpeedLimit * 1000000) / 8)
 	} else {
-		speedlimit = (trojanNodeInfo.SpeedLimit * 1000000) / 8
+		speedlimit = uint64((trojanNodeInfo.SpeedLimit * 1000000) / 8)
 	}
 
 	if c.DeviceLimit == 0 && trojanNodeInfo.ClientLimit > 0 {
@@ -536,7 +536,7 @@ func (c *APIClient) ParseV2rayUserListResponse(userInfoResponse *json.RawMessage
 		if c.SpeedLimit > 0 {
 			speedlimit = uint64((c.SpeedLimit * 1000000) / 8)
 		} else {
-			speedlimit = (user.SpeedLimit * 1000000) / 8
+			speedlimit = uint64((user.SpeedLimit * 1000000) / 8)
 		}
 		userList[i] = api.UserInfo{
 			UID:         user.UID,
@@ -592,7 +592,7 @@ func (c *APIClient) ParseSSUserListResponse(userInfoResponse *json.RawMessage) (
 		if c.SpeedLimit > 0 {
 			speedlimit = uint64((c.SpeedLimit * 1000000) / 8)
 		} else {
-			speedlimit = (user.SpeedLimit * 1000000) / 8
+			speedlimit = uint64((user.SpeedLimit * 1000000) / 8)
 		}
 		userList[i] = api.UserInfo{
 			UID:         user.UID,

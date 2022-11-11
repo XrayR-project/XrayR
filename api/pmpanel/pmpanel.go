@@ -473,7 +473,7 @@ func (c *APIClient) ParseTrojanNodeResponse(nodeInfoResponse *NodeInfoResponse) 
 
 // ParseUserListResponse parse the response for the given nodeinfo format
 func (c *APIClient) ParseUserListResponse(userInfoResponse *[]UserResponse) (*[]api.UserInfo, error) {
-	var deviceLimit = 0
+	var deviceLimit int = 0
 	var speedlimit uint64 = 0
 	userList := make([]api.UserInfo, len(*userInfoResponse))
 	for i, user := range *userInfoResponse {

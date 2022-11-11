@@ -14,7 +14,7 @@ var defaultPath string
 func New(certConf *CertConfig) (*LegoCMD, error) {
 	// Set default path to configPath/cert
 	var p = ""
-	configPath := os.Getenv("V2RAY_LOCATION_CONFIG")
+	configPath := os.Getenv("XRAY_LOCATION_CONFIG")
 	if configPath != "" {
 		p = configPath
 	} else if cwd, err := os.Getwd(); err == nil {

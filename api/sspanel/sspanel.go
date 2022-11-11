@@ -21,7 +21,7 @@ import (
 var (
 	firstPortRe  = regexp.MustCompile(`(?m)port=(?P<outport>\d+)#?`) // First Port
 	secondPortRe = regexp.MustCompile(`(?m)port=\d+#(\d+)`)          // Second Port
-	hostRe       = regexp.MustCompile(`(?m)host=([\w.]+)\|?`)        // Host
+	hostRe       = regexp.MustCompile(`(?m)host=([\w\.]+)\|?`)       // Host
 )
 
 // APIClient create a api client to the panel.
@@ -677,7 +677,7 @@ func (c *APIClient) ParseUserListResponse(userInfoResponse *[]UserResponse) (*[]
 		c.access.Unlock()
 	}()
 
-	var deviceLimit, localDeviceLimit = 0, 0
+	var deviceLimit, localDeviceLimit int = 0, 0
 	var speedlimit uint64 = 0
 	var userList []api.UserInfo
 	for _, user := range *userInfoResponse {

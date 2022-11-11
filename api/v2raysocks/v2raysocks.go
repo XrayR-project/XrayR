@@ -213,16 +213,16 @@ func (c *APIClient) GetUserList() (UserList *[]api.UserInfo, err error) {
 			user.Email = response.Get("data").GetIndex(i).Get("shadowsocks_user").Get("secret").MustString()
 			user.Passwd = response.Get("data").GetIndex(i).Get("shadowsocks_user").Get("secret").MustString()
 			user.Method = response.Get("data").GetIndex(i).Get("shadowsocks_user").Get("cipher").MustString()
-			user.SpeedLimit = response.Get("data").GetIndex(i).Get("shadowsocks_user").Get("speed_limit").MustUint64() * 1000000 / 8
+			user.SpeedLimit = uint64(response.Get("data").GetIndex(i).Get("shadowsocks_user").Get("speed_limit").MustUint64() * 1000000 / 8)
 		case "Trojan":
 			user.UUID = response.Get("data").GetIndex(i).Get("trojan_user").Get("password").MustString()
 			user.Email = response.Get("data").GetIndex(i).Get("trojan_user").Get("password").MustString()
-			user.SpeedLimit = response.Get("data").GetIndex(i).Get("trojan_user").Get("speed_limit").MustUint64() * 1000000 / 8
+			user.SpeedLimit = uint64(response.Get("data").GetIndex(i).Get("trojan_user").Get("speed_limit").MustUint64() * 1000000 / 8)
 		case "V2ray":
 			user.UUID = response.Get("data").GetIndex(i).Get("v2ray_user").Get("uuid").MustString()
 			user.Email = response.Get("data").GetIndex(i).Get("v2ray_user").Get("email").MustString()
 			user.AlterID = uint16(response.Get("data").GetIndex(i).Get("v2ray_user").Get("alter_id").MustUint64())
-			user.SpeedLimit = response.Get("data").GetIndex(i).Get("v2ray_user").Get("speed_limit").MustUint64() * 1000000 / 8
+			user.SpeedLimit = uint64(response.Get("data").GetIndex(i).Get("v2ray_user").Get("speed_limit").MustUint64() * 1000000 / 8)
 		}
 		if c.SpeedLimit > 0 {
 			user.SpeedLimit = uint64((c.SpeedLimit * 1000000) / 8)
@@ -354,7 +354,7 @@ func (c *APIClient) ParseSSNodeResponse(nodeInfoResponse *simplejson.Json) (*api
 
 // ParseV2rayNodeResponse parse the response for the given nodeinfor format
 func (c *APIClient) ParseV2rayNodeResponse(nodeInfoResponse *simplejson.Json) (*api.NodeInfo, error) {
-	var TLSType = "tls"
+	var TLSType string = "tls"
 	var path, host, serviceName string
 	var header json.RawMessage
 	var enableTLS bool

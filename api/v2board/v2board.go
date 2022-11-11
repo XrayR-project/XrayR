@@ -354,7 +354,7 @@ func (c *APIClient) ParseSSNodeResponse() (*api.NodeInfo, error) {
 
 // ParseV2rayNodeResponse parse the response for the given nodeinfor format
 func (c *APIClient) ParseV2rayNodeResponse(nodeInfoResponse *simplejson.Json) (*api.NodeInfo, error) {
-	var TLSType = "tls"
+	var TLSType string = "tls"
 	var path, host, serviceName string
 	var header json.RawMessage
 	var enableTLS bool
