@@ -60,6 +60,7 @@ func obtainCertificate(domains []string, client *lego.Client) (*certificate.Reso
 		// obtain a certificate, generating a new private key
 		request := certificate.ObtainRequest{
 			Domains: domains,
+			Bundle:  true,
 		}
 		return client.Certificate.Obtain(request)
 	}
