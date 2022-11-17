@@ -197,12 +197,13 @@ func InboundBuilder(config *Config, nodeInfo *api.NodeInfo, tag string) (*core.I
 }
 
 func getCertFile(certConfig *mylego.CertConfig) (certFile string, keyFile string, err error) {
-	if certConfig.CertMode == "file" {
+	switch certConfig.CertMode {
+	case "file":
 		if certConfig.CertFile == "" || certConfig.KeyFile == "" {
 			return "", "", fmt.Errorf("cert file path or key file path not exist")
 		}
 		return certConfig.CertFile, certConfig.KeyFile, nil
-	} else if certConfig.CertMode == "dns" {
+	case "dns":
 		lego, err := mylego.New(certConfig)
 		if err != nil {
 			return "", "", err
@@ -212,7 +213,7 @@ func getCertFile(certConfig *mylego.CertConfig) (certFile string, keyFile string
 			return "", "", err
 		}
 		return certPath, keyPath, err
-	} else if certConfig.CertMode == "http" {
+	case "http", "tls":
 		lego, err := mylego.New(certConfig)
 		if err != nil {
 			return "", "", err
@@ -222,9 +223,9 @@ func getCertFile(certConfig *mylego.CertConfig) (certFile string, keyFile string
 			return "", "", err
 		}
 		return certPath, keyPath, err
+	default:
+		return "", "", fmt.Errorf("unsupported certmode: %s", certConfig.CertMode)
 	}
-
-	return "", "", fmt.Errorf("unsupported certmode: %s", certConfig.CertMode)
 }
 
 func buildVlessFallbacks(fallbackConfigs []*FallBackConfig) ([]*conf.VLessInboundFallback, error) {

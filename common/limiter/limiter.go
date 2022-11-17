@@ -1,10 +1,10 @@
-// Package limiter is to control the links that go into the dispather
+// Package limiter is to control the links that go into the dispatcher
 package limiter
 
 import (
 	"context"
 	"fmt"
-	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -160,7 +160,7 @@ func (l *Limiter) GetUserBucket(tag string, email string, ip string) (limiter *r
 		if l.g.limit > 0 {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second*time.Duration(l.g.timeout))
 			defer cancel()
-			uidString := strconv.Itoa(uid)
+			uidString := email[strings.Index(email, "|")+1:]
 			// If any device is online
 			if exists, err := l.r.Exists(ctx, uidString).Result(); err != nil {
 				newError(fmt.Sprintf("Redis: %v", err)).AtError().WriteToLog()

@@ -63,12 +63,12 @@ func createNonExistingFolder(path string) error {
 func setupChallenges(l *LegoCMD, client *lego.Client) {
 	switch l.C.CertMode {
 	case "http":
-		err := client.Challenge.SetHTTP01Provider(http01.NewProviderServer("", "5001"))
+		err := client.Challenge.SetHTTP01Provider(http01.NewProviderServer("", ""))
 		if err != nil {
 			log.Panic(err)
 		}
 	case "tls":
-		err := client.Challenge.SetTLSALPN01Provider(tlsalpn01.NewProviderServer("", "5002"))
+		err := client.Challenge.SetTLSALPN01Provider(tlsalpn01.NewProviderServer("", ""))
 		if err != nil {
 			log.Panic(err)
 		}
