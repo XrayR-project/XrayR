@@ -4,6 +4,7 @@ package limiter
 import (
 	"context"
 	"fmt"
+	"log"
 	"strings"
 	"sync"
 	"time"
@@ -47,6 +48,7 @@ func New() *Limiter {
 func (l *Limiter) AddInboundLimiter(tag string, nodeSpeedLimit uint64, userList *[]api.UserInfo, globalDeviceLimit *GlobalDeviceLimitConfig) error {
 	// global limit
 	if globalDeviceLimit.Limit > 0 {
+		log.Printf("[%s] GlobalDeviceLimit limit: %d", tag, globalDeviceLimit.Limit)
 		l.r = redis.NewClient(&redis.Options{
 			Addr:     globalDeviceLimit.RedisAddr,
 			Password: globalDeviceLimit.RedisPassword,
@@ -100,7 +102,7 @@ func (l *Limiter) UpdateInboundLimiter(tag string, updatedUserList *[]api.UserIn
 			}
 		}
 	} else {
-		return fmt.Errorf("no such inbound in limiter: %s", tag)
+		return newError("no such inbound in limiter: %s", tag).AtError()
 	}
 	return nil
 }
@@ -135,7 +137,7 @@ func (l *Limiter) GetOnlineDevice(tag string) (*[]api.OnlineUser, error) {
 			return true
 		})
 	} else {
-		return nil, fmt.Errorf("no such inbound in limiter: %s", tag)
+		return nil, newError("no such inbound in limiter: %s", tag).AtError()
 	}
 	return &onlineUser, nil
 }
