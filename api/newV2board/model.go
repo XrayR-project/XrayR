@@ -1,5 +1,4 @@
-// Deprecated: after 2023.6.1
-package v2board
+package newV2board
 
 type UserTraffic struct {
 	UID      int   `json:"user_id"`

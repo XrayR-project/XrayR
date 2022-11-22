@@ -37,6 +37,7 @@ type Controller struct {
 	userList                *[]api.UserInfo
 	nodeInfoMonitorPeriodic *task.Periodic
 	userReportPeriodic      *task.Periodic
+	renewCertPeriodic       *task.Periodic
 	limitedUsers            map[api.UserInfo]LimitInfo
 	warnedUsers             map[api.UserInfo]int
 	panelType               string
@@ -118,6 +119,10 @@ func (c *Controller) Start() error {
 		Interval: time.Duration(c.config.UpdatePeriodic) * time.Second,
 		Execute:  c.userInfoMonitor,
 	}
+	c.renewCertPeriodic = &task.Periodic{
+		Interval: time.Duration(c.config.UpdatePeriodic) * time.Second * 60,
+		Execute:  c.certMonitor,
+	}
 	if c.config.AutoSpeedLimitConfig == nil {
 		c.config.AutoSpeedLimitConfig = &AutoSpeedLimitConfig{0, 0, 0, 0}
 	}
@@ -127,12 +132,16 @@ func (c *Controller) Start() error {
 	}
 
 	// start nodeInfoMonitor
-	log.Printf("[%s: %d] Start monitor node status", c.nodeInfo.NodeType, c.nodeInfo.NodeID)
+	log.Printf("%s Start monitor node status", c.logPrefix())
 	go c.nodeInfoMonitorPeriodic.Start()
 
 	// start userReport
-	log.Printf("[%s: %d] Start report node status", c.nodeInfo.NodeType, c.nodeInfo.NodeID)
+	log.Printf("%s Start report user status", c.logPrefix())
 	go c.userReportPeriodic.Start()
+
+	// start cert monitor
+	log.Printf("%s Start monitor cert status", c.logPrefix())
+	go c.renewCertPeriodic.Start()
 
 	return nil
 }
@@ -142,14 +151,21 @@ func (c *Controller) Close() error {
 	if c.nodeInfoMonitorPeriodic != nil {
 		err := c.nodeInfoMonitorPeriodic.Close()
 		if err != nil {
-			log.Panicf("node info periodic close failed: %s", err)
+			log.Panicf("%s node info periodic close failed: %s", c.logPrefix(), err)
 		}
 	}
 
 	if c.nodeInfoMonitorPeriodic != nil {
 		err := c.userReportPeriodic.Close()
 		if err != nil {
-			log.Panicf("user report periodic close failed: %s", err)
+			log.Panicf("%s user report periodic close failed: %s", c.logPrefix(), err)
+		}
+	}
+
+	if c.renewCertPeriodic != nil {
+		err := c.renewCertPeriodic.Close()
+		if err != nil {
+			log.Panicf("%s renew cert periodic close failed: %s", c.logPrefix(), err)
 		}
 	}
 	return nil
@@ -169,10 +185,16 @@ func (c *Controller) nodeInfoMonitor() (err error) {
 	}
 
 	// Update User
+	var usersChanged = true
 	newUserInfo, err := c.apiClient.GetUserList()
 	if err != nil {
-		log.Print(err)
-		return nil
+		if err.Error() == "users no change" {
+			usersChanged = false
+			newUserInfo = c.userList
+		} else {
+			log.Print(err)
+			return nil
+		}
 	}
 
 	var nodeInfoChanged = false
@@ -219,19 +241,6 @@ func (c *Controller) nodeInfoMonitor() (err error) {
 		}
 	}
 
-	// Check Cert
-	if c.nodeInfo.EnableTLS && (c.config.CertConfig.CertMode == "dns" || c.config.CertConfig.CertMode == "http") {
-		lego, err := mylego.New(c.config.CertConfig)
-		if err != nil {
-			log.Print(err)
-		}
-		// Xray-core supports the OcspStapling certification hot renew
-		_, _, _, err = lego.RenewCert()
-		if err != nil {
-			log.Print(err)
-		}
-	}
-
 	if nodeInfoChanged {
 		err = c.addNewUser(newUserInfo, newNodeInfo)
 		if err != nil {
@@ -244,28 +253,31 @@ func (c *Controller) nodeInfoMonitor() (err error) {
 			return nil
 		}
 	} else {
-		deleted, added := compareUserList(c.userList, newUserInfo)
-		if len(deleted) > 0 {
-			deletedEmail := make([]string, len(deleted))
-			for i, u := range deleted {
-				deletedEmail[i] = fmt.Sprintf("%s|%s|%d", c.Tag, u.Email, u.UID)
+		var deleted, added []api.UserInfo
+		if usersChanged {
+			deleted, added = compareUserList(c.userList, newUserInfo)
+			if len(deleted) > 0 {
+				deletedEmail := make([]string, len(deleted))
+				for i, u := range deleted {
+					deletedEmail[i] = fmt.Sprintf("%s|%s|%d", c.Tag, u.Email, u.UID)
+				}
+				err := c.removeUsers(deletedEmail, c.Tag)
+				if err != nil {
+					log.Print(err)
+				}
 			}
-			err := c.removeUsers(deletedEmail, c.Tag)
-			if err != nil {
-				log.Print(err)
+			if len(added) > 0 {
+				err = c.addNewUser(&added, c.nodeInfo)
+				if err != nil {
+					log.Print(err)
+				}
+				// Update Limiter
+				if err := c.UpdateInboundLimiter(c.Tag, &added); err != nil {
+					log.Print(err)
+				}
 			}
 		}
-		if len(added) > 0 {
-			err = c.addNewUser(&added, c.nodeInfo)
-			if err != nil {
-				log.Print(err)
-			}
-			// Update Limiter
-			if err := c.UpdateInboundLimiter(c.Tag, &added); err != nil {
-				log.Print(err)
-			}
-		}
-		log.Printf("[%s: %d] %d user deleted, %d user added", c.nodeInfo.NodeType, c.nodeInfo.NodeID, len(deleted), len(added))
+		log.Printf("%s %d user deleted, %d user added", c.logPrefix(), len(deleted), len(added))
 	}
 	c.userList = newUserInfo
 	return nil
@@ -365,7 +377,8 @@ func (c *Controller) addInboundForSSPlugin(newNodeInfo api.NodeInfo) (err error)
 
 func (c *Controller) addNewUser(userInfo *[]api.UserInfo, nodeInfo *api.NodeInfo) (err error) {
 	users := make([]*protocol.User, 0)
-	if nodeInfo.NodeType == "V2ray" {
+	switch nodeInfo.NodeType {
+	case "V2ray":
 		if nodeInfo.EnableVless {
 			users = c.buildVlessUser(userInfo)
 		} else {
@@ -378,20 +391,21 @@ func (c *Controller) addNewUser(userInfo *[]api.UserInfo, nodeInfo *api.NodeInfo
 			}
 			users = c.buildVmessUser(userInfo, alterID)
 		}
-	} else if nodeInfo.NodeType == "Trojan" {
+	case "Trojan":
 		users = c.buildTrojanUser(userInfo)
-	} else if nodeInfo.NodeType == "Shadowsocks" {
+	case "Shadowsocks":
 		users = c.buildSSUser(userInfo, nodeInfo.CypherMethod)
-	} else if nodeInfo.NodeType == "Shadowsocks-Plugin" {
+	case "Shadowsocks-Plugin":
 		users = c.buildSSPluginUser(userInfo)
-	} else {
+	default:
 		return fmt.Errorf("unsupported node type: %s", nodeInfo.NodeType)
 	}
+
 	err = c.addUsers(users, c.Tag)
 	if err != nil {
 		return err
 	}
-	log.Printf("[%s: %d] Added %d new users", c.nodeInfo.NodeType, c.nodeInfo.NodeID, len(*userInfo))
+	log.Printf("%s Added %d new users", c.logPrefix(), len(*userInfo))
 	return nil
 }
 
@@ -467,7 +481,7 @@ func (c *Controller) userInfoMonitor() (err error) {
 	}
 	// Unlock users
 	if c.config.AutoSpeedLimitConfig.Limit > 0 && len(c.limitedUsers) > 0 {
-		log.Printf("Limited users:")
+		log.Printf("%s Limited users:", c.logPrefix())
 		toReleaseUsers := make([]api.UserInfo, 0)
 		for user, limitInfo := range c.limitedUsers {
 			if time.Now().Unix() > limitInfo.end {
@@ -555,7 +569,7 @@ func (c *Controller) userInfoMonitor() (err error) {
 		if err = c.apiClient.ReportNodeOnlineUsers(onlineDevice); err != nil {
 			log.Print(err)
 		} else {
-			log.Printf("[%s: %d] Report %d online users", c.nodeInfo.NodeType, c.nodeInfo.NodeID, len(*onlineDevice))
+			log.Printf("%s Report %d online users", c.logPrefix(), len(*onlineDevice))
 		}
 	}
 	// Report Illegal user
@@ -565,7 +579,7 @@ func (c *Controller) userInfoMonitor() (err error) {
 		if err = c.apiClient.ReportIllegal(detectResult); err != nil {
 			log.Print(err)
 		} else {
-			log.Printf("[%s: %d] Report %d illegal behaviors", c.nodeInfo.NodeType, c.nodeInfo.NodeID, len(*detectResult))
+			log.Printf("%s Report %d illegal behaviors", c.logPrefix(), len(*detectResult))
 		}
 
 	}
@@ -574,4 +588,27 @@ func (c *Controller) userInfoMonitor() (err error) {
 
 func (c *Controller) buildNodeTag() string {
 	return fmt.Sprintf("%s_%s_%d", c.nodeInfo.NodeType, c.config.ListenIP, c.nodeInfo.Port)
+}
+
+func (c *Controller) logPrefix() string {
+	return fmt.Sprintf("[%s] %s(ID=%d)", c.clientInfo.APIHost, c.nodeInfo.NodeType, c.nodeInfo.NodeID)
+}
+
+// Check Cert
+func (c *Controller) certMonitor() error {
+	if c.nodeInfo.EnableTLS {
+		switch c.config.CertConfig.CertMode {
+		case "dns", "http", "tls":
+			lego, err := mylego.New(c.config.CertConfig)
+			if err != nil {
+				log.Print(err)
+			}
+			// Xray-core supports the OcspStapling certification hot renew
+			_, _, _, err = lego.RenewCert()
+			if err != nil {
+				log.Print(err)
+			}
+		}
+	}
+	return nil
 }
