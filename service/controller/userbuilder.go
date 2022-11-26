@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/sagernet/sing-shadowsocks/shadowaead_2022"
+	C "github.com/sagernet/sing/common"
 	"github.com/xtls/xray-core/common/protocol"
 	"github.com/xtls/xray-core/common/serial"
 	"github.com/xtls/xray-core/infra/conf"
@@ -14,7 +16,12 @@ import (
 	"github.com/XrayR-project/XrayR/api"
 )
 
-var AEADMethod = []shadowsocks.CipherType{shadowsocks.CipherType_AES_128_GCM, shadowsocks.CipherType_AES_256_GCM, shadowsocks.CipherType_CHACHA20_POLY1305, shadowsocks.CipherType_XCHACHA20_POLY1305}
+var AEADMethod = map[shadowsocks.CipherType]uint8{
+	shadowsocks.CipherType_AES_128_GCM:        0,
+	shadowsocks.CipherType_AES_256_GCM:        0,
+	shadowsocks.CipherType_CHACHA20_POLY1305:  0,
+	shadowsocks.CipherType_XCHACHA20_POLY1305: 0,
+}
 
 func (c *Controller) buildVmessUser(userInfo *[]api.UserInfo, serverAlterID uint16) (users []*protocol.User) {
 	users = make([]*protocol.User, len(*userInfo))
@@ -66,43 +73,59 @@ func (c *Controller) buildTrojanUser(userInfo *[]api.UserInfo) (users []*protoco
 }
 
 func (c *Controller) buildSSUser(userInfo *[]api.UserInfo, method string) (users []*protocol.User) {
-	users = make([]*protocol.User, 0)
+	users = make([]*protocol.User, len(*userInfo))
 
-	cypherMethod := cipherFromString(method)
-	for _, user := range *userInfo {
-		ssAccount := &shadowsocks.Account{
-			Password:   user.Passwd,
-			CipherType: cypherMethod,
+	for i, user := range *userInfo {
+		// todo waiting xray-core complete proxy.UserManager in shadowsocks2022
+		if C.Contains(shadowaead_2022.List, strings.ToLower(method)) {
+			users[i] = &protocol.User{
+				Level: 0,
+				Email: c.buildUserTag(&user),
+				Account: serial.ToTypedMessage(&shadowsocks.Account{
+					Password: user.Passwd,
+				}),
+			}
+		} else {
+			users[i] = &protocol.User{
+				Level: 0,
+				Email: c.buildUserTag(&user),
+				Account: serial.ToTypedMessage(&shadowsocks.Account{
+					Password:   user.Passwd,
+					CipherType: cipherFromString(method),
+				}),
+			}
 		}
-		users = append(users, &protocol.User{
-			Level:   0,
-			Email:   c.buildUserTag(&user),
-			Account: serial.ToTypedMessage(ssAccount),
-		})
 	}
 	return users
 }
 
 func (c *Controller) buildSSPluginUser(userInfo *[]api.UserInfo) (users []*protocol.User) {
-	users = make([]*protocol.User, 0)
+	users = make([]*protocol.User, len(*userInfo))
 
-	for _, user := range *userInfo {
-		// Check if the cypher method is AEAD
-		cypherMethod := cipherFromString(user.Method)
-		for _, aeadMethod := range AEADMethod {
-			if aeadMethod == cypherMethod {
-				ssAccount := &shadowsocks.Account{
-					Password:   user.Passwd,
-					CipherType: cypherMethod,
+	for i, user := range *userInfo {
+		// todo waiting xray-core complete proxy.UserManager in shadowsocks2022
+		if C.Contains(shadowaead_2022.List, strings.ToLower(user.Method)) {
+			users[i] = &protocol.User{
+				Level: 0,
+				Email: c.buildUserTag(&user),
+				Account: serial.ToTypedMessage(&shadowsocks.Account{
+					Password: user.Passwd,
+				}),
+			}
+		} else {
+			// Check if the cypher method is AEAD
+			cypherMethod := cipherFromString(user.Method)
+			if _, ok := AEADMethod[cypherMethod]; ok {
+				users[i] = &protocol.User{
+					Level: 0,
+					Email: c.buildUserTag(&user),
+					Account: serial.ToTypedMessage(&shadowsocks.Account{
+						Password:   user.Passwd,
+						CipherType: cypherMethod,
+					}),
 				}
-				users = append(users, &protocol.User{
-					Level:   0,
-					Email:   c.buildUserTag(&user),
-					Account: serial.ToTypedMessage(ssAccount),
-				})
 			}
 		}
-
 	}
 	return users
 }

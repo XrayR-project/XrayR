@@ -108,7 +108,7 @@ func (l *Limiter) UpdateInboundLimiter(tag string, updatedUserList *[]api.UserIn
 			}
 		}
 	} else {
-		return newError("no such inbound in limiter: %s", tag).AtError()
+		return fmt.Errorf("no such inbound in limiter: %s", tag)
 	}
 	return nil
 }
@@ -143,7 +143,7 @@ func (l *Limiter) GetOnlineDevice(tag string) (*[]api.OnlineUser, error) {
 			return true
 		})
 	} else {
-		return nil, newError("no such inbound in limiter: %s", tag).AtError()
+		return nil, fmt.Errorf("no such inbound in limiter: %s", tag)
 	}
 	return &onlineUser, nil
 }

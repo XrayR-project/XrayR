@@ -14,7 +14,7 @@ ConnectionConfig:
   BufferSize: 64 # The internal cache size of each connection, kB 
 Nodes:
   -
-    PanelType: "SSpanel" # Panel type: SSpanel, V2board, PMpanel, Proxypanel, V2RaySocks
+    PanelType: "SSpanel" # Panel type: SSpanel, V2board, NewV2board, PMpanel, Proxypanel, V2RaySocks
     ApiConfig:
       ApiHost: "http://127.0.0.1:667"
       ApiKey: "123"
@@ -64,7 +64,7 @@ Nodes:
           ALICLOUD_ACCESS_KEY: aaa
           ALICLOUD_SECRET_KEY: bbb
   # -
-  #   PanelType: "V2board" # Panel type: SSpanel, V2board
+  #   PanelType: "NewV2board" # Panel type: SSpanel, V2board, NewV2board, PMpanel, Proxypanel, V2RaySocks
   #   ApiConfig:
   #     ApiHost: "http://127.0.0.1:668"
   #     ApiKey: "123"

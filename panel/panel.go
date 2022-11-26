@@ -6,6 +6,7 @@ import (
 	"os"
 	"sync"
 
+	"github.com/XrayR-project/XrayR/api/newV2board"
 	"github.com/XrayR-project/XrayR/app/mydispatcher"
 
 	"github.com/imdario/mergo"
@@ -168,8 +169,11 @@ func (p *Panel) Start() {
 		switch nodeConfig.PanelType {
 		case "SSpanel":
 			apiClient = sspanel.New(nodeConfig.ApiConfig)
+		// todo Deprecated after 2023.6.1
 		case "V2board":
 			apiClient = v2board.New(nodeConfig.ApiConfig)
+		case "NewV2board":
+			apiClient = newV2board.New(nodeConfig.ApiConfig)
 		case "PMpanel":
 			apiClient = pmpanel.New(nodeConfig.ApiConfig)
 		case "Proxypanel":

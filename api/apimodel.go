@@ -42,6 +42,7 @@ type NodeInfo struct {
 	TLSType           string
 	EnableVless       bool
 	CypherMethod      string
+	ServerKey         string
 	ServiceName       string
 	Header            json.RawMessage
 }

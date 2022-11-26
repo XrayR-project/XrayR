@@ -1,3 +1,4 @@
+// Deprecated: after 2023.6.1
 package v2board
 
 type UserTraffic struct {

@@ -11,6 +11,8 @@ require (
 	github.com/go-resty/resty/v2 v2.7.0
 	github.com/imdario/mergo v0.3.13
 	github.com/r3labs/diff/v2 v2.15.1
+	github.com/sagernet/sing v0.0.0-20220801112236-1bb95f9661fc
+	github.com/sagernet/sing-shadowsocks v0.0.0-20220801112336-a91eacdd01e1
 	github.com/shirou/gopsutil/v3 v3.22.10
 	github.com/spf13/viper v1.14.0
 	github.com/stretchr/testify v1.8.1
@@ -129,8 +131,6 @@ require (
 	github.com/sacloud/go-http v0.1.2 // indirect
 	github.com/sacloud/iaas-api-go v1.3.2 // indirect
 	github.com/sacloud/packages-go v0.0.5 // indirect
-	github.com/sagernet/sing v0.0.0-20220801112236-1bb95f9661fc // indirect
-	github.com/sagernet/sing-shadowsocks v0.0.0-20220801112336-a91eacdd01e1 // indirect
 	github.com/scaleway/scaleway-sdk-go v1.0.0-beta.9 // indirect
 	github.com/seiflotfy/cuckoofilter v0.0.0-20220411075957-e3b120b3f5fb // indirect
 	github.com/sirupsen/logrus v1.8.1 // indirect
