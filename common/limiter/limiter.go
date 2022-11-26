@@ -56,9 +56,12 @@ func (l *Limiter) AddInboundLimiter(tag string, nodeSpeedLimit uint64, userList 
 		l.g.limit = globalDeviceLimit.Limit
 		l.g.timeout = globalDeviceLimit.Timeout
 		l.g.expiry = globalDeviceLimit.Expiry
-		_, err := l.r.Ping(context.Background()).Result()
+
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*time.Duration(l.g.timeout))
+		defer cancel()
+		_, err := l.r.Ping(ctx).Result()
 		if err != nil {
-			return fmt.Errorf("redis connect failed: %v", err)
+			return fmt.Errorf("Redis connect failed: %v", err)
 		} else {
 			log.Printf("[%s] Redis connect success", tag)
 			log.Printf("[%s] GlobalDeviceLimit : %d", tag, globalDeviceLimit.Limit)
