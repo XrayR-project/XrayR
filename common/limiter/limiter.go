@@ -48,7 +48,6 @@ func New() *Limiter {
 func (l *Limiter) AddInboundLimiter(tag string, nodeSpeedLimit uint64, userList *[]api.UserInfo, globalDeviceLimit *GlobalDeviceLimitConfig) error {
 	// global limit
 	if globalDeviceLimit.Limit > 0 {
-		log.Printf("[%s] GlobalDeviceLimit limit: %d", tag, globalDeviceLimit.Limit)
 		l.r = redis.NewClient(&redis.Options{
 			Addr:     globalDeviceLimit.RedisAddr,
 			Password: globalDeviceLimit.RedisPassword,
@@ -57,6 +56,13 @@ func (l *Limiter) AddInboundLimiter(tag string, nodeSpeedLimit uint64, userList 
 		l.g.limit = globalDeviceLimit.Limit
 		l.g.timeout = globalDeviceLimit.Timeout
 		l.g.expiry = globalDeviceLimit.Expiry
+		_, err := l.r.Ping(context.Background()).Result()
+		if err != nil {
+			return fmt.Errorf("redis connect failed: %v", err)
+		} else {
+			log.Printf("[%s] Redis connect success", tag)
+			log.Printf("[%s] GlobalDeviceLimit : %d", tag, globalDeviceLimit.Limit)
+		}
 	}
 
 	inboundInfo := &InboundInfo{
