@@ -1,11 +1,15 @@
 package controller
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"reflect"
+	"strconv"
+	"sync"
 	"time"
 
+	"github.com/go-redis/redis/v8"
 	"github.com/xtls/xray-core/common/protocol"
 	"github.com/xtls/xray-core/common/task"
 	"github.com/xtls/xray-core/core"
@@ -28,24 +32,28 @@ type LimitInfo struct {
 }
 
 type Controller struct {
-	server                  *core.Instance
-	config                  *Config
-	clientInfo              api.ClientInfo
-	apiClient               api.API
-	nodeInfo                *api.NodeInfo
-	Tag                     string
-	userList                *[]api.UserInfo
-	nodeInfoMonitorPeriodic *task.Periodic
-	userReportPeriodic      *task.Periodic
-	renewCertPeriodic       *task.Periodic
-	limitedUsers            map[api.UserInfo]LimitInfo
-	warnedUsers             map[api.UserInfo]int
-	panelType               string
-	ihm                     inbound.Manager
-	ohm                     outbound.Manager
-	stm                     stats.Manager
-	dispatcher              *mydispatcher.DefaultDispatcher
-	startAt                 time.Time
+	server       *core.Instance
+	config       *Config
+	clientInfo   api.ClientInfo
+	apiClient    api.API
+	nodeInfo     *api.NodeInfo
+	Tag          string
+	userList     *[]api.UserInfo
+	tasks        []periodicTask
+	limitedUsers map[api.UserInfo]LimitInfo
+	warnedUsers  map[api.UserInfo]int
+	panelType    string
+	ihm          inbound.Manager
+	ohm          outbound.Manager
+	stm          stats.Manager
+	dispatcher   *mydispatcher.DefaultDispatcher
+	startAt      time.Time
+	r            *redis.Client
+}
+
+type periodicTask struct {
+	tag string
+	*task.Periodic
 }
 
 // New return a Controller service with default parameters.
@@ -61,6 +69,16 @@ func New(server *core.Instance, api api.API, config *Config, panelType string) *
 		dispatcher: server.GetFeature(routing.DispatcherType()).(*mydispatcher.DefaultDispatcher),
 		startAt:    time.Now(),
 	}
+
+	// Init global limit redis client
+	if config.GlobalDeviceLimitConfig.Enable {
+		controller.r = redis.NewClient(&redis.Options{
+			Addr:     config.GlobalDeviceLimitConfig.RedisAddr,
+			Password: config.GlobalDeviceLimitConfig.RedisPassword,
+			DB:       config.GlobalDeviceLimitConfig.RedisDB,
+		})
+	}
+
 	return controller
 }
 
@@ -93,10 +111,6 @@ func (c *Controller) Start() error {
 	// sync controller userList
 	c.userList = userInfo
 
-	// Init global device limit
-	if c.config.GlobalDeviceLimitConfig == nil {
-		c.config.GlobalDeviceLimitConfig = &limiter.GlobalDeviceLimitConfig{Limit: 0}
-	}
 	// Add Limiter
 	if err := c.AddInboundLimiter(c.Tag, newNodeInfo.SpeedLimit, userInfo, c.config.GlobalDeviceLimitConfig); err != nil {
 		log.Print(err)
@@ -111,18 +125,8 @@ func (c *Controller) Start() error {
 			}
 		}
 	}
-	c.nodeInfoMonitorPeriodic = &task.Periodic{
-		Interval: time.Duration(c.config.UpdatePeriodic) * time.Second,
-		Execute:  c.nodeInfoMonitor,
-	}
-	c.userReportPeriodic = &task.Periodic{
-		Interval: time.Duration(c.config.UpdatePeriodic) * time.Second,
-		Execute:  c.userInfoMonitor,
-	}
-	c.renewCertPeriodic = &task.Periodic{
-		Interval: time.Duration(c.config.UpdatePeriodic) * time.Second * 60,
-		Execute:  c.certMonitor,
-	}
+
+	// Init AutoSpeedLimitConfig
 	if c.config.AutoSpeedLimitConfig == nil {
 		c.config.AutoSpeedLimitConfig = &AutoSpeedLimitConfig{0, 0, 0, 0}
 	}
@@ -131,43 +135,59 @@ func (c *Controller) Start() error {
 		c.warnedUsers = make(map[api.UserInfo]int)
 	}
 
-	// start nodeInfoMonitor
-	log.Printf("%s Start monitor node status", c.logPrefix())
-	go c.nodeInfoMonitorPeriodic.Start()
+	// Add periodic tasks
+	c.tasks = append(c.tasks,
+		periodicTask{
+			tag: "node",
+			Periodic: &task.Periodic{
+				Interval: time.Duration(c.config.UpdatePeriodic) * time.Second,
+				Execute:  c.nodeInfoMonitor,
+			}},
+		periodicTask{
+			tag: "user",
+			Periodic: &task.Periodic{
+				Interval: time.Duration(c.config.UpdatePeriodic) * time.Second,
+				Execute:  c.userInfoMonitor,
+			}},
+	)
+	if c.nodeInfo.NodeType != "Shadowsocks" {
+		c.tasks = append(c.tasks, periodicTask{
+			tag: "cert",
+			Periodic: &task.Periodic{
+				Interval: time.Duration(c.config.UpdatePeriodic) * time.Second * 60,
+				Execute:  c.certMonitor,
+			}})
+	}
+	if c.config.GlobalDeviceLimitConfig.Enable {
+		c.tasks = append(c.tasks,
+			periodicTask{
+				tag: "global limit",
+				Periodic: &task.Periodic{
+					Interval: time.Duration(c.config.UpdatePeriodic) * time.Second,
+					Execute:  c.globalLimitFetch,
+				},
+			})
+	}
 
-	// start userReport
-	log.Printf("%s Start report user status", c.logPrefix())
-	go c.userReportPeriodic.Start()
-
-	// start cert monitor
-	log.Printf("%s Start monitor cert status", c.logPrefix())
-	go c.renewCertPeriodic.Start()
+	// Start periodic tasks
+	for i := range c.tasks {
+		log.Printf("%s Start %s periodic task", c.logPrefix(), c.tasks[i].tag)
+		go c.tasks[i].Start()
+	}
 
 	return nil
 }
 
 // Close implement the Close() function of the service interface
 func (c *Controller) Close() error {
-	if c.nodeInfoMonitorPeriodic != nil {
-		err := c.nodeInfoMonitorPeriodic.Close()
-		if err != nil {
-			log.Panicf("%s node info periodic close failed: %s", c.logPrefix(), err)
+	for i := range c.tasks {
+		if c.tasks[i].Periodic != nil {
+			if err := c.tasks[i].Periodic.Close(); err != nil {
+				log.Panicf("%s %s periodic task close failed: %s", c.logPrefix(), c.tasks[i].tag, err)
+			}
 		}
 	}
 
-	if c.nodeInfoMonitorPeriodic != nil {
-		err := c.userReportPeriodic.Close()
-		if err != nil {
-			log.Panicf("%s user report periodic close failed: %s", c.logPrefix(), err)
-		}
-	}
-
-	if c.renewCertPeriodic != nil {
-		err := c.renewCertPeriodic.Close()
-		if err != nil {
-			log.Panicf("%s renew cert periodic close failed: %s", c.logPrefix(), err)
-		}
-	}
 	return nil
 }
 
@@ -572,6 +592,7 @@ func (c *Controller) userInfoMonitor() (err error) {
 			log.Printf("%s Report %d online users", c.logPrefix(), len(*onlineDevice))
 		}
 	}
+
 	// Report Illegal user
 	if detectResult, err := c.GetDetectResult(c.Tag); err != nil {
 		log.Print(err)
@@ -610,5 +631,52 @@ func (c *Controller) certMonitor() error {
 			}
 		}
 	}
+	return nil
+}
+
+// Fetch global limit periodically
+func (c *Controller) globalLimitFetch() (err error) {
+	if value, ok := c.dispatcher.Limiter.InboundInfo.Load(c.Tag); ok {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+		defer cancel()
+
+		var (
+			cursor uint64
+			emails []string
+		)
+
+		inboundInfo := value.(*limiter.InboundInfo)
+		for {
+			if emails, cursor, err = c.r.Scan(ctx, cursor, "*", 1000).Result(); err != nil {
+				newError(err).AtError().WriteToLog()
+			}
+			pipe := c.r.Pipeline()
+
+			cmdMap := make(map[string]*redis.StringStringMapCmd)
+			for i := range emails {
+				email := emails[i]
+				cmdMap[email] = pipe.HGetAll(ctx, email)
+			}
+
+			if _, err := pipe.Exec(ctx); err != nil {
+				newError(fmt.Sprintf("Redis: %v", err)).AtError().WriteToLog()
+			} else {
+				for k := range cmdMap {
+					ips := cmdMap[k].Val()
+					for i := range ips {
+						uid, _ := strconv.Atoi(ips[i])
+						ipMap := new(sync.Map)
+						ipMap.Store(i, uid)
+						inboundInfo.UserOnlineIP.LoadOrStore(k, ipMap)
+					}
+				}
+			}
+
+			if cursor == 0 {
+				break
+			}
+		}
+	}
+
 	return nil
 }
