@@ -383,7 +383,7 @@ func (c *Controller) addNewUser(userInfo *[]api.UserInfo, nodeInfo *api.NodeInfo
 			users = c.buildVlessUser(userInfo)
 		} else {
 			var alterID uint16 = 0
-			if (c.panelType == "V2board" || c.panelType == "V2RaySocks") && len(*userInfo) > 0 {
+			if (c.panelType == "V2board" || c.panelType == "V2RaySocks" || c.panelType == "NewV2board") && len(*userInfo) > 0 {
 				// use latest userInfo
 				alterID = (*userInfo)[0].AlterID
 			} else {
