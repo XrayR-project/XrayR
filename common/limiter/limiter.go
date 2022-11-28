@@ -114,7 +114,8 @@ func (l *Limiter) DeleteInboundLimiter(tag string) error {
 }
 
 func (l *Limiter) GetOnlineDevice(tag string) (*[]api.OnlineUser, error) {
-	onlineUser := make([]api.OnlineUser, 0)
+	var onlineUser []api.OnlineUser
+
 	if value, ok := l.InboundInfo.Load(tag); ok {
 		inboundInfo := value.(*InboundInfo)
 		// Clear Speed Limiter bucket for users who are not online
@@ -128,13 +129,11 @@ func (l *Limiter) GetOnlineDevice(tag string) (*[]api.OnlineUser, error) {
 		inboundInfo.UserOnlineIP.Range(func(key, value interface{}) bool {
 			ipMap := value.(*sync.Map)
 			ipMap.Range(func(key, value interface{}) bool {
-				ip := key.(string)
 				uid := value.(int)
+				ip := key.(string)
 				onlineUser = append(onlineUser, api.OnlineUser{UID: uid, IP: ip})
 				return true
 			})
-			email := key.(string)
-			inboundInfo.UserOnlineIP.Delete(email) // Reset online device
 			return true
 		})
 	} else {
@@ -187,8 +186,8 @@ func (l *Limiter) GetUserBucket(tag string, email string, ip string) (limiter *r
 		// If any device is online
 		if v, ok := inboundInfo.UserOnlineIP.LoadOrStore(email, ipMap); ok {
 			ipMap := v.(*sync.Map)
-			// If this ip is a new device
-			if _, ok := ipMap.LoadOrStore(ip, uid); !ok {
+			// If this is a new ip
+			if _, ok := ipMap.LoadOrStore(ip, uid); !ok || l.g.enable {
 				counter := 0
 				ipMap.Range(func(key, value interface{}) bool {
 					counter++

@@ -234,7 +234,7 @@ func (d *DefaultDispatcher) getLink(ctx context.Context, network net.Network, sn
 		// Speed Limit and Device Limit
 		bucket, ok, reject := d.Limiter.GetUserBucket(sessionInbound.Tag, user.Email, sessionInbound.Source.Address.IP().String())
 		if reject {
-			newError("Devices reach the limit: ", user.Email).AtError().WriteToLog()
+			newError("Devices reach the limit: ", user.Email).AtWarning().WriteToLog()
 			common.Close(outboundLink.Writer)
 			common.Close(inboundLink.Writer)
 			common.Interrupt(outboundLink.Reader)

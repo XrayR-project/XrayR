@@ -43,8 +43,8 @@ type Controller struct {
 	limitedUsers map[api.UserInfo]LimitInfo
 	warnedUsers  map[api.UserInfo]int
 	panelType    string
-	ihm          inbound.Manager
-	ohm          outbound.Manager
+	ibm          inbound.Manager
+	obm          outbound.Manager
 	stm          stats.Manager
 	dispatcher   *mydispatcher.DefaultDispatcher
 	startAt      time.Time
@@ -63,8 +63,8 @@ func New(server *core.Instance, api api.API, config *Config, panelType string) *
 		config:     config,
 		apiClient:  api,
 		panelType:  panelType,
-		ihm:        server.GetFeature(inbound.ManagerType()).(inbound.Manager),
-		ohm:        server.GetFeature(outbound.ManagerType()).(outbound.Manager),
+		ibm:        server.GetFeature(inbound.ManagerType()).(inbound.Manager),
+		obm:        server.GetFeature(outbound.ManagerType()).(outbound.Manager),
 		stm:        server.GetFeature(stats.ManagerType()).(stats.Manager),
 		dispatcher: server.GetFeature(routing.DispatcherType()).(*mydispatcher.DefaultDispatcher),
 		startAt:    time.Now(),
@@ -104,17 +104,19 @@ func (c *Controller) Start() error {
 		return err
 	}
 
+	// sync controller userList
+	c.userList = userInfo
+
 	err = c.addNewUser(userInfo, newNodeInfo)
 	if err != nil {
 		return err
 	}
-	// sync controller userList
-	c.userList = userInfo
 
 	// Add Limiter
 	if err := c.AddInboundLimiter(c.Tag, newNodeInfo.SpeedLimit, userInfo, c.config.GlobalDeviceLimitConfig); err != nil {
 		log.Print(err)
 	}
+
 	// Add Rule Manager
 	if !c.config.DisableGetRule {
 		if ruleList, err := c.apiClient.GetNodeRule(); err != nil {
@@ -138,26 +140,30 @@ func (c *Controller) Start() error {
 	// Add periodic tasks
 	c.tasks = append(c.tasks,
 		periodicTask{
-			tag: "node",
+			tag: "node monitor",
 			Periodic: &task.Periodic{
 				Interval: time.Duration(c.config.UpdatePeriodic) * time.Second,
 				Execute:  c.nodeInfoMonitor,
 			}},
 		periodicTask{
-			tag: "user",
+			tag: "user monitor",
 			Periodic: &task.Periodic{
 				Interval: time.Duration(c.config.UpdatePeriodic) * time.Second,
 				Execute:  c.userInfoMonitor,
 			}},
 	)
+
+	// Check cert service in need
 	if c.nodeInfo.NodeType != "Shadowsocks" {
 		c.tasks = append(c.tasks, periodicTask{
-			tag: "cert",
+			tag: "cert monitor",
 			Periodic: &task.Periodic{
 				Interval: time.Duration(c.config.UpdatePeriodic) * time.Second * 60,
 				Execute:  c.certMonitor,
 			}})
 	}
+
+	// Check global limit in need
 	if c.config.GlobalDeviceLimitConfig.Enable {
 		c.tasks = append(c.tasks,
 			periodicTask{
@@ -168,6 +174,16 @@ func (c *Controller) Start() error {
 				},
 			})
 	}
+
+	// Reset online user
+	c.tasks = append(c.tasks,
+		periodicTask{
+			tag: "reset online user",
+			Periodic: &task.Periodic{
+				Interval: time.Duration(c.config.UpdatePeriodic) * time.Second * 15,
+				Execute:  c.resetOnlineUser,
+			},
+		})
 
 	// Start periodic tasks
 	for i := range c.tasks {
@@ -663,9 +679,9 @@ func (c *Controller) globalLimitFetch() (err error) {
 			} else {
 				for k := range cmdMap {
 					ips := cmdMap[k].Val()
+					ipMap := new(sync.Map)
 					for i := range ips {
 						uid, _ := strconv.Atoi(ips[i])
-						ipMap := new(sync.Map)
 						ipMap.Store(i, uid)
 						inboundInfo.UserOnlineIP.LoadOrStore(k, ipMap)
 					}
@@ -676,6 +692,24 @@ func (c *Controller) globalLimitFetch() (err error) {
 				break
 			}
 		}
+	}
+
+	return nil
+}
+
+func (c *Controller) resetOnlineUser() error {
+	// delay to start
+	if time.Since(c.startAt) < time.Duration(c.config.UpdatePeriodic)*time.Second*15 {
+		return nil
+	}
+
+	if value, ok := c.dispatcher.Limiter.InboundInfo.Load(c.Tag); ok {
+		inboundInfo := value.(*limiter.InboundInfo)
+		inboundInfo.UserOnlineIP.Range(func(key, value interface{}) bool {
+			email := key.(string)
+			inboundInfo.UserOnlineIP.Delete(email) // Reset online device
+			return true
+		})
 	}
 
 	return nil
