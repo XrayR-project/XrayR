@@ -16,12 +16,12 @@ import (
 )
 
 func (c *Controller) removeInbound(tag string) error {
-	err := c.ihm.RemoveHandler(context.Background(), tag)
+	err := c.ibm.RemoveHandler(context.Background(), tag)
 	return err
 }
 
 func (c *Controller) removeOutbound(tag string) error {
-	err := c.ohm.RemoveHandler(context.Background(), tag)
+	err := c.obm.RemoveHandler(context.Background(), tag)
 	return err
 }
 
@@ -34,7 +34,7 @@ func (c *Controller) addInbound(config *core.InboundHandlerConfig) error {
 	if !ok {
 		return fmt.Errorf("not an InboundHandler: %s", err)
 	}
-	if err := c.ihm.AddHandler(context.Background(), handler); err != nil {
+	if err := c.ibm.AddHandler(context.Background(), handler); err != nil {
 		return err
 	}
 	return nil
@@ -49,14 +49,14 @@ func (c *Controller) addOutbound(config *core.OutboundHandlerConfig) error {
 	if !ok {
 		return fmt.Errorf("not an InboundHandler: %s", err)
 	}
-	if err := c.ohm.AddHandler(context.Background(), handler); err != nil {
+	if err := c.obm.AddHandler(context.Background(), handler); err != nil {
 		return err
 	}
 	return nil
 }
 
 func (c *Controller) addUsers(users []*protocol.User, tag string) error {
-	handler, err := c.ihm.GetHandler(context.Background(), tag)
+	handler, err := c.ibm.GetHandler(context.Background(), tag)
 	if err != nil {
 		return fmt.Errorf("no such inbound tag: %s", err)
 	}
@@ -83,7 +83,7 @@ func (c *Controller) addUsers(users []*protocol.User, tag string) error {
 }
 
 func (c *Controller) removeUsers(users []string, tag string) error {
-	handler, err := c.ihm.GetHandler(context.Background(), tag)
+	handler, err := c.ibm.GetHandler(context.Background(), tag)
 	if err != nil {
 		return fmt.Errorf("no such inbound tag: %s", err)
 	}
