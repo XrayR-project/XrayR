@@ -48,7 +48,7 @@ type Controller struct {
 	stm          stats.Manager
 	dispatcher   *mydispatcher.DefaultDispatcher
 	startAt      time.Time
-	r            *redis.Client
+	g            *limiter.GlobalDeviceLimitConfig
 }
 
 type periodicTask struct {
@@ -57,7 +57,7 @@ type periodicTask struct {
 }
 
 // New return a Controller service with default parameters.
-func New(server *core.Instance, api api.API, config *Config, panelType string) *Controller {
+func New(server *core.Instance, api api.API, config *Config, panelType string, globalConfig *limiter.GlobalDeviceLimitConfig) *Controller {
 	controller := &Controller{
 		server:     server,
 		config:     config,
@@ -71,12 +71,13 @@ func New(server *core.Instance, api api.API, config *Config, panelType string) *
 	}
 
 	// Init global limit redis client
-	if config.GlobalDeviceLimitConfig.Enable {
-		controller.r = redis.NewClient(&redis.Options{
-			Addr:     config.GlobalDeviceLimitConfig.RedisAddr,
-			Password: config.GlobalDeviceLimitConfig.RedisPassword,
-			DB:       config.GlobalDeviceLimitConfig.RedisDB,
+	if globalConfig.Enable {
+		globalConfig.R = redis.NewClient(&redis.Options{
+			Addr:     globalConfig.RedisAddr,
+			Password: globalConfig.RedisPassword,
+			DB:       globalConfig.RedisDB,
 		})
+		controller.g = globalConfig
 	}
 
 	return controller
@@ -113,7 +114,7 @@ func (c *Controller) Start() error {
 	}
 
 	// Add Limiter
-	if err := c.AddInboundLimiter(c.Tag, newNodeInfo.SpeedLimit, userInfo, c.config.GlobalDeviceLimitConfig); err != nil {
+	if err := c.AddInboundLimiter(c.Tag, newNodeInfo.SpeedLimit, userInfo, c.g); err != nil {
 		log.Print(err)
 	}
 
@@ -164,7 +165,7 @@ func (c *Controller) Start() error {
 	}
 
 	// Check global limit in need
-	if c.config.GlobalDeviceLimitConfig.Enable {
+	if c.g.Enable {
 		c.tasks = append(c.tasks,
 			periodicTask{
 				tag: "global limit",
@@ -174,16 +175,6 @@ func (c *Controller) Start() error {
 				},
 			})
 	}
-
-	// Reset online user
-	c.tasks = append(c.tasks,
-		periodicTask{
-			tag: "reset online user",
-			Periodic: &task.Periodic{
-				Interval: time.Duration(c.config.UpdatePeriodic) * time.Second * 15,
-				Execute:  c.resetOnlineUser,
-			},
-		})
 
 	// Start periodic tasks
 	for i := range c.tasks {
@@ -284,7 +275,7 @@ func (c *Controller) nodeInfoMonitor() (err error) {
 			return nil
 		}
 		// Add Limiter
-		if err := c.AddInboundLimiter(c.Tag, newNodeInfo.SpeedLimit, newUserInfo, c.config.GlobalDeviceLimitConfig); err != nil {
+		if err := c.AddInboundLimiter(c.Tag, newNodeInfo.SpeedLimit, newUserInfo, c.g); err != nil {
 			log.Print(err)
 			return nil
 		}
@@ -663,10 +654,10 @@ func (c *Controller) globalLimitFetch() (err error) {
 
 		inboundInfo := value.(*limiter.InboundInfo)
 		for {
-			if emails, cursor, err = c.r.Scan(ctx, cursor, "*", 1000).Result(); err != nil {
+			if emails, cursor, err = c.g.R.Scan(ctx, cursor, "*", 1000).Result(); err != nil {
 				newError(err).AtError().WriteToLog()
 			}
-			pipe := c.r.Pipeline()
+			pipe := c.g.R.Pipeline()
 
 			cmdMap := make(map[string]*redis.StringStringMapCmd)
 			for i := range emails {
@@ -677,13 +668,14 @@ func (c *Controller) globalLimitFetch() (err error) {
 			if _, err := pipe.Exec(ctx); err != nil {
 				newError(fmt.Sprintf("Redis: %v", err)).AtError().WriteToLog()
 			} else {
+				inboundInfo.GlobalOnlineIP = new(sync.Map)
 				for k := range cmdMap {
 					ips := cmdMap[k].Val()
 					ipMap := new(sync.Map)
 					for i := range ips {
 						uid, _ := strconv.Atoi(ips[i])
 						ipMap.Store(i, uid)
-						inboundInfo.UserOnlineIP.LoadOrStore(k, ipMap)
+						inboundInfo.GlobalOnlineIP.Store(k, ipMap)
 					}
 				}
 			}
@@ -692,24 +684,6 @@ func (c *Controller) globalLimitFetch() (err error) {
 				break
 			}
 		}
-	}
-
-	return nil
-}
-
-func (c *Controller) resetOnlineUser() error {
-	// delay to start
-	if time.Since(c.startAt) < time.Duration(c.config.UpdatePeriodic)*time.Second*15 {
-		return nil
-	}
-
-	if value, ok := c.dispatcher.Limiter.InboundInfo.Load(c.Tag); ok {
-		inboundInfo := value.(*limiter.InboundInfo)
-		inboundInfo.UserOnlineIP.Range(func(key, value interface{}) bool {
-			email := key.(string)
-			inboundInfo.UserOnlineIP.Delete(email) // Reset online device
-			return true
-		})
 	}
 
 	return nil

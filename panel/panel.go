@@ -152,7 +152,7 @@ func (p *Panel) loadCore(panelConfig *Config) *core.Instance {
 	return server
 }
 
-// Start Start the panel
+// Start the panel
 func (p *Panel) Start() {
 	p.access.Lock()
 	defer p.access.Unlock()
@@ -163,6 +163,11 @@ func (p *Panel) Start() {
 		log.Panicf("Failed to start instance: %s", err)
 	}
 	p.Server = server
+
+	if p.panelConfig.GlobalDeviceLimitConfig.Enable {
+		log.Println("Global limit: Enable")
+	}
+
 	// Load Nodes config
 	for _, nodeConfig := range p.panelConfig.NodesConfig {
 		var apiClient api.API
@@ -191,7 +196,7 @@ func (p *Panel) Start() {
 				log.Panicf("Read Controller Config Failed")
 			}
 		}
-		controllerService = controller.New(server, apiClient, controllerConfig, nodeConfig.PanelType)
+		controllerService = controller.New(server, apiClient, controllerConfig, nodeConfig.PanelType, p.panelConfig.GlobalDeviceLimitConfig)
 		p.Service = append(p.Service, controllerService)
 
 	}
@@ -207,7 +212,7 @@ func (p *Panel) Start() {
 	return
 }
 
-// Close Close the panel
+// Close the panel
 func (p *Panel) Close() {
 	p.access.Lock()
 	defer p.access.Unlock()
@@ -224,20 +229,20 @@ func (p *Panel) Close() {
 }
 
 func parseConnectionConfig(c *ConnectionConfig) (policy *conf.Policy) {
-	connetionConfig := getDefaultConnectionConfig()
+	connectionConfig := getDefaultConnectionConfig()
 	if c != nil {
-		if _, err := diff.Merge(connetionConfig, c, connetionConfig); err != nil {
+		if _, err := diff.Merge(connectionConfig, c, connectionConfig); err != nil {
 			log.Panicf("Read ConnectionConfig failed: %s", err)
 		}
 	}
 	policy = &conf.Policy{
 		StatsUserUplink:   true,
 		StatsUserDownlink: true,
-		Handshake:         &connetionConfig.Handshake,
-		ConnectionIdle:    &connetionConfig.ConnIdle,
-		UplinkOnly:        &connetionConfig.UplinkOnly,
-		DownlinkOnly:      &connetionConfig.DownlinkOnly,
-		BufferSize:        &connetionConfig.BufferSize,
+		Handshake:         &connectionConfig.Handshake,
+		ConnectionIdle:    &connectionConfig.ConnIdle,
+		UplinkOnly:        &connectionConfig.UplinkOnly,
+		DownlinkOnly:      &connectionConfig.DownlinkOnly,
+		BufferSize:        &connectionConfig.BufferSize,
 	}
 
 	return

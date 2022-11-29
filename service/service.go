@@ -1,5 +1,5 @@
 // Package service contains all the services used by XrayR
-// To implement an service, one needs to implement the interface below.
+// To implement a service, one needs to implement the interface below.
 package service
 
 // Service is the interface of all the services running in the panel

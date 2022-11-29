@@ -140,7 +140,9 @@ func (*DefaultDispatcher) Start() error {
 }
 
 // Close implements common.Closable.
-func (*DefaultDispatcher) Close() error { return nil }
+func (*DefaultDispatcher) Close() error {
+	return nil
+}
 
 func (d *DefaultDispatcher) getLink(ctx context.Context, network net.Network, sniffing session.SniffingRequest) (*transport.Link, *transport.Link, error) {
 	downOpt := pipe.OptionsFromContext(ctx)

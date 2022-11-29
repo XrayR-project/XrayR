@@ -98,7 +98,6 @@ type NodeRuleItem struct {
 	Pattern string `json:"pattern"`
 }
 
-// IllegalReport
 type IllegalReport struct {
 	UID    int    `json:"uid"`
 	RuleID int    `json:"rule_id"`
