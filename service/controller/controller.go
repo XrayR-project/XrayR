@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"reflect"
-	"strconv"
 	"sync"
 	"time"
 
@@ -654,7 +653,7 @@ func (c *Controller) globalLimitFetch() (err error) {
 
 		inboundInfo := value.(*limiter.InboundInfo)
 		for {
-			if emails, cursor, err = c.g.R.Scan(ctx, cursor, "*", 1000).Result(); err != nil {
+			if emails, cursor, err = c.g.R.Scan(ctx, cursor, "*", 10000).Result(); err != nil {
 				newError(err).AtError().WriteToLog()
 			}
 			pipe := c.g.R.Pipeline()
@@ -666,15 +665,14 @@ func (c *Controller) globalLimitFetch() (err error) {
 			}
 
 			if _, err := pipe.Exec(ctx); err != nil {
-				newError(fmt.Sprintf("Redis: %v", err)).AtError().WriteToLog()
+				newError(fmt.Errorf("redis: %v", err)).AtError().WriteToLog()
 			} else {
 				inboundInfo.GlobalOnlineIP = new(sync.Map)
 				for k := range cmdMap {
 					ips := cmdMap[k].Val()
 					ipMap := new(sync.Map)
 					for i := range ips {
-						uid, _ := strconv.Atoi(ips[i])
-						ipMap.Store(i, uid)
+						ipMap.Store(i, 0)
 						inboundInfo.GlobalOnlineIP.Store(k, ipMap)
 					}
 				}

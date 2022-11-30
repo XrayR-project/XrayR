@@ -183,10 +183,10 @@ func (l *Limiter) GetUserBucket(tag string, email string, ip string) (limiter *r
 						ipMap.Delete(ip)
 						return nil, false, true
 					}
-					go l.pushIP(email, ip, uid)
+					go l.pushIP(email, ip)
 				}
 			} else {
-				go l.pushIP(email, ip, uid)
+				go l.pushIP(email, ip)
 			}
 		}
 
@@ -210,18 +210,18 @@ func (l *Limiter) GetUserBucket(tag string, email string, ip string) (limiter *r
 }
 
 // Push new IP to redis
-func (l *Limiter) pushIP(email string, ip string, uid int) {
+func (l *Limiter) pushIP(email string, ip string) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*time.Duration(l.g.Timeout))
 	defer cancel()
 
-	if err := l.g.R.HSet(ctx, email, map[string]any{ip: uid}).Err(); err != nil {
-		newError(fmt.Sprintf("Redis: %v", err)).AtError().WriteToLog()
+	if err := l.g.R.HSet(ctx, email, map[string]any{ip: 0}).Err(); err != nil {
+		newError(fmt.Errorf("redis: %v", err)).AtError().WriteToLog()
 	}
 
 	// check ttl, if ttl == -1, then set expire time.
 	if l.g.R.TTL(ctx, email).Val() == -1 {
 		if err := l.g.R.Expire(ctx, email, time.Duration(l.g.Expiry)*time.Minute).Err(); err != nil {
-			newError(fmt.Sprintf("Redis: %v", err)).AtError().WriteToLog()
+			newError(fmt.Errorf("redis: %v", err)).AtError().WriteToLog()
 		}
 	}
 }
