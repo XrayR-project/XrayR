@@ -2,19 +2,17 @@ package panel
 
 import (
 	"github.com/XrayR-project/XrayR/api"
-	"github.com/XrayR-project/XrayR/common/limiter"
 	"github.com/XrayR-project/XrayR/service/controller"
 )
 
 type Config struct {
-	LogConfig               *LogConfig                       `mapstructure:"Log"`
-	DnsConfigPath           string                           `mapstructure:"DnsConfigPath"`
-	InboundConfigPath       string                           `mapstructure:"InboundConfigPath"`
-	OutboundConfigPath      string                           `mapstructure:"OutboundConfigPath"`
-	RouteConfigPath         string                           `mapstructure:"RouteConfigPath"`
-	ConnectionConfig        *ConnectionConfig                `mapstructure:"ConnectionConfig"`
-	GlobalDeviceLimitConfig *limiter.GlobalDeviceLimitConfig `mapstructure:"GlobalDeviceLimitConfig"`
-	NodesConfig             []*NodesConfig                   `mapstructure:"Nodes"`
+	LogConfig          *LogConfig        `mapstructure:"Log"`
+	DnsConfigPath      string            `mapstructure:"DnsConfigPath"`
+	InboundConfigPath  string            `mapstructure:"InboundConfigPath"`
+	OutboundConfigPath string            `mapstructure:"OutboundConfigPath"`
+	RouteConfigPath    string            `mapstructure:"RouteConfigPath"`
+	ConnectionConfig   *ConnectionConfig `mapstructure:"ConnectionConfig"`
+	NodesConfig        []*NodesConfig    `mapstructure:"Nodes"`
 }
 
 type NodesConfig struct {

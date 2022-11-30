@@ -164,10 +164,6 @@ func (p *Panel) Start() {
 	}
 	p.Server = server
 
-	if p.panelConfig.GlobalDeviceLimitConfig.Enable {
-		log.Println("Global limit: Enable")
-	}
-
 	// Load Nodes config
 	for _, nodeConfig := range p.panelConfig.NodesConfig {
 		var apiClient api.API
@@ -196,7 +192,7 @@ func (p *Panel) Start() {
 				log.Panicf("Read Controller Config Failed")
 			}
 		}
-		controllerService = controller.New(server, apiClient, controllerConfig, nodeConfig.PanelType, p.panelConfig.GlobalDeviceLimitConfig)
+		controllerService = controller.New(server, apiClient, controllerConfig, nodeConfig.PanelType)
 		p.Service = append(p.Service, controllerService)
 
 	}
