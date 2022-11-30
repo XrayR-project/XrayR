@@ -12,13 +12,6 @@ ConnectionConfig:
   UplinkOnly: 2 # Time limit when the connection downstream is closed, Second
   DownlinkOnly: 4 # Time limit when the connection is closed after the uplink is closed, Second
   BufferSize: 64 # The internal cache size of each connection, kB
-GlobalDeviceLimitConfig:
-  Enable: true # Enable the global device limit of a user
-  RedisAddr: 10.0.0.188:6379 # The redis server address
-  RedisPassword:  # Redis password
-  RedisDB: 0 # Redis DB
-  Timeout: 5 # Timeout for redis request
-  Expiry: 60 # Expiry time (second)
 Nodes:
   -
     PanelType: "SSpanel" # Panel type: SSpanel, V2board, NewV2board, PMpanel, Proxypanel, V2RaySocks
@@ -45,6 +38,13 @@ Nodes:
         WarnTimes: 0 # After (WarnTimes) consecutive warnings, the user will be limited. Set to 0 to punish overspeed user immediately.
         LimitSpeed: 0 # The speedlimit of a limited user (unit: mbps)
         LimitDuration: 0 # How many minutes will the limiting last (unit: minute)
+      GlobalDeviceLimitConfig:
+        Enable: true # Enable the global device limit of a user
+        RedisAddr: 10.0.0.188:6379 # The redis server address
+        RedisPassword:  # Redis password
+        RedisDB: 0 # Redis DB
+        Timeout: 15 # Timeout for redis request
+        Expiry: 60 # Expiry time (second)
       EnableFallback: false # Only support for Trojan and Vless
       FallBackConfigs:  # Support multiple fallbacks
         -

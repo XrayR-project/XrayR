@@ -47,7 +47,6 @@ type Controller struct {
 	stm          stats.Manager
 	dispatcher   *mydispatcher.DefaultDispatcher
 	startAt      time.Time
-	g            *limiter.GlobalDeviceLimitConfig
 }
 
 type periodicTask struct {
@@ -56,7 +55,7 @@ type periodicTask struct {
 }
 
 // New return a Controller service with default parameters.
-func New(server *core.Instance, api api.API, config *Config, panelType string, globalConfig *limiter.GlobalDeviceLimitConfig) *Controller {
+func New(server *core.Instance, api api.API, config *Config, panelType string) *Controller {
 	controller := &Controller{
 		server:     server,
 		config:     config,
@@ -67,16 +66,6 @@ func New(server *core.Instance, api api.API, config *Config, panelType string, g
 		stm:        server.GetFeature(stats.ManagerType()).(stats.Manager),
 		dispatcher: server.GetFeature(routing.DispatcherType()).(*mydispatcher.DefaultDispatcher),
 		startAt:    time.Now(),
-	}
-
-	// Init global limit redis client
-	if globalConfig.Enable {
-		globalConfig.R = redis.NewClient(&redis.Options{
-			Addr:     globalConfig.RedisAddr,
-			Password: globalConfig.RedisPassword,
-			DB:       globalConfig.RedisDB,
-		})
-		controller.g = globalConfig
 	}
 
 	return controller
@@ -113,7 +102,7 @@ func (c *Controller) Start() error {
 	}
 
 	// Add Limiter
-	if err := c.AddInboundLimiter(c.Tag, newNodeInfo.SpeedLimit, userInfo, c.g); err != nil {
+	if err := c.AddInboundLimiter(c.Tag, newNodeInfo.SpeedLimit, userInfo, c.initGlobal()); err != nil {
 		log.Print(err)
 	}
 
@@ -164,7 +153,7 @@ func (c *Controller) Start() error {
 	}
 
 	// Check global limit in need
-	if c.g.Enable {
+	if c.config.GlobalDeviceLimitConfig.Enable {
 		c.tasks = append(c.tasks,
 			periodicTask{
 				tag: "global limit",
@@ -273,8 +262,9 @@ func (c *Controller) nodeInfoMonitor() (err error) {
 			log.Print(err)
 			return nil
 		}
+
 		// Add Limiter
-		if err := c.AddInboundLimiter(c.Tag, newNodeInfo.SpeedLimit, newUserInfo, c.g); err != nil {
+		if err := c.AddInboundLimiter(c.Tag, newNodeInfo.SpeedLimit, newUserInfo, c.initGlobal()); err != nil {
 			log.Print(err)
 			return nil
 		}
@@ -307,6 +297,20 @@ func (c *Controller) nodeInfoMonitor() (err error) {
 	}
 	c.userList = newUserInfo
 	return nil
+}
+
+func (c *Controller) initGlobal() *limiter.GlobalDeviceLimitConfig {
+	// Init global limit redis client
+	globalConfig := c.config.GlobalDeviceLimitConfig
+	if c.config.GlobalDeviceLimitConfig.Enable {
+		log.Printf("[%s] Global limit: enable", c.Tag)
+		globalConfig.R = redis.NewClient(&redis.Options{
+			Addr:     globalConfig.RedisAddr,
+			Password: globalConfig.RedisPassword,
+			DB:       globalConfig.RedisDB,
+		})
+	}
+	return globalConfig
 }
 
 func (c *Controller) removeOldTag(oldTag string) (err error) {
@@ -653,10 +657,10 @@ func (c *Controller) globalLimitFetch() (err error) {
 
 		inboundInfo := value.(*limiter.InboundInfo)
 		for {
-			if emails, cursor, err = c.g.R.Scan(ctx, cursor, "*", 10000).Result(); err != nil {
+			if emails, cursor, err = c.config.GlobalDeviceLimitConfig.R.Scan(ctx, cursor, "*", 10000).Result(); err != nil {
 				newError(err).AtError().WriteToLog()
 			}
-			pipe := c.g.R.Pipeline()
+			pipe := c.config.GlobalDeviceLimitConfig.R.Pipeline()
 
 			cmdMap := make(map[string]*redis.StringStringMapCmd)
 			for i := range emails {
@@ -667,13 +671,13 @@ func (c *Controller) globalLimitFetch() (err error) {
 			if _, err := pipe.Exec(ctx); err != nil {
 				newError(fmt.Errorf("redis: %v", err)).AtError().WriteToLog()
 			} else {
-				inboundInfo.GlobalOnlineIP = new(sync.Map)
+				inboundInfo.GlobalLimit.OnlineIP = new(sync.Map)
 				for k := range cmdMap {
 					ips := cmdMap[k].Val()
 					ipMap := new(sync.Map)
 					for i := range ips {
 						ipMap.Store(i, 0)
-						inboundInfo.GlobalOnlineIP.Store(k, ipMap)
+						inboundInfo.GlobalLimit.OnlineIP.Store(k, ipMap)
 					}
 				}
 			}

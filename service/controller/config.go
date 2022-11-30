@@ -1,24 +1,26 @@
 package controller
 
 import (
+	"github.com/XrayR-project/XrayR/common/limiter"
 	"github.com/XrayR-project/XrayR/common/mylego"
 )
 
 type Config struct {
-	ListenIP             string                `mapstructure:"ListenIP"`
-	SendIP               string                `mapstructure:"SendIP"`
-	UpdatePeriodic       int                   `mapstructure:"UpdatePeriodic"`
-	CertConfig           *mylego.CertConfig    `mapstructure:"CertConfig"`
-	EnableDNS            bool                  `mapstructure:"EnableDNS"`
-	DNSType              string                `mapstructure:"DNSType"`
-	DisableUploadTraffic bool                  `mapstructure:"DisableUploadTraffic"`
-	DisableGetRule       bool                  `mapstructure:"DisableGetRule"`
-	EnableProxyProtocol  bool                  `mapstructure:"EnableProxyProtocol"`
-	EnableFallback       bool                  `mapstructure:"EnableFallback"`
-	DisableIVCheck       bool                  `mapstructure:"DisableIVCheck"`
-	DisableSniffing      bool                  `mapstructure:"DisableSniffing"`
-	AutoSpeedLimitConfig *AutoSpeedLimitConfig `mapstructure:"AutoSpeedLimitConfig"`
-	FallBackConfigs      []*FallBackConfig     `mapstructure:"FallBackConfigs"`
+	ListenIP                string                           `mapstructure:"ListenIP"`
+	SendIP                  string                           `mapstructure:"SendIP"`
+	UpdatePeriodic          int                              `mapstructure:"UpdatePeriodic"`
+	CertConfig              *mylego.CertConfig               `mapstructure:"CertConfig"`
+	EnableDNS               bool                             `mapstructure:"EnableDNS"`
+	DNSType                 string                           `mapstructure:"DNSType"`
+	DisableUploadTraffic    bool                             `mapstructure:"DisableUploadTraffic"`
+	DisableGetRule          bool                             `mapstructure:"DisableGetRule"`
+	EnableProxyProtocol     bool                             `mapstructure:"EnableProxyProtocol"`
+	EnableFallback          bool                             `mapstructure:"EnableFallback"`
+	DisableIVCheck          bool                             `mapstructure:"DisableIVCheck"`
+	DisableSniffing         bool                             `mapstructure:"DisableSniffing"`
+	AutoSpeedLimitConfig    *AutoSpeedLimitConfig            `mapstructure:"AutoSpeedLimitConfig"`
+	GlobalDeviceLimitConfig *limiter.GlobalDeviceLimitConfig `mapstructure:"GlobalDeviceLimitConfig"`
+	FallBackConfigs         []*FallBackConfig                `mapstructure:"FallBackConfigs"`
 }
 
 type AutoSpeedLimitConfig struct {
