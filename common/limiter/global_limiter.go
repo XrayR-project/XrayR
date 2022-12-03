@@ -3,6 +3,7 @@ package limiter
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	mapset "github.com/deckarep/golang-set/v2"
@@ -112,10 +113,12 @@ func (g *GlobalLimiter) pushIP(email string, ip string, deviceLimit int) {
 		return
 	}
 
+	// Update redis
 	if err := g.rds.SAdd(ctx, email, ip).Err(); err != nil {
 		newError(fmt.Errorf("redis: %v", err)).AtError().WriteToLog()
 	} else {
-		g.publish(email) // Ask other instances to update the memory cache
+		g.memCache.update(email, ip) // Update memcache
+		g.publish(email, ip)         // Ask other instances to update the memory cache
 	}
 }
 
@@ -130,16 +133,20 @@ func (g *GlobalLimiter) subscribe() {
 		if err != nil {
 			newError(fmt.Errorf("redis: %v", err)).AtError().WriteToLog()
 		} else {
-			g.memCache.delete(msg.Payload)
+			message := strings.Split(msg.Payload, ":")
+			key := message[0]
+			ip := message[1]
+			g.memCache.update(key, ip)
 		}
 	}
 }
 
 // publish key updating
-func (g *GlobalLimiter) publish(key string) {
+func (g *GlobalLimiter) publish(key string, ip string) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*time.Duration(g.timeout))
 	defer cancel()
-	if err := g.rds.Publish(ctx, updateKeyChannel, key).Err(); err != nil {
+	message := fmt.Sprintf("%s:%s", key, ip)
+	if err := g.rds.Publish(ctx, updateKeyChannel, message).Err(); err != nil {
 		newError(fmt.Errorf("redis: %v", err)).AtError().WriteToLog()
 	}
 }

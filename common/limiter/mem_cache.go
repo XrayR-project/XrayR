@@ -21,15 +21,6 @@ func NewMemCache(ci time.Duration) *MemCache {
 	return c
 }
 
-// return true if data is fresh
-func (c *MemCache) load(k string) (*Item, bool) {
-	it, ok := c.get(k)
-	if !ok {
-		return nil, false
-	}
-	return it, !it.Outdated()
-}
-
 // get an item from the memcache. Returns the item or nil, and a bool indicating whether the key was found.
 func (c *MemCache) get(k string) (*Item, bool) {
 	tmp, ok := c.items.Load(k)
@@ -50,6 +41,14 @@ func (c *MemCache) set(k string, it *Item) {
 // Delete an item from the memcache. Does nothing if the key is not in the memcache.
 func (c *MemCache) delete(k string) {
 	c.items.Delete(k)
+}
+
+// update IP in cache
+func (c *MemCache) update(k string, ip string) {
+	if tmp, ok := c.items.Load(k); ok {
+		item := tmp.(*Item)
+		item.IPSet.Add(ip)
+	}
 }
 
 // start key scanning to delete expired keys

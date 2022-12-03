@@ -7,7 +7,7 @@ import (
 )
 
 type Item struct {
-	IPSet   mapset.Set[string]
+	IPSet  mapset.Set[string]
 	Expire time.Time
 }
 
@@ -21,7 +21,7 @@ func (i *Item) Outdated() bool {
 
 func newItem(v []string, ttl time.Duration) *Item {
 	return &Item{
-		IPSet:   mapset.NewThreadUnsafeSet[string](v...),
+		IPSet:  mapset.NewSet[string](v...),
 		Expire: time.Now().Add(ttl),
 	}
 }
