@@ -2,11 +2,9 @@
 package limiter
 
 import (
-	"context"
 	"fmt"
 	"strings"
 	"sync"
-	"time"
 
 	"golang.org/x/time/rate"
 
@@ -20,21 +18,17 @@ type UserInfo struct {
 }
 
 type InboundInfo struct {
-	Tag            string
-	NodeSpeedLimit uint64
-	UserInfo       *sync.Map // Key: Email value: UserInfo
-	BucketHub      *sync.Map // key: Email, value: *rate.Limiter
-	UserOnlineIP   *sync.Map // Key: Email Value: *sync.Map: Key: IP, Value: UID
-	GlobalLimit    *GlobalLimit
+	Tag                 string
+	NodeSpeedLimit      uint64
+	UserInfo            *sync.Map // Key: Email value: UserInfo
+	BucketHub           *sync.Map // key: Email, value: *rate.Limiter
+	UserOnlineIP        *sync.Map // Key: Email Value: *sync.Map: Key: IP, Value: UID
+	EnableGlobalLimiter bool
+	GlobalLimiter       *GlobalLimiter
 }
 
 type Limiter struct {
 	InboundInfo *sync.Map // Key: Tag, Value: *InboundInfo
-}
-
-type GlobalLimit struct {
-	*GlobalDeviceLimitConfig
-	OnlineIP *sync.Map // Key: Email Value: *sync.Map: Key: IP, Value: UID
 }
 
 func New() *Limiter {
@@ -43,16 +37,17 @@ func New() *Limiter {
 	}
 }
 
-func (l *Limiter) AddInboundLimiter(tag string, nodeSpeedLimit uint64, userList *[]api.UserInfo, globalLimit *GlobalDeviceLimitConfig) error {
+func (l *Limiter) AddInboundLimiter(tag string, nodeSpeedLimit uint64, userList *[]api.UserInfo, globalLimitConfig *GlobalDeviceLimitConfig) error {
 	inboundInfo := &InboundInfo{
 		Tag:            tag,
 		NodeSpeedLimit: nodeSpeedLimit,
 		BucketHub:      new(sync.Map),
 		UserOnlineIP:   new(sync.Map),
-		GlobalLimit: &GlobalLimit{
-			GlobalDeviceLimitConfig: globalLimit,
-			OnlineIP:                new(sync.Map),
-		},
+	}
+
+	if globalLimitConfig != nil && globalLimitConfig.Enable {
+		inboundInfo.EnableGlobalLimiter = true
+		inboundInfo.GlobalLimiter = NewGlobalLimiter(globalLimitConfig)
 	}
 
 	userMap := new(sync.Map)
@@ -149,6 +144,16 @@ func (l *Limiter) GetUserBucket(tag string, email string, ip string) (limiter *r
 			userLimit = u.SpeedLimit
 			deviceLimit = u.DeviceLimit
 		}
+		
+		// Global device limit
+		if inboundInfo.EnableGlobalLimiter {
+			email := email[strings.Index(email, "|")+1:]
+
+			 if reject := inboundInfo.GlobalLimiter.Check(ip, email, deviceLimit); reject {
+				return nil, false, true
+			 }
+
+		}
 
 		// Local device limit
 		ipMap := new(sync.Map)
@@ -170,30 +175,6 @@ func (l *Limiter) GetUserBucket(tag string, email string, ip string) (limiter *r
 			}
 		}
 
-		// Global device limit
-		if inboundInfo.GlobalLimit.Enable {
-			email := email[strings.Index(email, "|")+1:]
-
-			if v, ok := inboundInfo.GlobalLimit.OnlineIP.Load(email); ok {
-				ipMap := v.(*sync.Map)
-				// If this is a new ip
-				if _, ok := ipMap.LoadOrStore(ip, uid); !ok {
-					counter := 0
-					ipMap.Range(func(key, value interface{}) bool {
-						counter++
-						return true
-					})
-					if counter > deviceLimit && deviceLimit > 0 {
-						ipMap.Delete(ip)
-						return nil, false, true
-					}
-					go pushIP(email, ip, deviceLimit, inboundInfo.GlobalLimit)
-				}
-			} else {
-				go pushIP(email, ip, deviceLimit, inboundInfo.GlobalLimit)
-			}
-		}
-
 		// Speed limit
 		limit := determineRate(nodeLimit, userLimit) // Determine the speed limit rate
 		if limit > 0 {
@@ -210,28 +191,6 @@ func (l *Limiter) GetUserBucket(tag string, email string, ip string) (limiter *r
 	} else {
 		newError("Get Inbound Limiter information failed").AtDebug().WriteToLog()
 		return nil, false, false
-	}
-}
-
-// Push new IP to redis
-func pushIP(email string, ip string, deviceLimit int, g *GlobalLimit) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*time.Duration(g.Timeout))
-	defer cancel()
-
-	// First check whether the device in redis reach the limit
-	if g.R.SCard(ctx, email).Val() >= int64(deviceLimit) {
-		return
-	}
-
-	if err := g.R.SAdd(ctx, email, ip).Err(); err != nil {
-		newError(fmt.Errorf("redis: %v", err)).AtError().WriteToLog()
-	}
-
-	// check ttl, if ttl == -1, then set expire time.
-	if g.R.TTL(ctx, email).Val() == -1 {
-		if err := g.R.Expire(ctx, email, time.Duration(g.Expiry)*time.Minute).Err(); err != nil {
-			newError(fmt.Errorf("redis: %v", err)).AtError().WriteToLog()
-		}
 	}
 }
 
