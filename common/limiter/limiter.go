@@ -187,10 +187,10 @@ func (l *Limiter) GetUserBucket(tag string, email string, ip string) (limiter *r
 						ipMap.Delete(ip)
 						return nil, false, true
 					}
-					go pushIP(email, ip, inboundInfo.GlobalLimit)
+					go pushIP(email, ip, deviceLimit, inboundInfo.GlobalLimit)
 				}
 			} else {
-				go pushIP(email, ip, inboundInfo.GlobalLimit)
+				go pushIP(email, ip, deviceLimit, inboundInfo.GlobalLimit)
 			}
 		}
 
@@ -214,9 +214,14 @@ func (l *Limiter) GetUserBucket(tag string, email string, ip string) (limiter *r
 }
 
 // Push new IP to redis
-func pushIP(email string, ip string, g *GlobalLimit) {
+func pushIP(email string, ip string, deviceLimit int, g *GlobalLimit) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*time.Duration(g.Timeout))
 	defer cancel()
+
+	// First check whether the device in redis reach the limit
+	if g.R.SCard(ctx, email).Val() >= int64(deviceLimit) {
+		return
+	}
 
 	if err := g.R.SAdd(ctx, email, ip).Err(); err != nil {
 		newError(fmt.Errorf("redis: %v", err)).AtError().WriteToLog()

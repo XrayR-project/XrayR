@@ -143,7 +143,7 @@ func (c *Controller) Start() error {
 	)
 
 	// Check cert service in need
-	if c.nodeInfo.NodeType != "Shadowsocks" {
+	if c.nodeInfo.EnableTLS {
 		c.tasks = append(c.tasks, periodicTask{
 			tag: "cert monitor",
 			Periodic: &task.Periodic{
@@ -672,12 +672,12 @@ func (c *Controller) globalLimitFetch() (err error) {
 				newError(fmt.Errorf("redis: %v", err)).AtError().WriteToLog()
 			} else {
 				inboundInfo.GlobalLimit.OnlineIP = new(sync.Map)
-				for k := range cmdMap {
-					ips := cmdMap[k].Val()
+				for email := range cmdMap {
+					ips := cmdMap[email].Val()
 					ipMap := new(sync.Map)
 					for i := range ips {
 						ipMap.Store(ips[i], 0)
-						inboundInfo.GlobalLimit.OnlineIP.Store(k, ipMap)
+						inboundInfo.GlobalLimit.OnlineIP.Store(email, ipMap)
 					}
 				}
 			}
