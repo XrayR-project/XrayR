@@ -229,7 +229,7 @@ func pushIP(email string, ip string, deviceLimit int, g *GlobalLimit) {
 
 	// check ttl, if ttl == -1, then set expire time.
 	if g.R.TTL(ctx, email).Val() == -1 {
-		if err := g.R.Expire(ctx, email, time.Duration(g.Expiry)*time.Minute).Err(); err != nil {
+		if err := g.R.Expire(ctx, email, time.Duration(g.Expiry)*time.Second).Err(); err != nil {
 			newError(fmt.Errorf("redis: %v", err)).AtError().WriteToLog()
 		}
 	}
