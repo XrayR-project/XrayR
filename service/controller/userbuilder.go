@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"encoding/base64"
 	"fmt"
 	"strings"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/xtls/xray-core/common/serial"
 	"github.com/xtls/xray-core/infra/conf"
 	"github.com/xtls/xray-core/proxy/shadowsocks"
+	"github.com/xtls/xray-core/proxy/shadowsocks_2022"
 	"github.com/xtls/xray-core/proxy/trojan"
 	"github.com/xtls/xray-core/proxy/vless"
 
@@ -78,11 +80,14 @@ func (c *Controller) buildSSUser(userInfo *[]api.UserInfo, method string) (users
 	for i, user := range *userInfo {
 		// todo waiting xray-core complete proxy.UserManager in shadowsocks2022
 		if C.Contains(shadowaead_2022.List, strings.ToLower(method)) {
+			e := c.buildUserTag(&user)
 			users[i] = &protocol.User{
 				Level: 0,
-				Email: c.buildUserTag(&user),
-				Account: serial.ToTypedMessage(&shadowsocks.Account{
-					Password: user.Passwd,
+				Email: e,
+				Account: serial.ToTypedMessage(&shadowsocks_2022.User{
+					Key:   base64.StdEncoding.EncodeToString([]byte(user.Passwd)),
+					Email: e,
+					Level: 0,
 				}),
 			}
 		} else {
@@ -105,11 +110,14 @@ func (c *Controller) buildSSPluginUser(userInfo *[]api.UserInfo) (users []*proto
 	for i, user := range *userInfo {
 		// todo waiting xray-core complete proxy.UserManager in shadowsocks2022
 		if C.Contains(shadowaead_2022.List, strings.ToLower(user.Method)) {
+			e := c.buildUserTag(&user)
 			users[i] = &protocol.User{
 				Level: 0,
-				Email: c.buildUserTag(&user),
-				Account: serial.ToTypedMessage(&shadowsocks.Account{
-					Password: user.Passwd,
+				Email: e,
+				Account: serial.ToTypedMessage(&shadowsocks_2022.User{
+					Key:   base64.StdEncoding.EncodeToString([]byte(user.Passwd)),
+					Email: e,
+					Level: 0,
 				}),
 			}
 		} else {
