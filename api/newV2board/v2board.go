@@ -248,19 +248,17 @@ func (c *APIClient) ReportUserTraffic(userTraffic *[]api.UserTraffic) error {
 // GetNodeRule implements the API interface
 func (c *APIClient) GetNodeRule() (*[]api.DetectRule, error) {
 	ruleList := c.LocalRuleList
-	if c.NodeType != "V2ray" {
-		return &ruleList, nil
-	}
 
-	// V2board only support the rule for v2ray
-	nodeInfoResponse := c.resp.Load().(*simplejson.Json) // todo waiting v2board send configuration
-	for i, rule := range nodeInfoResponse.Get("rules").MustStringArray() {
-		rule = strings.TrimPrefix(rule, "regexp:")
-		ruleListItem := api.DetectRule{
-			ID:      i,
-			Pattern: regexp.MustCompile(rule),
+	nodeInfoResponse := c.resp.Load().(*simplejson.Json)
+	for i, rule := range nodeInfoResponse.Get("routes").MustArray() {
+		r := rule.(map[string]any)
+		if r["action"] == "block" {
+			ruleListItem := api.DetectRule{
+				ID:      i,
+				Pattern: regexp.MustCompile(r["match"].(string)),
+			}
+			ruleList = append(ruleList, ruleListItem)
 		}
-		ruleList = append(ruleList, ruleListItem)
 	}
 
 	return &ruleList, nil
