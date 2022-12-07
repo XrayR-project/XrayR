@@ -78,7 +78,7 @@ func (c *Controller) buildSSUser(userInfo *[]api.UserInfo, method string) (users
 	users = make([]*protocol.User, len(*userInfo))
 
 	for i, user := range *userInfo {
-		// todo waiting xray-core complete proxy.UserManager in shadowsocks2022
+		// // shadowsocks2022 Key = openssl rand -base64 32 and multi users needn't cipher method
 		if C.Contains(shadowaead_2022.List, strings.ToLower(method)) {
 			e := c.buildUserTag(&user)
 			users[i] = &protocol.User{
@@ -108,7 +108,7 @@ func (c *Controller) buildSSPluginUser(userInfo *[]api.UserInfo) (users []*proto
 	users = make([]*protocol.User, len(*userInfo))
 
 	for i, user := range *userInfo {
-		// todo waiting xray-core complete proxy.UserManager in shadowsocks2022
+		// shadowsocks2022 Key = openssl rand -base64 32 and multi users needn't cipher method
 		if C.Contains(shadowaead_2022.List, strings.ToLower(user.Method)) {
 			e := c.buildUserTag(&user)
 			users[i] = &protocol.User{

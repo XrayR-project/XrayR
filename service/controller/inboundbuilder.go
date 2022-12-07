@@ -107,12 +107,12 @@ func InboundBuilder(config *Config, nodeInfo *api.NodeInfo, tag string) (*core.I
 		proxySetting, _ := proxySetting.(*conf.ShadowsocksServerConfig)
 		// shadowsocks must have a random password
 		// shadowsocks2022's password == user PSK, thus should a length of string >= 32 and base64 encoder
-		b := make([]byte, 16)
+		b := make([]byte, 32)
 		rand.Read(b)
 		randPasswd := hex.EncodeToString(b)
 		if C.Contains(shadowaead_2022.List, cipher) {
 			proxySetting.Users = append(proxySetting.Users, &conf.ShadowsocksUserConfig{
-				Password: base64.StdEncoding.EncodeToString([]byte(randPasswd)),
+				Password: base64.StdEncoding.EncodeToString(b),
 			})
 		} else {
 			proxySetting.Password = randPasswd
