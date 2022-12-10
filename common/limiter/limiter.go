@@ -250,18 +250,18 @@ func globalLimit(inboundInfo *InboundInfo, email string, uid int, ip string, dev
 	// If the ip is not in cache
 	if _, ok := (*ipMap)[ip]; !ok {
 		(*ipMap)[ip] = uid
-		go pushIP(inboundInfo, email, ipMap)
+		go pushIP(inboundInfo, uniqueKey, ipMap)
 	}
 
 	return false
 }
 
 // push the ip to cache
-func pushIP(inboundInfo *InboundInfo, email string, ipMap *map[string]int) {
+func pushIP(inboundInfo *InboundInfo, uniqueKey string, ipMap *map[string]int) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(inboundInfo.GlobalLimit.config.Timeout)*time.Second)
 	defer cancel()
 
-	if err := inboundInfo.GlobalLimit.globalOnlineIP.Set(ctx, email, ipMap); err != nil {
+	if err := inboundInfo.GlobalLimit.globalOnlineIP.Set(ctx, uniqueKey, ipMap); err != nil {
 		newError("cache service").Base(err).AtError().WriteToLog()
 	}
 }
