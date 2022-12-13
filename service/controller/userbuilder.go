@@ -81,11 +81,15 @@ func (c *Controller) buildSSUser(userInfo *[]api.UserInfo, method string) (users
 		// // shadowsocks2022 Key = openssl rand -base64 32 and multi users needn't cipher method
 		if C.Contains(shadowaead_2022.List, strings.ToLower(method)) {
 			e := c.buildUserTag(&user)
+			userKey := user.Passwd[:32]
+			if strings.Contains(method, "128") {
+				userKey = userKey[:16]
+			}
 			users[i] = &protocol.User{
 				Level: 0,
 				Email: e,
 				Account: serial.ToTypedMessage(&shadowsocks_2022.User{
-					Key:   base64.StdEncoding.EncodeToString([]byte(user.Passwd)),
+					Key:   base64.StdEncoding.EncodeToString([]byte(userKey)),
 					Email: e,
 					Level: 0,
 				}),
