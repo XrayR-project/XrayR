@@ -208,11 +208,19 @@ func (c *APIClient) GetUserList() (UserList *[]api.UserInfo, err error) {
 	userList := make([]api.UserInfo, numOfUsers)
 	for i := 0; i < numOfUsers; i++ {
 		user := response.Get("users").GetIndex(i)
-		u := api.UserInfo{}
-		u.UID = user.Get("id").MustInt()
-		u.SpeedLimit = uint64(user.Get("speed_limit").MustInt() * 1000000 / 8)
-		u.DeviceLimit = c.DeviceLimit                     // todo waiting v2board send configuration
-		u.UUID = user.Get("uuid").MustString()
+		u := api.UserInfo{
+			UID:  user.Get("id").MustInt(),
+			UUID: user.Get("uuid").MustString(),
+		}
+
+		// Support 1.7.1 speed limit
+		if c.SpeedLimit > 0 {
+			u.SpeedLimit = uint64(c.SpeedLimit * 1000000 / 8)
+		} else {
+			u.SpeedLimit = user.Get("speed_limit").MustUint64() * 1000000 / 8
+		}
+
+		u.DeviceLimit = c.DeviceLimit // todo waiting v2board send configuration
 		u.Email = u.UUID + "@v2board.user"
 		if c.NodeType == "Shadowsocks" {
 			u.Passwd = u.UUID
