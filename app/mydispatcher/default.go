@@ -535,7 +535,7 @@ func (d *DefaultDispatcher) routedDispatch(ctx context.Context, link *transport.
 	}
 
 	if handler == nil {
-		handler = d.ohm.GetHandler(inTag) // Default outbound hander tag should be as same as the inbound tag
+		handler = d.ohm.GetHandler(inTag) // Default outbound handler tag should be as same as the inbound tag
 	}
 
 	// If there is no outbound with tag as same as the inbound tag

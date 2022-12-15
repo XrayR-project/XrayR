@@ -255,7 +255,7 @@ func (c *APIClient) GetNodeRule() (*[]api.DetectRule, error) {
 		if r["action"] == "block" {
 			ruleListItem := api.DetectRule{
 				ID:      i,
-				Pattern: regexp.MustCompile(r["match"].(string)),
+				Pattern: regexp.MustCompile(strings.TrimPrefix(r["match"].(string), "regexp:")),
 			}
 			ruleList = append(ruleList, ruleListItem)
 		}
