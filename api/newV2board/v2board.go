@@ -210,7 +210,7 @@ func (c *APIClient) GetUserList() (UserList *[]api.UserInfo, err error) {
 		user := response.Get("users").GetIndex(i)
 		u := api.UserInfo{}
 		u.UID = user.Get("id").MustInt()
-		u.SpeedLimit = uint64(c.SpeedLimit * 1000000 / 8) // todo waiting v2board send configuration
+		u.SpeedLimit = uint64(user.Get("speed_limit").MustInt() * 1000000 / 8)
 		u.DeviceLimit = c.DeviceLimit                     // todo waiting v2board send configuration
 		u.UUID = user.Get("uuid").MustString()
 		u.Email = u.UUID + "@v2board.user"
