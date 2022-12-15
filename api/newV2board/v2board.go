@@ -217,7 +217,7 @@ func (c *APIClient) GetUserList() (UserList *[]api.UserInfo, err error) {
 		if c.SpeedLimit > 0 {
 			u.SpeedLimit = uint64(c.SpeedLimit * 1000000 / 8)
 		} else {
-			u.SpeedLimit = user.Get("speed_limit").MustUint64() * 1000000 / 8
+			u.SpeedLimit = uint64(user.Get("speed_limit").MustUint64() * 1000000 / 8)
 		}
 
 		u.DeviceLimit = c.DeviceLimit // todo waiting v2board send configuration
