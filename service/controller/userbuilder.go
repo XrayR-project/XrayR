@@ -91,7 +91,7 @@ func (c *Controller) buildSSUser(userInfo *[]api.UserInfo, method string) (users
 					newError("shadowsocks2022 key's length must be greater than 32").AtError().WriteToLog()
 					return
 				}
-				userKey = userKey[:32]
+				userKey = user.Passwd[:32]
 			}
 			users[i] = &protocol.User{
 				Level: 0,
