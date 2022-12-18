@@ -15,6 +15,8 @@ import (
 
 	"github.com/bitly/go-simplejson"
 	"github.com/go-resty/resty/v2"
+	"github.com/xtls/xray-core/common/net"
+	"github.com/xtls/xray-core/infra/conf"
 
 	"github.com/XrayR-project/XrayR/api"
 )
@@ -304,6 +306,7 @@ func (c *APIClient) parseTrojanNodeResponse(nodeInfoResponse *simplejson.Json) (
 		TLSType:           TLSType,
 		Host:              nodeInfoResponse.Get("host").MustString(),
 		ServiceName:       nodeInfoResponse.Get("server_name").MustString(),
+		NameServerConfig:  parseDNSConfig(nodeInfoResponse),
 	}
 	return nodeInfo, nil
 }
@@ -318,6 +321,7 @@ func (c *APIClient) parseSSNodeResponse(nodeInfoResponse *simplejson.Json) (*api
 		TransportProtocol: "tcp",
 		CypherMethod:      nodeInfoResponse.Get("cipher").MustString(),
 		ServerKey:         nodeInfoResponse.Get("server_key").MustString(), // shadowsocks2022 share key
+		NameServerConfig:  parseDNSConfig(nodeInfoResponse),
 	}, nil
 }
 
@@ -373,5 +377,20 @@ func (c *APIClient) parseV2rayNodeResponse(nodeInfoResponse *simplejson.Json) (*
 		EnableVless:       c.EnableVless,
 		ServiceName:       serviceName,
 		Header:            header,
+		NameServerConfig:  parseDNSConfig(nodeInfoResponse),
 	}, nil
+}
+
+func parseDNSConfig(nodeInfoResponse *simplejson.Json) (nameServerList []*conf.NameServerConfig) {
+	for _, rule := range nodeInfoResponse.Get("routes").MustArray() {
+		r := rule.(map[string]any)
+		if r["action"] == "dns" {
+			nameServerList = append(nameServerList, &conf.NameServerConfig{
+				Address: &conf.Address{Address: net.ParseAddress(r["action_value"].(string))},
+				Domains: strings.Split(r["match"].(string), ","),
+			})
+		}
+	}
+
+	return
 }

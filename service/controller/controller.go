@@ -7,12 +7,15 @@ import (
 	"time"
 
 	"github.com/xtls/xray-core/common/protocol"
+	"github.com/xtls/xray-core/common/serial"
 	"github.com/xtls/xray-core/common/task"
 	"github.com/xtls/xray-core/core"
+	"github.com/xtls/xray-core/features"
 	"github.com/xtls/xray-core/features/inbound"
 	"github.com/xtls/xray-core/features/outbound"
 	"github.com/xtls/xray-core/features/routing"
 	"github.com/xtls/xray-core/features/stats"
+	"github.com/xtls/xray-core/infra/conf"
 
 	"github.com/XrayR-project/XrayR/api"
 	"github.com/XrayR-project/XrayR/app/mydispatcher"
@@ -77,6 +80,13 @@ func (c *Controller) Start() error {
 	}
 	c.nodeInfo = newNodeInfo
 	c.Tag = c.buildNodeTag()
+
+	// append remote DNS config and init dns service
+	err = c.addNewDNS(newNodeInfo)
+	if err != nil {
+		return err
+	}
+
 	// Add new tag
 	err = c.addNewTag(newNodeInfo)
 	if err != nil {
@@ -249,6 +259,13 @@ func (c *Controller) nodeInfoMonitor() (err error) {
 
 		// Add Limiter
 		if err := c.AddInboundLimiter(c.Tag, newNodeInfo.SpeedLimit, newUserInfo, c.config.GlobalDeviceLimitConfig); err != nil {
+			log.Print(err)
+			return nil
+		}
+
+		// Add DNS
+		log.Printf("%s Reload DNS service", c.logPrefix())
+		if err := c.addNewDNS(newNodeInfo); err != nil {
 			log.Print(err)
 			return nil
 		}
@@ -611,5 +628,34 @@ func (c *Controller) certMonitor() error {
 			}
 		}
 	}
+	return nil
+}
+
+// append remote dns
+func (c *Controller) addNewDNS(newNodeInfo *api.NodeInfo) error {
+	// reserve local DNS
+	servers := make([]*conf.NameServerConfig, len(c.config.DNSConfig.Servers))
+	copy(servers, c.config.DNSConfig.Servers)
+	servers = append(servers, newNodeInfo.NameServerConfig...)
+
+	buf := &conf.DNSConfig{Servers: servers}
+	dnsConfig, err := buf.Build()
+	if err != nil {
+		log.Panicf("Failed to understand DNS config, Please check: https://xtls.github.io/config/dns.html for help: %s", err)
+	}
+	dnsInstance, err := serial.ToTypedMessage(dnsConfig).GetInstance()
+	if err != nil {
+		return err
+	}
+	obj, err := core.CreateObject(c.server, dnsInstance)
+	if err != nil {
+		return err
+	}
+	if feature, ok := obj.(features.Feature); ok {
+		if err := c.server.AddFeature(feature); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }

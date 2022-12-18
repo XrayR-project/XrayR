@@ -66,10 +66,12 @@ func (p *Panel) loadCore(panelConfig *Config) *core.Instance {
 			}
 		}
 	}
-	dnsConfig, err := coreDnsConfig.Build()
-	if err != nil {
-		log.Panicf("Failed to understand DNS config, Please check: https://xtls.github.io/config/dns.html for help: %s", err)
+
+	// init controller's DNS config
+	for _, config := range p.panelConfig.NodesConfig {
+		config.ControllerConfig.DNSConfig = coreDnsConfig
 	}
+
 	// Routing config
 	coreRouterConfig := &conf.RouterConfig{}
 	if panelConfig.RouteConfigPath != "" {
@@ -137,7 +139,6 @@ func (p *Panel) loadCore(panelConfig *Config) *core.Instance {
 			serial.ToTypedMessage(&proxyman.InboundConfig{}),
 			serial.ToTypedMessage(&proxyman.OutboundConfig{}),
 			serial.ToTypedMessage(policyConfig),
-			serial.ToTypedMessage(dnsConfig),
 			serial.ToTypedMessage(routeConfig),
 		},
 		Inbound:  inBoundConfig,
