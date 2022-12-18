@@ -14,6 +14,8 @@ import (
 
 	"github.com/bitly/go-simplejson"
 	"github.com/go-resty/resty/v2"
+	"github.com/sagernet/sing-shadowsocks/shadowaead_2022"
+	C "github.com/sagernet/sing/common"
 
 	"github.com/XrayR-project/XrayR/api"
 )
@@ -325,21 +327,28 @@ func (c *APIClient) ParseTrojanNodeResponse(nodeInfoResponse *simplejson.Json) (
 	return nodeinfo, nil
 }
 
-// ParseSSNodeResponse parse the response for the given nodeinfor format
+// ParseSSNodeResponse parse the response for the given nodeinfo format
 func (c *APIClient) ParseSSNodeResponse(nodeInfoResponse *simplejson.Json) (*api.NodeInfo, error) {
-	var method string
+	var method, serverPsk string
 	tmpInboundInfo := nodeInfoResponse.Get("inbounds").MustArray()
 	marshalByte, _ := json.Marshal(tmpInboundInfo[0].(map[string]interface{}))
 	inboundInfo, _ := simplejson.NewJson(marshalByte)
 
 	port := uint32(inboundInfo.Get("port").MustUint64())
-	userInfo, err := c.GetUserList()
-	if err != nil {
-		return nil, err
+	method = inboundInfo.Get("settings").Get("method").MustString()
+	// Shadowsocks 2022
+	if C.Contains(shadowaead_2022.List, method) {
+		serverPsk = inboundInfo.Get("settings").Get("password").MustString()
+	} else {
+		userInfo, err := c.GetUserList()
+		if err != nil {
+			return nil, err
+		}
+		if len(*userInfo) > 0 {
+			method = (*userInfo)[0].Method
+		}
 	}
-	if len(*userInfo) > 0 {
-		method = (*userInfo)[0].Method
-	}
+
 	// Create GeneralNodeInfo
 	nodeinfo := &api.NodeInfo{
 		NodeType:          c.NodeType,
@@ -347,6 +356,7 @@ func (c *APIClient) ParseSSNodeResponse(nodeInfoResponse *simplejson.Json) (*api
 		Port:              port,
 		TransportProtocol: "tcp",
 		CypherMethod:      method,
+		ServerKey:         serverPsk,
 	}
 
 	return nodeinfo, nil
