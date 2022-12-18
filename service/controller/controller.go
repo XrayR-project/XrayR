@@ -634,12 +634,20 @@ func (c *Controller) certMonitor() error {
 // append remote dns
 func (c *Controller) addNewDNS(newNodeInfo *api.NodeInfo) error {
 	// reserve local DNS
-	servers := make([]*conf.NameServerConfig, len(c.config.DNSConfig.Servers))
-	copy(servers, c.config.DNSConfig.Servers)
+	servers := c.config.DNSConfig.Servers
 	servers = append(servers, newNodeInfo.NameServerConfig...)
+	dns := conf.DNSConfig{
+		Servers:                servers,
+		Hosts:                  c.config.DNSConfig.Hosts,
+		ClientIP:               c.config.DNSConfig.ClientIP,
+		Tag:                    c.config.DNSConfig.Tag,
+		QueryStrategy:          c.config.DNSConfig.QueryStrategy,
+		DisableCache:           c.config.DNSConfig.DisableCache,
+		DisableFallback:        c.config.DNSConfig.DisableFallback,
+		DisableFallbackIfMatch: c.config.DNSConfig.DisableFallbackIfMatch,
+	}
 
-	buf := &conf.DNSConfig{Servers: servers}
-	dnsConfig, err := buf.Build()
+	dnsConfig, err := dns.Build()
 	if err != nil {
 		log.Panicf("Failed to understand DNS config, Please check: https://xtls.github.io/config/dns.html for help: %s", err)
 	}
