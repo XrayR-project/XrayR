@@ -85,7 +85,7 @@ func (c *Controller) buildSSUser(userInfo *[]api.UserInfo, method string) (users
 		// shadowsocks2022 Key = "openssl rand -base64 32" and multi users needn't cipher method
 		if C.Contains(shadowaead_2022.List, strings.ToLower(method)) {
 			e := c.buildUserTag(&user)
-			userKey, err := checkShadowsocksPassword(user.Passwd, method)
+			userKey, err := c.checkShadowsocksPassword(user.Passwd, method)
 			if err != nil {
 				newError(fmt.Errorf("[UID: %d] %s", user.UID, err)).AtError().WriteToLog()
 				continue
@@ -120,7 +120,7 @@ func (c *Controller) buildSSPluginUser(userInfo *[]api.UserInfo) (users []*proto
 		// shadowsocks2022 Key = openssl rand -base64 32 and multi users needn't cipher method
 		if C.Contains(shadowaead_2022.List, strings.ToLower(user.Method)) {
 			e := c.buildUserTag(&user)
-			userKey, err := checkShadowsocksPassword(user.Passwd, user.Method)
+			userKey, err := c.checkShadowsocksPassword(user.Passwd, user.Method)
 			if err != nil {
 				newError(fmt.Errorf("[UID: %d] %s", user.UID, err)).AtError().WriteToLog()
 				continue
@@ -171,14 +171,12 @@ func (c *Controller) buildUserTag(user *api.UserInfo) string {
 	return fmt.Sprintf("%s|%s|%d", c.Tag, user.Email, user.UID)
 }
 
-func checkShadowsocksPassword(password string, method string) (string, error) {
-	if rxBase64.MatchString(password) {
-		return password, nil
-	} else {
+func (c *Controller) checkShadowsocksPassword(password string, method string) (string, error) {
+	if c.panelType == "V2board" {
+		var userKey string
 		if len(password) < 16 {
 			return "", fmt.Errorf("shadowsocks2022 key's length must be greater than 16")
 		}
-		var userKey string
 		if method == "2022-blake3-aes-128-gcm" {
 			userKey = password[:16]
 		} else {
@@ -188,5 +186,7 @@ func checkShadowsocksPassword(password string, method string) (string, error) {
 			userKey = password[:32]
 		}
 		return base64.StdEncoding.EncodeToString([]byte(userKey)), nil
+	} else {
+		return password, nil
 	}
 }
