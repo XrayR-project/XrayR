@@ -667,8 +667,8 @@ github.com/sacloud/iaas-api-go v1.3.2 h1:03obrdVdv/bGHK9p6CV7Uzg+ot2gLsddUMevm9D
 github.com/sacloud/iaas-api-go v1.3.2/go.mod h1:CoqpRYBG2NRB5xfqTfZNyh2lVLKyLkE/HV9ISqmbhGc=
 github.com/sacloud/packages-go v0.0.5 h1:NXTQNyyp/3ugM4CANtLBJLejFESzfWu4GPUURN4NJrA=
 github.com/sacloud/packages-go v0.0.5/go.mod h1:XWMBSNHT9YKY3lCh6yJsx1o1RRQQGpuhNqJA6bSHdD4=
-github.com/sagernet/sing v0.1.0 h1:FGmaP2BVPYO2IyC/3R1DaQa/zr+kOKHRgWqrmOF+Gu8=
-github.com/sagernet/sing v0.1.0/go.mod h1:zvgDYKI+vCAW9RyfyrKTgleI+DOa8lzHMPC7VZo3OL4=
+github.com/sagernet/sing v0.1.1 h1:wtCGreL9UNtoLcDvSLoZQWf1dtqmLWogbcwRAD9nz4E=
+github.com/sagernet/sing v0.1.1/go.mod h1:zvgDYKI+vCAW9RyfyrKTgleI+DOa8lzHMPC7VZo3OL4=
 github.com/sagernet/sing-shadowsocks v0.1.0 h1:cDmmOkA11fzVdhyCZQEeI3ozQz+59rj8+rqPb91xux4=
 github.com/sagernet/sing-shadowsocks v0.1.0/go.mod h1:O5LtOs8Ivw686FqLpO0Zu+A0ROVE15VeqEK3yDRRAms=
 github.com/sagernet/wireguard-go v0.0.0-20221116151939-c99467f53f2c h1:vK2wyt9aWYHHvNLWniwijBu/n4pySypiKRhN32u/JGo=
