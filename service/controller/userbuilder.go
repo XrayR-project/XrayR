@@ -3,6 +3,7 @@ package controller
 import (
 	"encoding/base64"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/sagernet/sing-shadowsocks/shadowaead_2022"
@@ -18,12 +19,15 @@ import (
 	"github.com/XrayR-project/XrayR/api"
 )
 
-var AEADMethod = map[shadowsocks.CipherType]uint8{
-	shadowsocks.CipherType_AES_128_GCM:        0,
-	shadowsocks.CipherType_AES_256_GCM:        0,
-	shadowsocks.CipherType_CHACHA20_POLY1305:  0,
-	shadowsocks.CipherType_XCHACHA20_POLY1305: 0,
-}
+var (
+	AEADMethod = map[shadowsocks.CipherType]uint8{
+		shadowsocks.CipherType_AES_128_GCM:        0,
+		shadowsocks.CipherType_AES_256_GCM:        0,
+		shadowsocks.CipherType_CHACHA20_POLY1305:  0,
+		shadowsocks.CipherType_XCHACHA20_POLY1305: 0,
+	}
+	rxBase64 = regexp.MustCompile("^(?:[A-Za-z0-9+\\/]{4})*(?:[A-Za-z0-9+\\/]{2}==|[A-Za-z0-9+\\/]{3}=|[A-Za-z0-9+\\/]{4})$")
+)
 
 func (c *Controller) buildVmessUser(userInfo *[]api.UserInfo, serverAlterID uint16) (users []*protocol.User) {
 	users = make([]*protocol.User, len(*userInfo))
@@ -81,23 +85,16 @@ func (c *Controller) buildSSUser(userInfo *[]api.UserInfo, method string) (users
 		// shadowsocks2022 Key = "openssl rand -base64 32" and multi users needn't cipher method
 		if C.Contains(shadowaead_2022.List, strings.ToLower(method)) {
 			e := c.buildUserTag(&user)
-			if len(user.Passwd) < 16 {
-				newError(fmt.Errorf("[UID: %d] shadowsocks2022 key's length must be greater than 16", user.UID)).AtError().WriteToLog()
+			userKey, err := checkShadowsocksPassword(user.Passwd, method)
+			if err != nil {
+				newError(fmt.Errorf("[UID: %d] %s", user.UID, err)).AtError().WriteToLog()
 				continue
-			}
-			userKey := user.Passwd[:16]
-			if strings.Contains(method, "256") {
-				if len(user.Passwd) < 32 {
-					newError(fmt.Errorf("[UID: %d] shadowsocks2022 key's length must be greater than 32", user.UID)).AtError().WriteToLog()
-					continue
-				}
-				userKey = user.Passwd[:32]
 			}
 			users[i] = &protocol.User{
 				Level: 0,
 				Email: e,
 				Account: serial.ToTypedMessage(&shadowsocks_2022.User{
-					Key:   base64.StdEncoding.EncodeToString([]byte(userKey)),
+					Key:   userKey,
 					Email: e,
 					Level: 0,
 				}),
@@ -123,23 +120,16 @@ func (c *Controller) buildSSPluginUser(userInfo *[]api.UserInfo) (users []*proto
 		// shadowsocks2022 Key = openssl rand -base64 32 and multi users needn't cipher method
 		if C.Contains(shadowaead_2022.List, strings.ToLower(user.Method)) {
 			e := c.buildUserTag(&user)
-			if len(user.Passwd) < 16 {
-				newError(fmt.Errorf("[UID: %d] shadowsocks2022 key's length must be greater than 16", user.UID)).AtError().WriteToLog()
+			userKey, err := checkShadowsocksPassword(user.Passwd, user.Method)
+			if err != nil {
+				newError(fmt.Errorf("[UID: %d] %s", user.UID, err)).AtError().WriteToLog()
 				continue
-			}
-			userKey := user.Passwd[:16]
-			if strings.Contains(user.Method, "256") {
-				if len(user.Passwd) < 32 {
-					newError(fmt.Errorf("[UID: %d] shadowsocks2022 key's length must be greater than 32", user.UID)).AtError().WriteToLog()
-					continue
-				}
-				userKey = user.Passwd[:32]
 			}
 			users[i] = &protocol.User{
 				Level: 0,
 				Email: e,
 				Account: serial.ToTypedMessage(&shadowsocks_2022.User{
-					Key:   base64.StdEncoding.EncodeToString([]byte(userKey)),
+					Key:   userKey,
 					Email: e,
 					Level: 0,
 				}),
@@ -179,4 +169,24 @@ func cipherFromString(c string) shadowsocks.CipherType {
 
 func (c *Controller) buildUserTag(user *api.UserInfo) string {
 	return fmt.Sprintf("%s|%s|%d", c.Tag, user.Email, user.UID)
+}
+
+func checkShadowsocksPassword(password string, method string) (string, error) {
+	if rxBase64.MatchString(password) {
+		return password, nil
+	} else {
+		if len(password) < 16 {
+			return "", fmt.Errorf("shadowsocks2022 key's length must be greater than 16")
+		}
+		var userKey string
+		if method == "2022-blake3-aes-128-gcm" {
+			userKey = password[:16]
+		} else {
+			if len(password) < 32 {
+				return "", fmt.Errorf("shadowsocks2022 key's length must be greater than 32")
+			}
+			userKey = password[:32]
+		}
+		return base64.StdEncoding.EncodeToString([]byte(userKey)), nil
+	}
 }
