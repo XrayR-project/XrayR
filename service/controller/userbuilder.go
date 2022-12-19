@@ -3,7 +3,6 @@ package controller
 import (
 	"encoding/base64"
 	"fmt"
-	"regexp"
 	"strings"
 
 	"github.com/sagernet/sing-shadowsocks/shadowaead_2022"
@@ -19,15 +18,12 @@ import (
 	"github.com/XrayR-project/XrayR/api"
 )
 
-var (
-	AEADMethod = map[shadowsocks.CipherType]uint8{
-		shadowsocks.CipherType_AES_128_GCM:        0,
-		shadowsocks.CipherType_AES_256_GCM:        0,
-		shadowsocks.CipherType_CHACHA20_POLY1305:  0,
-		shadowsocks.CipherType_XCHACHA20_POLY1305: 0,
-	}
-	rxBase64 = regexp.MustCompile("^(?:[A-Za-z0-9+\\/]{4})*(?:[A-Za-z0-9+\\/]{2}==|[A-Za-z0-9+\\/]{3}=|[A-Za-z0-9+\\/]{4})$")
-)
+var AEADMethod = map[shadowsocks.CipherType]uint8{
+	shadowsocks.CipherType_AES_128_GCM:        0,
+	shadowsocks.CipherType_AES_256_GCM:        0,
+	shadowsocks.CipherType_CHACHA20_POLY1305:  0,
+	shadowsocks.CipherType_XCHACHA20_POLY1305: 0,
+}
 
 func (c *Controller) buildVmessUser(userInfo *[]api.UserInfo, serverAlterID uint16) (users []*protocol.User) {
 	users = make([]*protocol.User, len(*userInfo))
