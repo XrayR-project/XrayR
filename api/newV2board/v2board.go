@@ -263,10 +263,10 @@ func (c *APIClient) GetNodeRule() (*[]api.DetectRule, error) {
 	for i, rule := range nodeInfoResponse.Get("routes").MustArray() {
 		r := rule.(map[string]any)
 		if r["action"] == "block" {
-			for ii := range r["match"].([]any) {
+			for _, v := range strings.Split(r["match"].(string), ",") {
 				ruleList = append(ruleList, api.DetectRule{
 					ID:      i,
-					Pattern: regexp.MustCompile(r["match"].([]any)[ii].(string)),
+					Pattern: regexp.MustCompile(v),
 				})
 			}
 		}
