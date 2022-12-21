@@ -263,10 +263,22 @@ func (c *APIClient) GetNodeRule() (*[]api.DetectRule, error) {
 	for i, rule := range nodeInfoResponse.Get("routes").MustArray() {
 		r := rule.(map[string]any)
 		if r["action"] == "block" {
-			for ii := range r["match"].([]any) {
+			// todo remove at 2023.6.1, compatible with 1.7.1
+			switch r["match"].(type) {
+			case []any:
+				var s []string
+				for i := range r["match"].([]any) {
+					s = append(s, r["match"].([]any)[i].(string))
+				}
 				ruleList = append(ruleList, api.DetectRule{
 					ID:      i,
-					Pattern: regexp.MustCompile(r["match"].([]any)[ii].(string)),
+					Pattern: regexp.MustCompile(strings.Join(s, "|")),
+				})
+			case string:
+				s := r["match"].(string)
+				ruleList = append(ruleList, api.DetectRule{
+					ID:      i,
+					Pattern: regexp.MustCompile(strings.ReplaceAll(s, ",", "|")),
 				})
 			}
 		}
