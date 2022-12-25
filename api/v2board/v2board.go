@@ -3,6 +3,7 @@ package v2board
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -338,6 +339,8 @@ func (c *APIClient) ParseSSNodeResponse() (*api.NodeInfo, error) {
 	if len(*userInfo) > 0 {
 		port = (*userInfo)[0].Port
 		method = (*userInfo)[0].Method
+	} else {
+		return nil, errors.New("the number of node users is 0")
 	}
 
 	// Create GeneralNodeInfo
