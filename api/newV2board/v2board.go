@@ -257,30 +257,18 @@ func (c *APIClient) ReportUserTraffic(userTraffic *[]api.UserTraffic) error {
 
 // GetNodeRule implements the API interface
 func (c *APIClient) GetNodeRule() (*[]api.DetectRule, error) {
+	var routes []route
+	b, _ := c.resp.Load().(*simplejson.Json).Get("routes").MarshalJSON()
+	json.Unmarshal(b, &routes)
+
 	ruleList := c.LocalRuleList
 
-	nodeInfoResponse := c.resp.Load().(*simplejson.Json)
-	for i, rule := range nodeInfoResponse.Get("routes").MustArray() {
-		r := rule.(map[string]any)
-		if r["action"] == "block" {
-			// todo remove at 2023.6.1, compatible with 1.7.1
-			switch r["match"].(type) {
-			case []any:
-				var s []string
-				for i := range r["match"].([]any) {
-					s = append(s, r["match"].([]any)[i].(string))
-				}
-				ruleList = append(ruleList, api.DetectRule{
-					ID:      i,
-					Pattern: regexp.MustCompile(strings.Join(s, "|")),
-				})
-			case string:
-				s := r["match"].(string)
-				ruleList = append(ruleList, api.DetectRule{
-					ID:      i,
-					Pattern: regexp.MustCompile(strings.ReplaceAll(s, ",", "|")),
-				})
-			}
+	for i := range routes {
+		if routes[i].Action == "block" {
+			ruleList = append(ruleList, api.DetectRule{
+				ID:      i,
+				Pattern: regexp.MustCompile(strings.Join(routes[i].Match, "|")),
+			})
 		}
 	}
 
@@ -409,12 +397,15 @@ func (c *APIClient) parseV2rayNodeResponse(nodeInfoResponse *simplejson.Json) (*
 }
 
 func parseDNSConfig(nodeInfoResponse *simplejson.Json) (nameServerList []*conf.NameServerConfig) {
-	for _, rule := range nodeInfoResponse.Get("routes").MustArray() {
-		r := rule.(map[string]any)
-		if r["action"] == "dns" {
+	var routes []route
+	b, _ := nodeInfoResponse.Get("routes").MarshalJSON()
+	json.Unmarshal(b, &routes)
+
+	for i := range routes {
+		if routes[i].Action == "dns" {
 			nameServerList = append(nameServerList, &conf.NameServerConfig{
-				Address: &conf.Address{Address: net.ParseAddress(r["action_value"].(string))},
-				Domains: strings.Split(r["match"].(string), ","),
+				Address: &conf.Address{Address: net.ParseAddress(*routes[i].ActionValue)},
+				Domains: routes[i].Match,
 			})
 		}
 	}
