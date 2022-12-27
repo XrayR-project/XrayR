@@ -168,7 +168,7 @@ func (c *Controller) buildUserTag(user *api.UserInfo) string {
 }
 
 func (c *Controller) checkShadowsocksPassword(password string, method string) (string, error) {
-	if c.panelType == "V2board" {
+	if strings.Contains(c.panelType, "V2board") {
 		var userKey string
 		if len(password) < 16 {
 			return "", fmt.Errorf("shadowsocks2022 key's length must be greater than 16")

@@ -124,57 +124,41 @@ func (c *APIClient) assembleURL(path string) string {
 	return c.APIHost + path
 }
 
-func (c *APIClient) parseServerConfig(res *resty.Response, path string, err error) (*serverConfig, error) {
+func (c *APIClient) parseResponse(res *resty.Response, path string, err error) (*simplejson.Json, error) {
 	if err != nil {
-		return nil, fmt.Errorf("request %s failed: %s", c.assembleURL(path), err)
+		return nil, fmt.Errorf("request %s failed: %v", c.assembleURL(path), err)
 	}
 
 	if res.StatusCode() > 399 {
-		return nil, fmt.Errorf("request %s failed: %s, %s", c.assembleURL(path), res.String(), err)
+		return nil, fmt.Errorf("request %s failed: %s, %v", c.assembleURL(path), res.String(), err)
 	}
 
-	s := new(serverConfig)
-	if err := json.Unmarshal(res.Body(), s); err != nil {
-		return nil, fmt.Errorf("ret %s invalid", res.String())
-	}
-
-	if s.ServerPort == 0 {
-		return nil, errors.New("server port must > 0")
-	}
-
-	return s, nil
-}
-func (c *APIClient) parseUsers(res *resty.Response, path string, err error) ([]*user, error) {
+	rtn, err := simplejson.NewJson(res.Body())
 	if err != nil {
-		return nil, fmt.Errorf("request %s failed: %s", c.assembleURL(path), err)
-	}
-
-	if res.StatusCode() > 399 {
-		return nil, fmt.Errorf("request %s failed: %s, %s", c.assembleURL(path), res.String(), err)
-	}
-
-	var users []*user
-	if data, err := simplejson.NewJson(res.Body()); err != nil {
 		return nil, fmt.Errorf("ret %s invalid", res.String())
-	} else {
-		b, _ := data.Get("users").MarshalJSON()
-		json.Unmarshal(b, &users)
 	}
 
-	return users, nil
+	return rtn, nil
 }
 
 // GetNodeInfo will pull NodeInfo Config from panel
 func (c *APIClient) GetNodeInfo() (nodeInfo *api.NodeInfo, err error) {
+	server := new(serverConfig)
 	path := "/api/v1/server/UniProxy/config"
 
 	res, err := c.client.R().
 		ForceContentType("application/json").
 		Get(path)
 
-	server, err := c.parseServerConfig(res, path, err)
+	nodeInfoResp, err := c.parseResponse(res, path, err)
 	if err != nil {
 		return nil, err
+	}
+	b, _ := nodeInfoResp.Encode()
+	json.Unmarshal(b, server)
+
+	if server.ServerPort == 0 {
+		return nil, errors.New("server port must > 0")
 	}
 
 	c.resp.Store(server)
@@ -191,7 +175,7 @@ func (c *APIClient) GetNodeInfo() (nodeInfo *api.NodeInfo, err error) {
 	}
 
 	if err != nil {
-		return nil, fmt.Errorf("parse node info failed: %s, \nError: %s", res.String(), err)
+		return nil, fmt.Errorf("parse node info failed: %s, \nError: %v", res.String(), err)
 	}
 
 	return nodeInfo, nil
@@ -199,6 +183,7 @@ func (c *APIClient) GetNodeInfo() (nodeInfo *api.NodeInfo, err error) {
 
 // GetUserList will pull user form panel
 func (c *APIClient) GetUserList() (UserList *[]api.UserInfo, err error) {
+	var users []*user
 	path := "/api/v1/server/UniProxy/user"
 
 	switch c.NodeType {
@@ -222,10 +207,12 @@ func (c *APIClient) GetUserList() (UserList *[]api.UserInfo, err error) {
 		c.eTag = res.Header().Get("Etag")
 	}
 
-	users, err := c.parseUsers(res, path, err)
+	usersResp, err := c.parseResponse(res, path, err)
 	if err != nil {
 		return nil, err
 	}
+	b, _ := usersResp.Get("users").Encode()
+	json.Unmarshal(b, &users)
 
 	userList := make([]api.UserInfo, len(users))
 	for i := 0; i < len(users); i++ {
@@ -262,11 +249,8 @@ func (c *APIClient) ReportUserTraffic(userTraffic *[]api.UserTraffic) error {
 		data[traffic.UID] = []int64{traffic.Upload, traffic.Download}
 	}
 
-	res, err := c.client.R().
-		SetBody(data).
-		ForceContentType("application/json").
-		Post(path)
-	_, err = c.parseServerConfig(res, path, err)
+	res, err := c.client.R().SetBody(data).ForceContentType("application/json").Post(path)
+	_, err = c.parseResponse(res, path, err)
 	if err != nil {
 		return err
 	}
@@ -336,13 +320,16 @@ func (c *APIClient) parseSSNodeResponse(s *serverConfig) (*api.NodeInfo, error) 
 	if s.Obfs == "http" {
 		path := "/"
 		if p := s.ObfsSettings.Path; p != "" {
-			path = p
+			if strings.HasPrefix(p, "/") {
+				path = p
+			} else {
+				path += p
+			}
 		}
-		header, _ = json.Marshal(map[string]any{
-			"type": "http",
-			"request": map[string]any{
-				"path": path,
-			}})
+		h := simplejson.New()
+		h.Set("type", "http")
+		h.SetPath([]string{"request", "path"}, path)
+		header, _ = h.Encode()
 	}
 	// Create GeneralNodeInfo
 	return &api.NodeInfo{
@@ -360,11 +347,10 @@ func (c *APIClient) parseSSNodeResponse(s *serverConfig) (*api.NodeInfo, error) 
 // parseV2rayNodeResponse parse the response for the given nodeInfo format
 func (c *APIClient) parseV2rayNodeResponse(s *serverConfig) (*api.NodeInfo, error) {
 	var (
-		TLSType                 = "tls"
-		path, host, serviceName string
-		header                  json.RawMessage
-		enableTLS               bool
-		alterID                 uint16 = 0
+		TLSType   = "tls"
+		host      string
+		header    json.RawMessage
+		enableTLS bool
 	)
 
 	if c.EnableXTLS {
@@ -375,18 +361,13 @@ func (c *APIClient) parseV2rayNodeResponse(s *serverConfig) (*api.NodeInfo, erro
 		if httpHeader, err := s.NetworkSettings.Headers.MarshalJSON(); err != nil {
 			return nil, err
 		} else {
-			header = httpHeader
-		}
-	}
-
-	switch s.Network {
-	case "ws":
-		path = s.NetworkSettings.Path
-		b, _ := simplejson.NewJson(header)
-		host = b.Get("Host").MustString()
-	case "grpc":
-		if s.NetworkSettings.ServiceName != "" {
-			serviceName = s.NetworkSettings.ServiceName
+			switch s.Network {
+			case "ws":
+				b, _ := simplejson.NewJson(httpHeader)
+				host = b.Get("Host").MustString()
+			case "tcp":
+				header = httpHeader
+			}
 		}
 	}
 
@@ -399,14 +380,14 @@ func (c *APIClient) parseV2rayNodeResponse(s *serverConfig) (*api.NodeInfo, erro
 		NodeType:          c.NodeType,
 		NodeID:            c.NodeID,
 		Port:              uint32(s.ServerPort),
-		AlterID:           alterID,
+		AlterID:           0,
 		TransportProtocol: s.Network,
 		EnableTLS:         enableTLS,
 		TLSType:           TLSType,
-		Path:              path,
+		Path:              s.NetworkSettings.Path,
 		Host:              host,
 		EnableVless:       c.EnableVless,
-		ServiceName:       serviceName,
+		ServiceName:       s.NetworkSettings.ServiceName,
 		Header:            header,
 		NameServerConfig:  s.parseDNSConfig(),
 	}, nil
