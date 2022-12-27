@@ -371,21 +371,22 @@ func (c *APIClient) parseV2rayNodeResponse(s *serverConfig) (*api.NodeInfo, erro
 		TLSType = "xtls"
 	}
 
+	if s.NetworkSettings.Headers != nil {
+		if httpHeader, err := s.NetworkSettings.Headers.MarshalJSON(); err != nil {
+			return nil, err
+		} else {
+			header = httpHeader
+		}
+	}
+
 	switch s.Network {
 	case "ws":
 		path = s.NetworkSettings.Path
-		host = s.NetworkSettings.Headers.Host
+		b, _ := simplejson.NewJson(header)
+		host = b.Get("Host").MustString()
 	case "grpc":
 		if s.NetworkSettings.ServiceName != "" {
 			serviceName = s.NetworkSettings.ServiceName
-		}
-	case "tcp":
-		if &s.NetworkSettings.Headers != nil {
-			if httpHeader, err := json.Marshal(s.NetworkSettings.Headers); err != nil {
-				return nil, err
-			} else {
-				header = httpHeader
-			}
 		}
 	}
 

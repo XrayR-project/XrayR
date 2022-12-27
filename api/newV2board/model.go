@@ -1,5 +1,9 @@
 package newV2board
 
+import (
+	"encoding/json"
+)
+
 type serverConfig struct {
 	ServerPort int `json:"server_port"`
 	BaseConfig struct {
@@ -20,11 +24,9 @@ type serverConfig struct {
 	// v2ray
 	Network         string `json:"network"`
 	NetworkSettings struct {
-		Path    string `json:"path"`
-		Headers struct {
-			Host string `json:"Host"`
-		} `json:"headers"`
-		ServiceName string `json:"serviceName"`
+		Path        string           `json:"path"`
+		Headers     *json.RawMessage `json:"headers"`
+		ServiceName string           `json:"serviceName"`
 	} `json:"networkSettings"`
 	Tls int `json:"tls"`
 
