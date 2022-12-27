@@ -29,8 +29,8 @@ type serverConfig struct {
 	Tls int `json:"tls"`
 
 	// trojan
-	Host       string  `json:"host"`
-	ServerName *string `json:"server_name"`
+	Host       string `json:"host"`
+	ServerName string `json:"server_name"`
 }
 
 type route struct {

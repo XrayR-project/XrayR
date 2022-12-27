@@ -84,7 +84,7 @@ func readLocalRuleList(path string) (LocalRuleList []api.DetectRule) {
 	if path != "" {
 		// open the file
 		file, err := os.Open(path)
-
+		defer file.Close()
 		// handle errors while opening
 		if err != nil {
 			log.Printf("Error when opening file: %s", err)
@@ -105,8 +105,6 @@ func readLocalRuleList(path string) (LocalRuleList []api.DetectRule) {
 			log.Fatalf("Error while reading file: %s", err)
 			return
 		}
-
-		file.Close()
 	}
 
 	return LocalRuleList
@@ -132,8 +130,7 @@ func (c *APIClient) parseServerConfig(res *resty.Response, path string, err erro
 	}
 
 	if res.StatusCode() > 399 {
-		body := res.Body()
-		return nil, fmt.Errorf("request %s failed: %s, %s", c.assembleURL(path), string(body), err)
+		return nil, fmt.Errorf("request %s failed: %s, %s", c.assembleURL(path), res.String(), err)
 	}
 
 	s := new(serverConfig)
@@ -153,19 +150,18 @@ func (c *APIClient) parseUsers(res *resty.Response, path string, err error) ([]*
 	}
 
 	if res.StatusCode() > 399 {
-		body := res.Body()
-		return nil, fmt.Errorf("request %s failed: %s, %s", c.assembleURL(path), string(body), err)
+		return nil, fmt.Errorf("request %s failed: %s, %s", c.assembleURL(path), res.String(), err)
 	}
 
-	var u []*user
+	var users []*user
 	if data, err := simplejson.NewJson(res.Body()); err != nil {
 		return nil, fmt.Errorf("ret %s invalid", res.String())
 	} else {
 		b, _ := data.Get("users").MarshalJSON()
-		json.Unmarshal(b, &u)
+		json.Unmarshal(b, &users)
 	}
 
-	return u, nil
+	return users, nil
 }
 
 // GetNodeInfo will pull NodeInfo Config from panel
@@ -191,11 +187,11 @@ func (c *APIClient) GetNodeInfo() (nodeInfo *api.NodeInfo, err error) {
 	case "Shadowsocks":
 		nodeInfo, err = c.parseSSNodeResponse(server)
 	default:
-		return nil, fmt.Errorf("unsupported Node type: %s", c.NodeType)
+		return nil, fmt.Errorf("unsupported node type: %s", c.NodeType)
 	}
 
 	if err != nil {
-		return nil, fmt.Errorf("Parse node info failed: %s, \nError: %s", res.String(), err)
+		return nil, fmt.Errorf("parse node info failed: %s, \nError: %s", res.String(), err)
 	}
 
 	return nodeInfo, nil
@@ -209,7 +205,7 @@ func (c *APIClient) GetUserList() (UserList *[]api.UserInfo, err error) {
 	case "V2ray", "Trojan", "Shadowsocks":
 		break
 	default:
-		return nil, fmt.Errorf("unsupported Node type: %s", c.NodeType)
+		return nil, fmt.Errorf("unsupported node type: %s", c.NodeType)
 	}
 
 	res, err := c.client.R().
@@ -327,8 +323,8 @@ func (c *APIClient) parseTrojanNodeResponse(s *serverConfig) (*api.NodeInfo, err
 		EnableTLS:         true,
 		TLSType:           TLSType,
 		Host:              s.Host,
-		ServiceName:       *s.ServerName,
-		NameServerConfig:  parseDNSConfig(s),
+		ServiceName:       s.ServerName,
+		NameServerConfig:  s.parseDNSConfig(),
 	}
 	return nodeInfo, nil
 }
@@ -356,7 +352,7 @@ func (c *APIClient) parseSSNodeResponse(s *serverConfig) (*api.NodeInfo, error) 
 		TransportProtocol: "tcp",
 		CypherMethod:      s.Cipher,
 		ServerKey:         s.ServerKey, // shadowsocks2022 share key
-		NameServerConfig:  parseDNSConfig(s),
+		NameServerConfig:  s.parseDNSConfig(),
 		Header:            header,
 	}, nil
 }
@@ -411,18 +407,16 @@ func (c *APIClient) parseV2rayNodeResponse(s *serverConfig) (*api.NodeInfo, erro
 		EnableVless:       c.EnableVless,
 		ServiceName:       serviceName,
 		Header:            header,
-		NameServerConfig:  parseDNSConfig(s),
+		NameServerConfig:  s.parseDNSConfig(),
 	}, nil
 }
 
-func parseDNSConfig(s *serverConfig) (nameServerList []*conf.NameServerConfig) {
-	routes := s.Routes
-
-	for i := range routes {
-		if routes[i].Action == "dns" {
+func (s *serverConfig) parseDNSConfig() (nameServerList []*conf.NameServerConfig) {
+	for i := range s.Routes {
+		if s.Routes[i].Action == "dns" {
 			nameServerList = append(nameServerList, &conf.NameServerConfig{
-				Address: &conf.Address{Address: net.ParseAddress(routes[i].ActionValue)},
-				Domains: routes[i].Match,
+				Address: &conf.Address{Address: net.ParseAddress(s.Routes[i].ActionValue)},
+				Domains: s.Routes[i].Match,
 			})
 		}
 	}
