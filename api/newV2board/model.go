@@ -5,14 +5,19 @@ import (
 )
 
 type serverConfig struct {
+	shadowsocks
+	v2ray
+	trojan
+
 	ServerPort int `json:"server_port"`
 	BaseConfig struct {
 		PushInterval int `json:"push_interval"`
 		PullInterval int `json:"pull_interval"`
 	} `json:"base_config"`
 	Routes []route `json:"routes"`
+}
 
-	// shadowsocks
+type shadowsocks struct {
 	Cipher       string `json:"cipher"`
 	Obfs         string `json:"obfs"`
 	ObfsSettings struct {
@@ -20,8 +25,9 @@ type serverConfig struct {
 		Host string `json:"host"`
 	} `json:"obfs_settings"`
 	ServerKey string `json:"server_key"`
+}
 
-	// v2ray
+type v2ray struct {
 	Network         string `json:"network"`
 	NetworkSettings struct {
 		Path        string           `json:"path"`
@@ -29,8 +35,9 @@ type serverConfig struct {
 		ServiceName string           `json:"serviceName"`
 	} `json:"networkSettings"`
 	Tls int `json:"tls"`
+}
 
-	// trojan
+type trojan struct {
 	Host       string `json:"host"`
 	ServerName string `json:"server_name"`
 }
