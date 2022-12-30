@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"reflect"
+	"sync"
 	"time"
 
 	"github.com/xtls/xray-core/common/protocol"
@@ -30,6 +31,7 @@ type LimitInfo struct {
 }
 
 type Controller struct {
+	sync.Mutex
 	server       *core.Instance
 	config       *Config
 	clientInfo   api.ClientInfo
@@ -46,6 +48,7 @@ type Controller struct {
 	stm          stats.Manager
 	dispatcher   *mydispatcher.DefaultDispatcher
 	startAt      time.Time
+	dnsFeature   *features.Feature
 }
 
 type periodicTask struct {
@@ -660,8 +663,14 @@ func (c *Controller) addNewDNS(newNodeInfo *api.NodeInfo) error {
 		return err
 	}
 	if feature, ok := obj.(features.Feature); ok {
-		if err := c.server.AddFeature(feature); err != nil {
-			return err
+		// todo fix memory leak
+		c.Lock()
+		defer c.Unlock()
+		if c.dnsFeature == nil {
+			c.dnsFeature = &feature
+			c.server.AddFeature(feature)
+		} else {
+			*c.dnsFeature = feature
 		}
 	}
 
