@@ -48,7 +48,6 @@ type Controller struct {
 	stm          stats.Manager
 	dispatcher   *mydispatcher.DefaultDispatcher
 	startAt      time.Time
-	dnsFeature   *features.Feature
 }
 
 type periodicTask struct {
@@ -663,15 +662,7 @@ func (c *Controller) addNewDNS(newNodeInfo *api.NodeInfo) error {
 		return err
 	}
 	if feature, ok := obj.(features.Feature); ok {
-		// todo fix memory leak
-		c.Lock()
-		defer c.Unlock()
-		if c.dnsFeature == nil {
-			c.dnsFeature = &feature
-			c.server.AddFeature(feature)
-		} else {
-			*c.dnsFeature = feature
-		}
+		c.server.AddFeature(feature)
 	}
 
 	return nil
