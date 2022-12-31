@@ -49,6 +49,16 @@ func New() *Limiter {
 	}
 }
 
+func checkRedisConnection(client *redis.Client) error {
+	// Call the Ping function to Redis to check the connection.
+	ctx := context.Background()
+	_, err := client.Ping(ctx).Result()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (l *Limiter) AddInboundLimiter(tag string, nodeSpeedLimit uint64, userList *[]api.UserInfo, globalLimit *GlobalDeviceLimitConfig) error {
 	inboundInfo := &InboundInfo{
 		Tag:            tag,
@@ -63,14 +73,21 @@ func (l *Limiter) AddInboundLimiter(tag string, nodeSpeedLimit uint64, userList 
 		// init local store
 		gs := goCacheStore.NewGoCache(goCache.New(time.Duration(globalLimit.Expiry)*time.Second, 1*time.Minute))
 
-		// init redis store
-		rs := redisStore.NewRedis(redis.NewClient(
+		// init redis client
+		client := redis.NewClient(
 			&redis.Options{
 				Addr:     globalLimit.RedisAddr,
 				Password: globalLimit.RedisPassword,
 				DB:       globalLimit.RedisDB,
-			}),
-			store.WithExpiration(time.Duration(globalLimit.Expiry)*time.Second))
+			})
+
+		// check redis connection
+		if err := checkRedisConnection(client); err != nil {
+			return err
+		}
+
+		// init redis store
+		rs := redisStore.NewRedis(client, store.WithExpiration(time.Duration(globalLimit.Expiry)*time.Second))
 
 		// init chained cache. First use local go-cache, if go-cache is nil, then use redis cache
 		cacheManager := cache.NewChain[any](
