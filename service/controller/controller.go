@@ -4,19 +4,15 @@ import (
 	"fmt"
 	"log"
 	"reflect"
-	"sync"
 	"time"
 
 	"github.com/xtls/xray-core/common/protocol"
-	"github.com/xtls/xray-core/common/serial"
 	"github.com/xtls/xray-core/common/task"
 	"github.com/xtls/xray-core/core"
-	"github.com/xtls/xray-core/features"
 	"github.com/xtls/xray-core/features/inbound"
 	"github.com/xtls/xray-core/features/outbound"
 	"github.com/xtls/xray-core/features/routing"
 	"github.com/xtls/xray-core/features/stats"
-	"github.com/xtls/xray-core/infra/conf"
 
 	"github.com/XrayR-project/XrayR/api"
 	"github.com/XrayR-project/XrayR/app/mydispatcher"
@@ -31,7 +27,6 @@ type LimitInfo struct {
 }
 
 type Controller struct {
-	sync.Mutex
 	server       *core.Instance
 	config       *Config
 	clientInfo   api.ClientInfo
@@ -82,12 +77,6 @@ func (c *Controller) Start() error {
 	}
 	c.nodeInfo = newNodeInfo
 	c.Tag = c.buildNodeTag()
-
-	// append remote DNS config and init dns service
-	err = c.addNewDNS(newNodeInfo)
-	if err != nil {
-		return err
-	}
 
 	// Add new tag
 	err = c.addNewTag(newNodeInfo)
@@ -211,14 +200,6 @@ func (c *Controller) nodeInfoMonitor() (err error) {
 	var nodeInfoChanged = false
 	// If nodeInfo changed
 	if !reflect.DeepEqual(c.nodeInfo, newNodeInfo) {
-		// Add DNS
-		if !reflect.DeepEqual(c.nodeInfo.NameServerConfig, newNodeInfo.NameServerConfig) {
-			log.Printf("%s Reload DNS service", c.logPrefix())
-			if err := c.addNewDNS(newNodeInfo); err != nil {
-				log.Print(err)
-				return nil
-			}
-		}
 		// Remove old tag
 		oldTag := c.Tag
 		err := c.removeOldTag(oldTag)
@@ -632,40 +613,5 @@ func (c *Controller) certMonitor() error {
 			}
 		}
 	}
-	return nil
-}
-
-// append remote dns
-func (c *Controller) addNewDNS(newNodeInfo *api.NodeInfo) error {
-	// reserve local DNS
-	servers := c.config.DNSConfig.Servers
-	servers = append(servers, newNodeInfo.NameServerConfig...)
-	dns := conf.DNSConfig{
-		Servers:                servers,
-		Hosts:                  c.config.DNSConfig.Hosts,
-		ClientIP:               c.config.DNSConfig.ClientIP,
-		Tag:                    c.config.DNSConfig.Tag,
-		QueryStrategy:          c.config.DNSConfig.QueryStrategy,
-		DisableCache:           c.config.DNSConfig.DisableCache,
-		DisableFallback:        c.config.DNSConfig.DisableFallback,
-		DisableFallbackIfMatch: c.config.DNSConfig.DisableFallbackIfMatch,
-	}
-
-	dnsConfig, err := dns.Build()
-	if err != nil {
-		log.Panicf("Failed to understand DNS config, Please check: https://xtls.github.io/config/dns.html for help: %s", err)
-	}
-	dnsInstance, err := serial.ToTypedMessage(dnsConfig).GetInstance()
-	if err != nil {
-		return err
-	}
-	obj, err := core.CreateObject(c.server, dnsInstance)
-	if err != nil {
-		return err
-	}
-	if feature, ok := obj.(features.Feature); ok {
-		c.server.AddFeature(feature)
-	}
-
 	return nil
 }
