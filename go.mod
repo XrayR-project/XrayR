@@ -21,7 +21,7 @@ require (
 	github.com/spf13/viper v1.14.0
 	github.com/stretchr/testify v1.8.1
 	github.com/xtls/xray-core v1.6.7-0.20221215133507-a55cf1d0bff2
-	golang.org/x/crypto v0.4.0
+	golang.org/x/crypto v0.5.0
 	golang.org/x/net v0.5.0
 	golang.org/x/time v0.3.0
 	google.golang.org/protobuf v1.28.1
