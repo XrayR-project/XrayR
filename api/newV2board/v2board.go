@@ -357,15 +357,21 @@ func (c *APIClient) parseV2rayNodeResponse(s *serverConfig) (*api.NodeInfo, erro
 		TLSType = "xtls"
 	}
 
-	if s.NetworkSettings.Headers != nil {
-		if httpHeader, err := s.NetworkSettings.Headers.MarshalJSON(); err != nil {
-			return nil, err
-		} else {
-			switch s.Network {
-			case "ws":
+	switch s.Network {
+	case "ws":
+		if s.NetworkSettings.Headers != nil {
+			if httpHeader, err := s.NetworkSettings.Headers.MarshalJSON(); err != nil {
+				return nil, err
+			} else {
 				b, _ := simplejson.NewJson(httpHeader)
 				host = b.Get("Host").MustString()
-			case "tcp":
+			}
+		}
+	case "tcp":
+		if s.NetworkSettings.Header != nil {
+			if httpHeader, err := s.NetworkSettings.Header.MarshalJSON(); err != nil {
+				return nil, err
+			} else {
 				header = httpHeader
 			}
 		}
