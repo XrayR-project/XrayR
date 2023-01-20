@@ -317,37 +317,19 @@ func (d *DefaultDispatcher) Dispatch(ctx context.Context, destination net.Destin
 	}
 
 	sniffingRequest := content.SniffingRequest
-	in, out, err := d.getLink(ctx, destination.Network, sniffingRequest)
+	inbound, outbound, err := d.getLink(ctx, destination.Network, sniffingRequest)
 	if err != nil {
 		return nil, err
 	}
-	switch {
-	case !sniffingRequest.Enabled:
-		go d.routedDispatch(ctx, out, destination)
-	case destination.Network != net.Network_TCP:
-		// Only metadata sniff will be used for non tcp connection
-		result, err := sniffer(ctx, nil, true)
-		if err == nil {
-			content.Protocol = result.Protocol()
-			if d.shouldOverride(ctx, result, sniffingRequest, destination) {
-				domain := result.Domain()
-				newError("sniffed domain: ", domain).WriteToLog(session.ExportIDToError(ctx))
-				destination.Address = net.ParseAddress(domain)
-				if sniffingRequest.RouteOnly && result.Protocol() != "fakedns" {
-					ob.RouteTarget = destination
-				} else {
-					ob.Target = destination
-				}
-			}
-		}
-		go d.routedDispatch(ctx, out, destination)
-	default:
+	if !sniffingRequest.Enabled {
+		go d.routedDispatch(ctx, outbound, destination)
+	} else {
 		go func() {
 			cReader := &cachedReader{
-				reader: out.Reader.(*pipe.Reader),
+				reader: outbound.Reader.(*pipe.Reader),
 			}
-			out.Reader = cReader
-			result, err := sniffer(ctx, cReader, sniffingRequest.MetadataOnly)
+			outbound.Reader = cReader
+			result, err := sniffer(ctx, cReader, sniffingRequest.MetadataOnly, destination.Network)
 			if err == nil {
 				content.Protocol = result.Protocol()
 			}
@@ -361,10 +343,10 @@ func (d *DefaultDispatcher) Dispatch(ctx context.Context, destination net.Destin
 					ob.Target = destination
 				}
 			}
-			d.routedDispatch(ctx, out, destination)
+			d.routedDispatch(ctx, outbound, destination)
 		}()
 	}
-	return in, nil
+	return inbound, nil
 }
 
 // DispatchLink implements routing.Dispatcher.
@@ -382,33 +364,15 @@ func (d *DefaultDispatcher) DispatchLink(ctx context.Context, destination net.De
 		ctx = session.ContextWithContent(ctx, content)
 	}
 	sniffingRequest := content.SniffingRequest
-	switch {
-	case !sniffingRequest.Enabled:
+	if !sniffingRequest.Enabled {
 		go d.routedDispatch(ctx, outbound, destination)
-	case destination.Network != net.Network_TCP:
-		// Only metadata sniff will be used for non tcp connection
-		result, err := sniffer(ctx, nil, true)
-		if err == nil {
-			content.Protocol = result.Protocol()
-			if d.shouldOverride(ctx, result, sniffingRequest, destination) {
-				domain := result.Domain()
-				newError("sniffed domain: ", domain).WriteToLog(session.ExportIDToError(ctx))
-				destination.Address = net.ParseAddress(domain)
-				if sniffingRequest.RouteOnly && result.Protocol() != "fakedns" {
-					ob.RouteTarget = destination
-				} else {
-					ob.Target = destination
-				}
-			}
-		}
-		go d.routedDispatch(ctx, outbound, destination)
-	default:
+	} else {
 		go func() {
 			cReader := &cachedReader{
 				reader: outbound.Reader.(*pipe.Reader),
 			}
 			outbound.Reader = cReader
-			result, err := sniffer(ctx, cReader, sniffingRequest.MetadataOnly)
+			result, err := sniffer(ctx, cReader, sniffingRequest.MetadataOnly, destination.Network)
 			if err == nil {
 				content.Protocol = result.Protocol()
 			}
@@ -425,10 +389,11 @@ func (d *DefaultDispatcher) DispatchLink(ctx context.Context, destination net.De
 			d.routedDispatch(ctx, outbound, destination)
 		}()
 	}
+
 	return nil
 }
 
-func sniffer(ctx context.Context, cReader *cachedReader, metadataOnly bool) (SniffResult, error) {
+func sniffer(ctx context.Context, cReader *cachedReader, metadataOnly bool, network net.Network) (SniffResult, error) {
 	payload := buf.New()
 	defer payload.Release()
 
@@ -454,7 +419,7 @@ func sniffer(ctx context.Context, cReader *cachedReader, metadataOnly bool) (Sni
 
 				cReader.Cache(payload)
 				if !payload.IsEmpty() {
-					result, err := sniffer.Sniff(ctx, payload.Bytes())
+					result, err := sniffer.Sniff(ctx, payload.Bytes(), network)
 					if err != common.ErrNoClue {
 						return result, err
 					}
