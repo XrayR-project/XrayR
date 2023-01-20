@@ -8,6 +8,8 @@
 ![](https://github.com/XrayR-project/XrayR/actions/workflows/docker.yml/badge.svg)
 [![Github All Releases](https://img.shields.io/github/downloads/XrayR-project/XrayR/total.svg)]()
 
+[Iranian(farsi) README](https://github.com/XrayR-project/XrayR/blob/master/README_Fa.md), [Vietnamese(vi) README](https://github.com/XrayR-project/XrayR/blob/master/README-vi.md), [English(en) README](https://github.com/XrayR-project/XrayR/blob/master/README-en.md)
+
 یک فریمورک بک اند مبتنی بر xray که از چند از پنل پشتیبانی می کند
 
 یک چارچوب بک‌اند مبتنی بر Xray که از پروتکل‌های V2ay، Trojan و Shadowsocks پشتیبانی می‌کند، به راحتی قابل گسترش است و از اتصال چند پنل پشتیبانی می‌کند.
