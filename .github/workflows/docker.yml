@@ -33,14 +33,14 @@ jobs:
         id: meta
         uses: docker/metadata-action@v4
         with:
-          images: ghcr.io/${{ github.repository }}
+          images: ghcr.io/${{ github.repository }}-armv7
       - name: Build and push
         uses: docker/build-push-action@v3
         with:
           context: .
           platforms: linux/arm/v7
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}-armv7
+          tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
   build-arm64-image:
     name: Build arm64 Image
@@ -60,14 +60,14 @@ jobs:
         id: meta
         uses: docker/metadata-action@v4
         with:
-          images: ghcr.io/${{ github.repository }}
+          images: ghcr.io/${{ github.repository }}-arm64
       - name: Build and push
         uses: docker/build-push-action@v3
         with:
           context: .
           platforms: linux/arm64
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}-arm64
+          tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
   build-amd64-image:
     name: Build amd64 Image
@@ -87,14 +87,14 @@ jobs:
         id: meta
         uses: docker/metadata-action@v4
         with:
-          images: ghcr.io/${{ github.repository }}
+          images: ghcr.io/${{ github.repository }}-amd64
       - name: Build and push
         uses: docker/build-push-action@v3
         with:
           context: .
           platforms: linux/amd64
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}-amd64
+          tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
   build-s390x-image:
     name: Build s390x Image
@@ -114,14 +114,14 @@ jobs:
         id: meta
         uses: docker/metadata-action@v4
         with:
-          images: ghcr.io/${{ github.repository }}
+          images: ghcr.io/${{ github.repository }}-s390x
       - name: Build and push
         uses: docker/build-push-action@v3
         with:
           context: .
           platforms: linux/s390x
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}-s390x
+          tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
   combine-images:
     name: Combine Images
@@ -143,11 +143,31 @@ jobs:
         uses: docker/metadata-action@v4
         with:
           images: ghcr.io/${{ github.repository }}
+      - name: Docker meta
+        id: meta-armv7
+        uses: docker/metadata-action@v4
+        with:
+          images: ghcr.io/${{ github.repository }}-armv7
+      - name: Docker meta
+        id: meta-amd64
+        uses: docker/metadata-action@v4
+        with:
+          images: ghcr.io/${{ github.repository }}-amd64
+      - name: Docker meta
+        id: meta-arm64
+        uses: docker/metadata-action@v4
+        with:
+          images: ghcr.io/${{ github.repository }}-arm64
+      - name: Docker meta
+        id: meta-s390x
+        uses: docker/metadata-action@v4
+        with:
+          images: ghcr.io/${{ github.repository }}-s390x
       - name: Combine images
         run: |
           docker manifest create ${{ steps.meta.outputs.tags }} \
-          --amend ${{ steps.meta.outputs.tags }}-armv7 \
-          --amend ${{ steps.meta.outputs.tags }}-arm64 \
-          --amend ${{ steps.meta.outputs.tags }}-amd64 \
-          --amend ${{ steps.meta.outputs.tags }}-s390x
+          --amend ${{ steps.meta-s390x.outputs.tags }} \
+          --amend ${{ steps.meta-arm64.outputs.tags }} \
+          --amend ${{ steps.meta-armv7.tags }} \
+          --amend ${{ steps.meta-amd64.tags }}
           docker manifest push ${{ steps.meta.outputs.tags }}
