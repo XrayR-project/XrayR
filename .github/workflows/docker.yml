@@ -168,6 +168,6 @@ jobs:
           docker manifest create ${{ steps.meta.outputs.tags }} \
           --amend ${{ steps.meta-s390x.outputs.tags }} \
           --amend ${{ steps.meta-arm64.outputs.tags }} \
-          --amend ${{ steps.meta-armv7.tags }} \
-          --amend ${{ steps.meta-amd64.tags }}
+          --amend ${{ steps.meta-armv7.outputs.tags }} \
+          --amend ${{ steps.meta-amd64.outputs.tags }}
           docker manifest push ${{ steps.meta.outputs.tags }}
