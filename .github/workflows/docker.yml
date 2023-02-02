@@ -15,8 +15,8 @@ on:
     branches:
       - 'master'
 jobs:
-  build-armv7-image:
-    name: Build armv7 Image
+  push_to_registry:
+    name: Push Docker image to Docker Hub
     runs-on: ubuntu-latest
     steps:
       - name: Check out the repo
@@ -24,115 +24,6 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
       - name: Log in to the Container registry
-        uses: docker/login-action@v2
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Docker meta
-        id: meta
-        uses: docker/metadata-action@v4
-        with:
-          images: ghcr.io/${{ github.repository }}-armv7
-      - name: Build and push
-        uses: docker/build-push-action@v3
-        with:
-          context: .
-          platforms: linux/arm/v7
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-  build-arm64-image:
-    name: Build arm64 Image
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out the repo
-        uses: actions/checkout@v3
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
-      - name: Log in to the Container registry
-        uses: docker/login-action@v2
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Docker meta
-        id: meta
-        uses: docker/metadata-action@v4
-        with:
-          images: ghcr.io/${{ github.repository }}-arm64
-      - name: Build and push
-        uses: docker/build-push-action@v3
-        with:
-          context: .
-          platforms: linux/arm64
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-  build-amd64-image:
-    name: Build amd64 Image
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out the repo
-        uses: actions/checkout@v3
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
-      - name: Log in to the Container registry
-        uses: docker/login-action@v2
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Docker meta
-        id: meta
-        uses: docker/metadata-action@v4
-        with:
-          images: ghcr.io/${{ github.repository }}-amd64
-      - name: Build and push
-        uses: docker/build-push-action@v3
-        with:
-          context: .
-          platforms: linux/amd64
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-  build-s390x-image:
-    name: Build s390x Image
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out the repo
-        uses: actions/checkout@v3
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
-      - name: Log in to the Container registry
-        uses: docker/login-action@v2
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Docker meta
-        id: meta
-        uses: docker/metadata-action@v4
-        with:
-          images: ghcr.io/${{ github.repository }}-s390x
-      - name: Build and push
-        uses: docker/build-push-action@v3
-        with:
-          context: .
-          platforms: linux/s390x
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-  combine-images:
-    name: Combine Images
-    runs-on: ubuntu-latest
-    needs:
-      - build-armv7-image
-      - build-arm64-image
-      - build-amd64-image
-      - build-s390x-image
-    steps:
-      - name: Login to Docker Hub
         uses: docker/login-action@v2
         with:
           registry: ghcr.io
@@ -143,31 +34,11 @@ jobs:
         uses: docker/metadata-action@v4
         with:
           images: ghcr.io/${{ github.repository }}
-      - name: Docker meta
-        id: meta-armv7
-        uses: docker/metadata-action@v4
+      - name: Build and push
+        uses: docker/build-push-action@v3
         with:
-          images: ghcr.io/${{ github.repository }}-armv7
-      - name: Docker meta
-        id: meta-amd64
-        uses: docker/metadata-action@v4
-        with:
-          images: ghcr.io/${{ github.repository }}-amd64
-      - name: Docker meta
-        id: meta-arm64
-        uses: docker/metadata-action@v4
-        with:
-          images: ghcr.io/${{ github.repository }}-arm64
-      - name: Docker meta
-        id: meta-s390x
-        uses: docker/metadata-action@v4
-        with:
-          images: ghcr.io/${{ github.repository }}-s390x
-      - name: Combine images
-        run: |
-          docker manifest create ${{ steps.meta.outputs.tags }} \
-          --amend ${{ steps.meta-s390x.outputs.tags }} \
-          --amend ${{ steps.meta-arm64.outputs.tags }} \
-          --amend ${{ steps.meta-armv7.outputs.tags }} \
-          --amend ${{ steps.meta-amd64.outputs.tags }}
-          docker manifest push ${{ steps.meta.outputs.tags }}
+          context: .
+          platforms: linux/arm/v7,linux/arm64,linux/amd64,linux/s390x
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
