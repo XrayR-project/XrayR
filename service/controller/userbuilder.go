@@ -47,7 +47,7 @@ func (c *Controller) buildVlessUser(userInfo *[]api.UserInfo) (users []*protocol
 	for i, user := range *userInfo {
 		vlessAccount := &vless.Account{
 			Id:   user.UUID,
-			Flow: "xtls-rprx-direct",
+			Flow: "xtls-rprx-vision",
 		}
 		users[i] = &protocol.User{
 			Level:   0,
