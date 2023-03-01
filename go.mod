@@ -17,7 +17,7 @@ require (
 	github.com/r3labs/diff/v2 v2.15.1
 	github.com/sagernet/sing v0.1.7
 	github.com/sagernet/sing-shadowsocks v0.1.1
-	github.com/shirou/gopsutil/v3 v3.23.1
+	github.com/shirou/gopsutil/v3 v3.23.2
 	github.com/spf13/viper v1.15.0
 	github.com/stretchr/testify v1.8.2
 	github.com/xtls/xray-core v1.7.5
