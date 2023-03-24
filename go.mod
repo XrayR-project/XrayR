@@ -15,7 +15,7 @@ require (
 	github.com/imdario/mergo v0.3.13
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/r3labs/diff/v2 v2.15.1
-	github.com/sagernet/sing v0.1.8
+	github.com/sagernet/sing v0.2.1
 	github.com/sagernet/sing-shadowsocks v0.1.1
 	github.com/shirou/gopsutil/v3 v3.23.2
 	github.com/spf13/viper v1.15.0
