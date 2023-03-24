@@ -412,13 +412,7 @@ func (c *APIClient) ReportIllegal(detectResultList *[]api.DetectResult) error {
 
 // ParseV2rayNodeResponse parse the response for the given nodeinfor format
 func (c *APIClient) ParseV2rayNodeResponse(nodeInfoResponse *json.RawMessage) (*api.NodeInfo, error) {
-	var TLStype string
 	var speedlimit uint64 = 0
-	if c.EnableXTLS {
-		TLStype = "xtls"
-	} else {
-		TLStype = "tls"
-	}
 
 	v2rayNodeInfo := new(V2rayNodeInfo)
 	if err := json.Unmarshal(*nodeInfoResponse, v2rayNodeInfo); err != nil {
@@ -445,7 +439,6 @@ func (c *APIClient) ParseV2rayNodeResponse(nodeInfoResponse *json.RawMessage) (*
 		TransportProtocol: v2rayNodeInfo.V2Net,
 		FakeType:          v2rayNodeInfo.V2Type,
 		EnableTLS:         v2rayNodeInfo.V2TLS,
-		TLSType:           TLStype,
 		Path:              v2rayNodeInfo.V2Path,
 		Host:              v2rayNodeInfo.V2Host,
 		EnableVless:       c.EnableVless,
@@ -486,13 +479,7 @@ func (c *APIClient) ParseSSNodeResponse(nodeInfoResponse *json.RawMessage) (*api
 // ParseTrojanNodeResponse parse the response for the given nodeinfor format
 func (c *APIClient) ParseTrojanNodeResponse(nodeInfoResponse *json.RawMessage) (*api.NodeInfo, error) {
 
-	var TLSType string
 	var speedlimit uint64 = 0
-	if c.EnableXTLS {
-		TLSType = "xtls"
-	} else {
-		TLSType = "tls"
-	}
 
 	trojanNodeInfo := new(TrojanNodeInfo)
 	if err := json.Unmarshal(*nodeInfoResponse, trojanNodeInfo); err != nil {
@@ -516,7 +503,6 @@ func (c *APIClient) ParseTrojanNodeResponse(nodeInfoResponse *json.RawMessage) (
 		SpeedLimit:        speedlimit,
 		TransportProtocol: "tcp",
 		EnableTLS:         true,
-		TLSType:           TLSType,
 	}
 
 	return nodeinfo, nil

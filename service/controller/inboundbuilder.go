@@ -186,25 +186,16 @@ func InboundBuilder(config *Config, nodeInfo *api.NodeInfo, tag string) (*core.I
 
 	// Build TLS and XTLS settings
 	if nodeInfo.EnableTLS && config.CertConfig.CertMode != "none" {
-		streamSetting.Security = nodeInfo.TLSType
+		streamSetting.Security = "tls"
 		certFile, keyFile, err := getCertFile(config.CertConfig)
 		if err != nil {
 			return nil, err
 		}
-		if nodeInfo.TLSType == "tls" {
-			tlsSettings := &conf.TLSConfig{
-				RejectUnknownSNI: config.CertConfig.RejectUnknownSni,
-			}
-			tlsSettings.Certs = append(tlsSettings.Certs, &conf.TLSCertConfig{CertFile: certFile, KeyFile: keyFile, OcspStapling: 3600})
-
-			streamSetting.TLSSettings = tlsSettings
-		} else if nodeInfo.TLSType == "xtls" {
-			xtlsSettings := &conf.XTLSConfig{
-				RejectUnknownSNI: config.CertConfig.RejectUnknownSni,
-			}
-			xtlsSettings.Certs = append(xtlsSettings.Certs, &conf.XTLSCertConfig{CertFile: certFile, KeyFile: keyFile, OcspStapling: 3600})
-			streamSetting.XTLSSettings = xtlsSettings
+		tlsSettings := &conf.TLSConfig{
+			RejectUnknownSNI: config.CertConfig.RejectUnknownSni,
 		}
+		tlsSettings.Certs = append(tlsSettings.Certs, &conf.TLSCertConfig{CertFile: certFile, KeyFile: keyFile, OcspStapling: 3600})
+		streamSetting.TLSSettings = tlsSettings
 	}
 
 	// Support ProxyProtocol for any transport protocol

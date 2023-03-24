@@ -302,11 +302,6 @@ func (c *APIClient) ReportIllegal(detectResultList *[]api.DetectResult) error {
 
 // ParseTrojanNodeResponse parse the response for the given nodeInfo format
 func (c *APIClient) ParseTrojanNodeResponse(nodeInfoResponse *simplejson.Json) (*api.NodeInfo, error) {
-	var TLSType = "tls"
-	if c.EnableXTLS {
-		TLSType = "xtls"
-	}
-
 	tmpInboundInfo := nodeInfoResponse.Get("inbounds").MustArray()
 	marshalByte, _ := json.Marshal(tmpInboundInfo[0].(map[string]interface{}))
 	inboundInfo, _ := simplejson.NewJson(marshalByte)
@@ -321,7 +316,6 @@ func (c *APIClient) ParseTrojanNodeResponse(nodeInfoResponse *simplejson.Json) (
 		Port:              port,
 		TransportProtocol: "tcp",
 		EnableTLS:         true,
-		TLSType:           TLSType,
 		Host:              host,
 	}
 	return nodeInfo, nil
@@ -364,14 +358,10 @@ func (c *APIClient) ParseSSNodeResponse(nodeInfoResponse *simplejson.Json) (*api
 
 // ParseV2rayNodeResponse parse the response for the given nodeInfo format
 func (c *APIClient) ParseV2rayNodeResponse(nodeInfoResponse *simplejson.Json) (*api.NodeInfo, error) {
-	var TLSType = "tls"
 	var path, host, serviceName string
 	var header json.RawMessage
 	var enableTLS bool
 	var alterID uint16 = 0
-	if c.EnableXTLS {
-		TLSType = "xtls"
-	}
 
 	tmpInboundInfo := nodeInfoResponse.Get("inbounds").MustArray()
 	marshalByte, _ := json.Marshal(tmpInboundInfo[0].(map[string]interface{}))
@@ -413,7 +403,6 @@ func (c *APIClient) ParseV2rayNodeResponse(nodeInfoResponse *simplejson.Json) (*
 		AlterID:           alterID,
 		TransportProtocol: transportProtocol,
 		EnableTLS:         enableTLS,
-		TLSType:           TLSType,
 		Path:              path,
 		Host:              host,
 		EnableVless:       c.EnableVless,

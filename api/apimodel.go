@@ -41,7 +41,6 @@ type NodeInfo struct {
 	Host              string
 	Path              string
 	EnableTLS         bool
-	TLSType           string
 	EnableVless       bool
 	CypherMethod      string
 	ServerKey         string

@@ -359,7 +359,7 @@ func (c *APIClient) ReportIllegal(detectResultList *[]api.DetectResult) error {
 // ParseV2rayNodeResponse parse the response for the given nodeinfor format
 func (c *APIClient) ParseV2rayNodeResponse(nodeInfoResponse *NodeInfoResponse) (*api.NodeInfo, error) {
 	var enableTLS bool
-	var path, host, TLStype, transportProtocol, serviceName string
+	var path, host, transportProtocol, serviceName string
 	var speedlimit uint64 = 0
 
 	port := nodeInfoResponse.Port
@@ -374,18 +374,7 @@ func (c *APIClient) ParseV2rayNodeResponse(nodeInfoResponse *NodeInfoResponse) (
 	case "tcp":
 		// TODO
 	}
-	// Compatible with more node types config
-	switch nodeInfoResponse.Security {
-	case "tls", "xtls":
-		if c.EnableXTLS {
-			TLStype = "xtls"
-		} else {
-			TLStype = "tls"
-		}
-		enableTLS = true
-	default:
-		enableTLS = false
-	}
+
 	if c.SpeedLimit > 0 {
 		speedlimit = uint64((c.SpeedLimit * 1000000) / 8)
 	} else {
@@ -400,7 +389,6 @@ func (c *APIClient) ParseV2rayNodeResponse(nodeInfoResponse *NodeInfoResponse) (
 		AlterID:           alterID,
 		TransportProtocol: transportProtocol,
 		EnableTLS:         enableTLS,
-		TLSType:           TLStype,
 		Path:              path,
 		Host:              host,
 		EnableVless:       c.EnableVless,
@@ -436,14 +424,9 @@ func (c *APIClient) ParseSSNodeResponse(nodeInfoResponse *NodeInfoResponse) (*ap
 func (c *APIClient) ParseTrojanNodeResponse(nodeInfoResponse *NodeInfoResponse) (*api.NodeInfo, error) {
 	// 域名或IP;port=连接端口#偏移端口|host=xx
 	// gz.aaa.com;port=443#12345|host=hk.aaa.com
-	var TLSType, host string
+	var host string
 	var transportProtocol = "tcp"
 	var speedlimit uint64 = 0
-	if c.EnableXTLS {
-		TLSType = "xtls"
-	} else {
-		TLSType = "tls"
-	}
 	host = nodeInfoResponse.Host
 	port := nodeInfoResponse.Port
 
@@ -463,7 +446,6 @@ func (c *APIClient) ParseTrojanNodeResponse(nodeInfoResponse *NodeInfoResponse) 
 		SpeedLimit:        speedlimit,
 		TransportProtocol: transportProtocol,
 		EnableTLS:         true,
-		TLSType:           TLSType,
 		Host:              host,
 		ServiceName:       nodeInfoResponse.Sni,
 	}
