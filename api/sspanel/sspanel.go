@@ -32,7 +32,6 @@ type APIClient struct {
 	Key                 string
 	NodeType            string
 	EnableVless         bool
-	EnableXTLS          bool
 	SpeedLimit          float64
 	DeviceLimit         int
 	DisableCustomConfig bool
@@ -73,7 +72,6 @@ func New(apiConfig *api.Config) *APIClient {
 		APIHost:             apiConfig.APIHost,
 		NodeType:            apiConfig.NodeType,
 		EnableVless:         apiConfig.EnableVless,
-		EnableXTLS:          apiConfig.EnableXTLS,
 		SpeedLimit:          apiConfig.SpeedLimit,
 		DeviceLimit:         apiConfig.DeviceLimit,
 		LocalRuleList:       localRuleList,
@@ -375,7 +373,7 @@ func (c *APIClient) ReportIllegal(detectResultList *[]api.DetectResult) error {
 // ParseV2rayNodeResponse parse the response for the given nodeinfor format
 func (c *APIClient) ParseV2rayNodeResponse(nodeInfoResponse *NodeInfoResponse) (*api.NodeInfo, error) {
 	var enableTLS bool
-	var path, host, TLStype, transportProtocol, serviceName, HeaderType string
+	var path, host, transportProtocol, serviceName, HeaderType string
 	var header json.RawMessage
 	var speedlimit uint64 = 0
 	if nodeInfoResponse.RawServerString == "" {
@@ -399,12 +397,7 @@ func (c *APIClient) ParseV2rayNodeResponse(nodeInfoResponse *NodeInfoResponse) (
 	// Compatible with more node types config
 	for _, value := range serverConf[3:5] {
 		switch value {
-		case "tls", "xtls":
-			if c.EnableXTLS {
-				TLStype = "xtls"
-			} else {
-				TLStype = "tls"
-			}
+		case "tls":
 			enableTLS = true
 		default:
 			if value != "" {
@@ -457,7 +450,6 @@ func (c *APIClient) ParseV2rayNodeResponse(nodeInfoResponse *NodeInfoResponse) (
 		AlterID:           alterID,
 		TransportProtocol: transportProtocol,
 		EnableTLS:         enableTLS,
-		TLSType:           TLStype,
 		Path:              path,
 		Host:              host,
 		EnableVless:       c.EnableVless,
@@ -523,7 +515,7 @@ func (c *APIClient) ParseSSNodeResponse(nodeInfoResponse *NodeInfoResponse) (*ap
 // ParseSSPluginNodeResponse parse the response for the given nodeinfor format
 func (c *APIClient) ParseSSPluginNodeResponse(nodeInfoResponse *NodeInfoResponse) (*api.NodeInfo, error) {
 	var enableTLS bool
-	var path, host, TLStype, transportProtocol string
+	var path, host, transportProtocol string
 	var speedlimit uint64 = 0
 
 	serverConf := strings.Split(nodeInfoResponse.RawServerString, ";")
@@ -539,12 +531,7 @@ func (c *APIClient) ParseSSPluginNodeResponse(nodeInfoResponse *NodeInfoResponse
 	// Compatible with more node types config
 	for _, value := range serverConf[3:5] {
 		switch value {
-		case "tls", "xtls":
-			if c.EnableXTLS {
-				TLStype = "xtls"
-			} else {
-				TLStype = "tls"
-			}
+		case "tls":
 			enableTLS = true
 		case "ws":
 			transportProtocol = "ws"
@@ -583,7 +570,6 @@ func (c *APIClient) ParseSSPluginNodeResponse(nodeInfoResponse *NodeInfoResponse
 		SpeedLimit:        speedlimit,
 		TransportProtocol: transportProtocol,
 		EnableTLS:         enableTLS,
-		TLSType:           TLStype,
 		Path:              path,
 		Host:              host,
 	}
@@ -595,13 +581,8 @@ func (c *APIClient) ParseSSPluginNodeResponse(nodeInfoResponse *NodeInfoResponse
 func (c *APIClient) ParseTrojanNodeResponse(nodeInfoResponse *NodeInfoResponse) (*api.NodeInfo, error) {
 	// 域名或IP;port=连接端口#偏移端口|host=xx
 	// gz.aaa.com;port=443#12345|host=hk.aaa.com
-	var p, TLSType, host, outsidePort, insidePort, transportProtocol, serviceName string
-	var speedlimit uint64 = 0
-	if c.EnableXTLS {
-		TLSType = "xtls"
-	} else {
-		TLSType = "tls"
-	}
+	var p, host, outsidePort, insidePort, transportProtocol, serviceName string
+	var speedLimit uint64 = 0
 
 	if nodeInfoResponse.RawServerString == "" {
 		return nil, fmt.Errorf("no server info in response")
@@ -648,19 +629,18 @@ func (c *APIClient) ParseTrojanNodeResponse(nodeInfoResponse *NodeInfoResponse) 
 	}
 
 	if c.SpeedLimit > 0 {
-		speedlimit = uint64((c.SpeedLimit * 1000000) / 8)
+		speedLimit = uint64((c.SpeedLimit * 1000000) / 8)
 	} else {
-		speedlimit = uint64((nodeInfoResponse.SpeedLimit * 1000000) / 8)
+		speedLimit = uint64((nodeInfoResponse.SpeedLimit * 1000000) / 8)
 	}
 	// Create GeneralNodeInfo
 	nodeinfo := &api.NodeInfo{
 		NodeType:          c.NodeType,
 		NodeID:            c.NodeID,
 		Port:              port,
-		SpeedLimit:        speedlimit,
+		SpeedLimit:        speedLimit,
 		TransportProtocol: transportProtocol,
 		EnableTLS:         true,
-		TLSType:           TLSType,
 		Host:              host,
 		ServiceName:       serviceName,
 	}
@@ -805,7 +785,6 @@ func (c *APIClient) ParseSSPanelNodeInfo(nodeInfoResponse *NodeInfoResponse) (*a
 		Host:              nodeConfig.Host,
 		Path:              nodeConfig.Path,
 		EnableTLS:         EnableTLS,
-		TLSType:           TLSType,
 		EnableVless:       EnableVless,
 		CypherMethod:      nodeConfig.MuEncryption,
 		ServiceName:       nodeConfig.Servicename,
