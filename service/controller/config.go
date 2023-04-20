@@ -22,7 +22,7 @@ type Config struct {
 	GlobalDeviceLimitConfig *limiter.GlobalDeviceLimitConfig `mapstructure:"GlobalDeviceLimitConfig"`
 	FallBackConfigs         []*FallBackConfig                `mapstructure:"FallBackConfigs"`
 	EnableREALITY           bool                             `mapstructure:"EnableREALITY"`
-	RealityConfigs          *RealityConfig                   `mapstructure:"RealityConfigs"`
+	REALITYConfigs          *REALITYConfig                   `mapstructure:"REALITYConfigs"`
 }
 
 type AutoSpeedLimitConfig struct {
@@ -40,7 +40,7 @@ type FallBackConfig struct {
 	ProxyProtocolVer uint64 `mapstructure:"ProxyProtocolVer"`
 }
 
-type RealityConfig struct {
+type REALITYConfig struct {
 	Show             bool     `mapstructure:"Show"`
 	Dest             string   `mapstructure:"Dest"`
 	ProxyProtocolVer uint64   `mapstructure:"ProxyProtocolVer"`

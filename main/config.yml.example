@@ -53,7 +53,7 @@ Nodes:
           Dest: 80 # Required, Destination of fallback, check https://xtls.github.io/config/features/fallback.html for details.
           ProxyProtocolVer: 0 # Send PROXY protocol version, 0 for disable
       EnableREALITY: true # Enable REALITY
-      RealityConfigs:
+      REALITYConfigs:
         Show: true # Show REALITY debug
         Dest: www.smzdm.com:443 # Required, Same as fallback
         ProxyProtocolVer: 0 # Send PROXY protocol version, 0 for disable
