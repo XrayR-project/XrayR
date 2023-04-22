@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"reflect"
@@ -74,6 +75,9 @@ func (c *Controller) Start() error {
 	newNodeInfo, err := c.apiClient.GetNodeInfo()
 	if err != nil {
 		return err
+	}
+	if newNodeInfo.Port == 0 {
+		return errors.New("server port must > 0")
 	}
 	c.nodeInfo = newNodeInfo
 	c.Tag = c.buildNodeTag()
@@ -182,6 +186,9 @@ func (c *Controller) nodeInfoMonitor() (err error) {
 	if err != nil {
 		log.Print(err)
 		return nil
+	}
+	if newNodeInfo.Port == 0 {
+		return errors.New("server port must > 0")
 	}
 
 	// Update User
