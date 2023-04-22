@@ -21,6 +21,8 @@ type Config struct {
 	AutoSpeedLimitConfig    *AutoSpeedLimitConfig            `mapstructure:"AutoSpeedLimitConfig"`
 	GlobalDeviceLimitConfig *limiter.GlobalDeviceLimitConfig `mapstructure:"GlobalDeviceLimitConfig"`
 	FallBackConfigs         []*FallBackConfig                `mapstructure:"FallBackConfigs"`
+	EnableREALITY           bool                             `mapstructure:"EnableREALITY"`
+	REALITYConfigs          *REALITYConfig                   `mapstructure:"REALITYConfigs"`
 }
 
 type AutoSpeedLimitConfig struct {
@@ -36,4 +38,16 @@ type FallBackConfig struct {
 	Path             string `mapstructure:"Path"`
 	Dest             string `mapstructure:"Dest"`
 	ProxyProtocolVer uint64 `mapstructure:"ProxyProtocolVer"`
+}
+
+type REALITYConfig struct {
+	Show             bool     `mapstructure:"Show"`
+	Dest             string   `mapstructure:"Dest"`
+	ProxyProtocolVer uint64   `mapstructure:"ProxyProtocolVer"`
+	ServerNames      []string `mapstructure:"ServerNames"`
+	PrivateKey       string   `mapstructure:"PrivateKey"`
+	MinClientVer     string   `mapstructure:"MinClientVer"`
+	MaxClientVer     string   `mapstructure:"MaxClientVer"`
+	MaxTimeDiff      uint64   `mapstructure:"MaxTimeDiff"`
+	ShortIds         []string `mapstructure:"ShortIds"`
 }

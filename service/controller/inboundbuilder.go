@@ -184,27 +184,35 @@ func InboundBuilder(config *Config, nodeInfo *api.NodeInfo, tag string) (*core.I
 
 	streamSetting.Network = &transportProtocol
 
-	// Build TLS and XTLS settings
-	if nodeInfo.EnableTLS && config.CertConfig.CertMode != "none" {
-		streamSetting.Security = nodeInfo.TLSType
+	// Build TLS and REALITY settings
+	if config.EnableREALITY {
+		dest, err := json.Marshal(config.REALITYConfigs.Dest)
+		if err != nil {
+			return nil, fmt.Errorf("marshal dest %s config fialed: %s", dest, err)
+		}
+		streamSetting.Security = "reality"
+		streamSetting.REALITYSettings = &conf.REALITYConfig{
+			Show:         config.REALITYConfigs.Show,
+			Dest:         dest,
+			Xver:         config.REALITYConfigs.ProxyProtocolVer,
+			ServerNames:  config.REALITYConfigs.ServerNames,
+			PrivateKey:   config.REALITYConfigs.PrivateKey,
+			MinClientVer: config.REALITYConfigs.MinClientVer,
+			MaxClientVer: config.REALITYConfigs.MaxClientVer,
+			MaxTimeDiff:  config.REALITYConfigs.MaxTimeDiff,
+			ShortIds:     config.REALITYConfigs.ShortIds,
+		}
+	} else if nodeInfo.EnableTLS && config.CertConfig.CertMode != "none" {
+		streamSetting.Security = "tls"
 		certFile, keyFile, err := getCertFile(config.CertConfig)
 		if err != nil {
 			return nil, err
 		}
-		if nodeInfo.TLSType == "tls" {
-			tlsSettings := &conf.TLSConfig{
-				RejectUnknownSNI: config.CertConfig.RejectUnknownSni,
-			}
-			tlsSettings.Certs = append(tlsSettings.Certs, &conf.TLSCertConfig{CertFile: certFile, KeyFile: keyFile, OcspStapling: 3600})
-
-			streamSetting.TLSSettings = tlsSettings
-		} else if nodeInfo.TLSType == "xtls" {
-			xtlsSettings := &conf.XTLSConfig{
-				RejectUnknownSNI: config.CertConfig.RejectUnknownSni,
-			}
-			xtlsSettings.Certs = append(xtlsSettings.Certs, &conf.XTLSCertConfig{CertFile: certFile, KeyFile: keyFile, OcspStapling: 3600})
-			streamSetting.XTLSSettings = xtlsSettings
+		tlsSettings := &conf.TLSConfig{
+			RejectUnknownSNI: config.CertConfig.RejectUnknownSni,
 		}
+		tlsSettings.Certs = append(tlsSettings.Certs, &conf.TLSCertConfig{CertFile: certFile, KeyFile: keyFile, OcspStapling: 3600})
+		streamSetting.TLSSettings = tlsSettings
 	}
 
 	// Support ProxyProtocol for any transport protocol
