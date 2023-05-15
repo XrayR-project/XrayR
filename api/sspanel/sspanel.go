@@ -38,6 +38,7 @@ type APIClient struct {
 	LocalRuleList       []api.DetectRule
 	LastReportOnline    map[int]int
 	access              sync.Mutex
+	version             string
 }
 
 // New creat a api instance
@@ -167,6 +168,7 @@ func (c *APIClient) GetNodeInfo() (nodeInfo *api.NodeInfo, err error) {
 	}
 
 	// New sspanel API
+	c.version = nodeInfoResponse.Version
 	disableCustomConfig := c.DisableCustomConfig
 	if nodeInfoResponse.Version != "" && !disableCustomConfig {
 		// Check if custom_config is empty
@@ -236,23 +238,25 @@ func (c *APIClient) GetUserList() (UserList *[]api.UserInfo, err error) {
 
 // ReportNodeStatus reports the node status to the sspanel
 func (c *APIClient) ReportNodeStatus(nodeStatus *api.NodeStatus) (err error) {
-	path := fmt.Sprintf("/mod_mu/nodes/%d/info", c.NodeID)
-	systemload := SystemLoad{
-		Uptime: strconv.FormatUint(nodeStatus.Uptime, 10),
-		Load:   fmt.Sprintf("%.2f %.2f %.2f", nodeStatus.CPU/100, nodeStatus.Mem/100, nodeStatus.Disk/100),
+	// Determine whether a status report is in need
+	if compareVersion(c.version, "2023.2") == -1 {
+		path := fmt.Sprintf("/mod_mu/nodes/%d/info", c.NodeID)
+		systemload := SystemLoad{
+			Uptime: strconv.FormatUint(nodeStatus.Uptime, 10),
+			Load:   fmt.Sprintf("%.2f %.2f %.2f", nodeStatus.CPU/100, nodeStatus.Mem/100, nodeStatus.Disk/100),
+		}
+
+		res, err := c.client.R().
+			SetBody(systemload).
+			SetResult(&Response{}).
+			ForceContentType("application/json").
+			Post(path)
+
+		_, err = c.parseResponse(res, path, err)
+		if err != nil {
+			return err
+		}
 	}
-
-	res, err := c.client.R().
-		SetBody(systemload).
-		SetResult(&Response{}).
-		ForceContentType("application/json").
-		Post(path)
-
-	_, err = c.parseResponse(res, path, err)
-	if err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -792,4 +796,28 @@ func (c *APIClient) ParseSSPanelNodeInfo(nodeInfoResponse *NodeInfoResponse) (*a
 	}
 
 	return nodeinfo, nil
+}
+
+func compareVersion(version1, version2 string) int {
+	n, m := len(version1), len(version2)
+	i, j := 0, 0
+	for i < n || j < m {
+		x := 0
+		for ; i < n && version1[i] != '.'; i++ {
+			x = x*10 + int(version1[i]-'0')
+		}
+		i++ // jump dot
+		y := 0
+		for ; j < m && version2[j] != '.'; j++ {
+			y = y*10 + int(version2[j]-'0')
+		}
+		j++ // jump dot
+		if x > y {
+			return 1
+		}
+		if x < y {
+			return -1
+		}
+	}
+	return 0
 }
