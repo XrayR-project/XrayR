@@ -32,6 +32,7 @@ type APIClient struct {
 	Key                 string
 	NodeType            string
 	EnableVless         bool
+	VlessFlow           string
 	SpeedLimit          float64
 	DeviceLimit         int
 	DisableCustomConfig bool
@@ -73,6 +74,7 @@ func New(apiConfig *api.Config) *APIClient {
 		APIHost:             apiConfig.APIHost,
 		NodeType:            apiConfig.NodeType,
 		EnableVless:         apiConfig.EnableVless,
+		VlessFlow:           apiConfig.VlessFlow,
 		SpeedLimit:          apiConfig.SpeedLimit,
 		DeviceLimit:         apiConfig.DeviceLimit,
 		LocalRuleList:       localRuleList,
@@ -457,6 +459,7 @@ func (c *APIClient) ParseV2rayNodeResponse(nodeInfoResponse *NodeInfoResponse) (
 		Path:              path,
 		Host:              host,
 		EnableVless:       c.EnableVless,
+		VlessFlow:         c.VlessFlow,
 		ServiceName:       serviceName,
 		Header:            header,
 	}
