@@ -793,6 +793,7 @@ func (c *APIClient) ParseSSPanelNodeInfo(nodeInfoResponse *NodeInfoResponse) (*a
 		Path:              nodeConfig.Path,
 		EnableTLS:         EnableTLS,
 		EnableVless:       EnableVless,
+		VlessFlow:         nodeConfig.Flow,
 		CypherMethod:      nodeConfig.MuEncryption,
 		ServiceName:       nodeConfig.Servicename,
 		Header:            nodeConfig.Header,
