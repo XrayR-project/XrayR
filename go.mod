@@ -3,7 +3,7 @@ module github.com/XrayR-project/XrayR
 go 1.20
 
 require (
-	github.com/bitly/go-simplejson v0.5.0
+	github.com/bitly/go-simplejson v0.5.1
 	github.com/deckarep/golang-set v1.8.0
 	github.com/eko/gocache/lib/v4 v4.1.3
 	github.com/eko/gocache/store/go_cache/v4 v4.1.2
@@ -48,7 +48,6 @@ require (
 	github.com/andybalholm/brotli v1.0.5 // indirect
 	github.com/aws/aws-sdk-go v1.39.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
-	github.com/bmizerany/assert v0.0.0-20160611221934-b7ed37b82869 // indirect
 	github.com/boombuler/barcode v1.0.1-0.20190219062509-6c824513bacc // indirect
 	github.com/cenkalti/backoff/v4 v4.2.0 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
