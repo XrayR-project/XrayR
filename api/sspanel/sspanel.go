@@ -41,7 +41,7 @@ type APIClient struct {
 	LastReportOnline    map[int]int
 	access              sync.Mutex
 	version             string
-	eTag		    map[string]string
+	eTags               map[string]string
 }
 
 // New creat a api instance
@@ -82,7 +82,7 @@ func New(apiConfig *api.Config) *APIClient {
 		LocalRuleList:       localRuleList,
 		DisableCustomConfig: apiConfig.DisableCustomConfig,
 		LastReportOnline:    make(map[int]int),
-		eTag:		     make(map[string]string),
+		eTags:               make(map[string]string),
 	}
 }
 
@@ -158,16 +158,16 @@ func (c *APIClient) GetNodeInfo() (nodeInfo *api.NodeInfo, err error) {
 	path := fmt.Sprintf("/mod_mu/nodes/%d/info", c.NodeID)
 	res, err := c.client.R().
 		SetResult(&Response{}).
-		SetHeader("If-None-Match", c.eTag["NodeInfo"]).
+		SetHeader("If-None-Match", c.eTags["node"]).
 		ForceContentType("application/json").
 		Get(path)
 	// Etag identifier for a specific version of a resource. StatusCode = 304 means no changed
 	if res.StatusCode() == 304 {
-		return nil, errors.New("NodeInfo no change")
+		return nil, errors.New(api.NodeNotModified)
 	}
 
-	if res.Header().Get("ETag") != "" && res.Header().Get("ETag") != c.eTag["NodeInfo"] {
-		c.eTag["NodeInfo"] = res.Header().Get("ETag")
+	if res.Header().Get("ETag") != "" && res.Header().Get("ETag") != c.eTags["node"] {
+		c.eTags["node"] = res.Header().Get("ETag")
 	}
 
 	response, err := c.parseResponse(res, path, err)
@@ -228,17 +228,17 @@ func (c *APIClient) GetUserList() (UserList *[]api.UserInfo, err error) {
 	path := "/mod_mu/users"
 	res, err := c.client.R().
 		SetQueryParam("node_id", strconv.Itoa(c.NodeID)).
-		SetHeader("If-None-Match", c.eTag["UserList"]).
+		SetHeader("If-None-Match", c.eTags["users"]).
 		SetResult(&Response{}).
 		ForceContentType("application/json").
 		Get(path)
 	// Etag identifier for a specific version of a resource. StatusCode = 304 means no changed
 	if res.StatusCode() == 304 {
-		return nil, errors.New("users no change")
+		return nil, errors.New(api.UserNotModified)
 	}
 
-	if res.Header().Get("ETag") != "" && res.Header().Get("ETag") != c.eTag["UserList"] {
-		c.eTag["UserList"] = res.Header().Get("ETag")
+	if res.Header().Get("ETag") != "" && res.Header().Get("ETag") != c.eTags["users"] {
+		c.eTags["users"] = res.Header().Get("ETag")
 	}
 
 	response, err := c.parseResponse(res, path, err)
@@ -349,17 +349,17 @@ func (c *APIClient) GetNodeRule() (*[]api.DetectRule, error) {
 	path := "/mod_mu/func/detect_rules"
 	res, err := c.client.R().
 		SetResult(&Response{}).
-		SetHeader("If-None-Match", c.eTag["NodeRule"]).
+		SetHeader("If-None-Match", c.eTags["rules"]).
 		ForceContentType("application/json").
 		Get(path)
 
 	// Etag identifier for a specific version of a resource. StatusCode = 304 means no changed
 	if res.StatusCode() == 304 {
-		return nil, errors.New("detect_rules no change")
+		return nil, errors.New(api.RuleNotModified)
 	}
 
-	if res.Header().Get("ETag") != "" && res.Header().Get("ETag") != c.eTag["NodeRule"] {
-		c.eTag["NodeRule"] = res.Header().Get("ETag")
+	if res.Header().Get("ETag") != "" && res.Header().Get("ETag") != c.eTags["rules"] {
+		c.eTags["rules"] = res.Header().Get("ETag")
 	}
 
 	response, err := c.parseResponse(res, path, err)

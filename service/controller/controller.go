@@ -185,7 +185,7 @@ func (c *Controller) nodeInfoMonitor() (err error) {
 	var nodeInfoChanged = true
 	newNodeInfo, err := c.apiClient.GetNodeInfo()
 	if err != nil {
-		if err.Error() == "NodeInfo no change" {
+		if err.Error() == api.NodeNotModified {
 			nodeInfoChanged = false
 			newNodeInfo = c.nodeInfo
 		} else {
@@ -201,7 +201,7 @@ func (c *Controller) nodeInfoMonitor() (err error) {
 	var usersChanged = true
 	newUserInfo, err := c.apiClient.GetUserList()
 	if err != nil {
-		if err.Error() == "users no change" {
+		if err.Error() == api.UserNotModified {
 			usersChanged = false
 			newUserInfo = c.userList
 		} else {
@@ -211,41 +211,45 @@ func (c *Controller) nodeInfoMonitor() (err error) {
 	}
 
 	// If nodeInfo changed
-	if nodeInfoChanged && !reflect.DeepEqual(c.nodeInfo, newNodeInfo) {
-		// Remove old tag
-		oldTag := c.Tag
-		err := c.removeOldTag(oldTag)
-		if err != nil {
-			log.Print(err)
-			return nil
-		}
-		if c.nodeInfo.NodeType == "Shadowsocks-Plugin" {
-			err = c.removeOldTag(fmt.Sprintf("dokodemo-door_%s+1", c.Tag))
-		}
-		if err != nil {
-			log.Print(err)
-			return nil
-		}
-		// Add new tag
-		c.nodeInfo = newNodeInfo
-		c.Tag = c.buildNodeTag()
-		err = c.addNewTag(newNodeInfo)
-		if err != nil {
-			log.Print(err)
-			return nil
-		}
-		nodeInfoChanged = true
-		// Remove Old limiter
-		if err = c.DeleteInboundLimiter(oldTag); err != nil {
-			log.Print(err)
-			return nil
+	if nodeInfoChanged {
+		if !reflect.DeepEqual(c.nodeInfo, newNodeInfo) {
+			// Remove old tag
+			oldTag := c.Tag
+			err := c.removeOldTag(oldTag)
+			if err != nil {
+				log.Print(err)
+				return nil
+			}
+			if c.nodeInfo.NodeType == "Shadowsocks-Plugin" {
+				err = c.removeOldTag(fmt.Sprintf("dokodemo-door_%s+1", c.Tag))
+			}
+			if err != nil {
+				log.Print(err)
+				return nil
+			}
+			// Add new tag
+			c.nodeInfo = newNodeInfo
+			c.Tag = c.buildNodeTag()
+			err = c.addNewTag(newNodeInfo)
+			if err != nil {
+				log.Print(err)
+				return nil
+			}
+			nodeInfoChanged = true
+			// Remove Old limiter
+			if err = c.DeleteInboundLimiter(oldTag); err != nil {
+				log.Print(err)
+				return nil
+			}
+		} else {
+			nodeInfoChanged = false
 		}
 	}
 
 	// Check Rule
 	if !c.config.DisableGetRule {
 		if ruleList, err := c.apiClient.GetNodeRule(); err != nil {
-			if err.Error() != "detect_rules no change" {
+			if err.Error() != api.RuleNotModified {
 				log.Printf("Get rule list filed: %s", err)
 			}
 		} else if len(*ruleList) > 0 {
