@@ -459,7 +459,7 @@ func (c *APIClient) ParseV2rayNodeResponse(nodeInfoResponse *NodeInfoResponse) (
 			host = value
 		case "servicename":
 			serviceName = value
-		case "headertype":
+		case "headerType":
 			HeaderType = value
 		}
 	}
