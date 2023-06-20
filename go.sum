@@ -207,8 +207,8 @@ github.com/ghodss/yaml v1.0.1-0.20220118164431-d8423dcdf344/go.mod h1:GIjDIg/heH
 github.com/gin-contrib/sse v0.1.0/go.mod h1:RHrZQHXnP2xjPF+u1gW/2HnVO7nvIa9PG3Gm+fLHvGI=
 github.com/gin-gonic/gin v1.7.4/go.mod h1:jD2toBW3GZUr5UMcdrwQA10I7RuaFOl/SGeDjXkfUtY=
 github.com/gliderlabs/ssh v0.1.1/go.mod h1:U7qILu1NlMHj9FlMhZLlkCdDnU1DBEAqr0aevW3Awn0=
-github.com/go-acme/lego/v4 v4.12.2 h1:JyrneGpom0HdVAvPQdyo+6gEciOnFgSZwH42vaL/hxc=
-github.com/go-acme/lego/v4 v4.12.2/go.mod h1:UZoOlhVmUYP/N0z4tEbfUjoCNHRZNObzqWZtT76DIsc=
+github.com/go-acme/lego/v4 v4.12.3 h1:aWPYhBopAZXWBASPgvi1LnWGrr5YiXOsrpVaFaVJipo=
+github.com/go-acme/lego/v4 v4.12.3/go.mod h1:UZoOlhVmUYP/N0z4tEbfUjoCNHRZNObzqWZtT76DIsc=
 github.com/go-chi/chi/v5 v5.0.0/go.mod h1:BBug9lr0cqtdAhsu6R4AAdvufI0/XBzAQSsUqJpoZOs=
 github.com/go-cmd/cmd v1.0.5/go.mod h1:y8q8qlK5wQibcw63djSl/ntiHUHXHGdCkPk0j4QeW4s=
 github.com/go-errors/errors v1.0.1 h1:LUHzmkK3GUKUrL/1gfBUxAHzcev3apQlezX/+O7ma6w=
