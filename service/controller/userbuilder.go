@@ -25,12 +25,11 @@ var AEADMethod = map[shadowsocks.CipherType]uint8{
 	shadowsocks.CipherType_XCHACHA20_POLY1305: 0,
 }
 
-func (c *Controller) buildVmessUser(userInfo *[]api.UserInfo, serverAlterID uint16) (users []*protocol.User) {
+func (c *Controller) buildVmessUser(userInfo *[]api.UserInfo) (users []*protocol.User) {
 	users = make([]*protocol.User, len(*userInfo))
 	for i, user := range *userInfo {
 		vmessAccount := &conf.VMessAccount{
 			ID:       user.UUID,
-			AlterIds: serverAlterID,
 			Security: "auto",
 		}
 		users[i] = &protocol.User{

@@ -21,7 +21,6 @@ import (
 	"github.com/XrayR-project/XrayR/api/pmpanel"
 	"github.com/XrayR-project/XrayR/api/proxypanel"
 	"github.com/XrayR-project/XrayR/api/sspanel"
-	"github.com/XrayR-project/XrayR/api/v2board"
 	"github.com/XrayR-project/XrayR/api/v2raysocks"
 	_ "github.com/XrayR-project/XrayR/main/distro/all"
 	"github.com/XrayR-project/XrayR/service"
@@ -177,9 +176,6 @@ func (p *Panel) Start() {
 		switch nodeConfig.PanelType {
 		case "SSpanel":
 			apiClient = sspanel.New(nodeConfig.ApiConfig)
-		// todo Deprecated after 2023.6.1
-		case "V2board":
-			apiClient = v2board.New(nodeConfig.ApiConfig)
 		case "NewV2board":
 			apiClient = newV2board.New(nodeConfig.ApiConfig)
 		case "PMpanel":
