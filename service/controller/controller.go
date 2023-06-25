@@ -399,7 +399,11 @@ func (c *Controller) addNewUser(userInfo *[]api.UserInfo, nodeInfo *api.NodeInfo
 	users := make([]*protocol.User, 0)
 	switch nodeInfo.NodeType {
 	case "V2ray":
-		users = c.buildVmessUser(userInfo)
+		if nodeInfo.EnableVless {
+			users = c.buildVlessUser(userInfo)
+		} else {
+			users = c.buildVmessUser(userInfo)
+		}
 	case "Trojan":
 		users = c.buildTrojanUser(userInfo)
 	case "Shadowsocks":
