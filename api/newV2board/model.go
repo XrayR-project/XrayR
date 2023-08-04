@@ -28,6 +28,7 @@ type shadowsocks struct {
 }
 
 type v2ray struct {
+        VlessFlow string `json:"flow"`
 	Network         string `json:"network"`
 	NetworkSettings struct {
 		Path        string           `json:"path"`
