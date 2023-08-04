@@ -28,7 +28,6 @@ type shadowsocks struct {
 }
 
 type v2ray struct {
-        VlessFlow string `json:"flow"`
 	Network         string `json:"network"`
 	NetworkSettings struct {
 		Path        string           `json:"path"`
@@ -36,6 +35,7 @@ type v2ray struct {
 		ServiceName string           `json:"serviceName"`
 		Header      *json.RawMessage `json:"header"`
 	} `json:"networkSettings"`
+        VlessFlow string `json:"flow"`
 	Tls int `json:"tls"`
 }
 

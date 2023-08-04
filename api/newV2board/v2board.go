@@ -383,7 +383,7 @@ func (c *APIClient) parseV2rayNodeResponse(s *serverConfig) (*api.NodeInfo, erro
 	if s.Tls == 1 {
 		enableTLS = true
 	}
-        log.Print(s.VlessFlow)
+
 	// Create GeneralNodeInfo
 	return &api.NodeInfo{
 		NodeType:          c.NodeType,
