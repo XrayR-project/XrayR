@@ -17,7 +17,7 @@ require (
 	github.com/r3labs/diff/v2 v2.15.1
 	github.com/sagernet/sing v0.2.9
 	github.com/sagernet/sing-shadowsocks v0.2.4
-	github.com/shirou/gopsutil/v3 v3.23.7
+	github.com/shirou/gopsutil/v3 v3.23.8
 	github.com/spf13/viper v1.16.0
 	github.com/stretchr/testify v1.8.4
 	github.com/xtls/xray-core v1.8.4
@@ -170,8 +170,8 @@ require (
 	github.com/subosito/gotenv v1.4.2 // indirect
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.0.490 // indirect
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/dnspod v1.0.490 // indirect
-	github.com/tklauser/go-sysconf v0.3.11 // indirect
-	github.com/tklauser/numcpus v0.6.0 // indirect
+	github.com/tklauser/go-sysconf v0.3.12 // indirect
+	github.com/tklauser/numcpus v0.6.1 // indirect
 	github.com/transip/gotransip/v6 v6.20.0 // indirect
 	github.com/ultradns/ultradns-go-sdk v1.5.0-20230427130837-23c9b0c // indirect
 	github.com/v2fly/ss-bloomring v0.0.0-20210312155135-28617310f63e // indirect
