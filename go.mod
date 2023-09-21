@@ -16,7 +16,7 @@ require (
 	github.com/r3labs/diff/v2 v2.15.1
 	github.com/redis/go-redis/v9 v9.2.0
 	github.com/sagernet/sing v0.2.11
-	github.com/sagernet/sing-shadowsocks v0.2.4
+	github.com/sagernet/sing-shadowsocks v0.2.5
 	github.com/shirou/gopsutil/v3 v3.23.8
 	github.com/spf13/viper v1.16.0
 	github.com/stretchr/testify v1.8.4
