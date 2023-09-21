@@ -1,46 +1,36 @@
 package gov2panel
 
-import (
-	"encoding/json"
-)
+import "encoding/json"
 
 type serverConfig struct {
-	shadowsocks
 	v2ray
-	trojan
+	shadowsocks
+	//---
+	ServerName string           `json:"server_name"`
+	Routes     []route          `json:"routes"`
+	Header     *json.RawMessage `json:"header"`
+}
 
-	ServerPort int `json:"server_port"`
-	BaseConfig struct {
-		PushInterval int `json:"push_interval"`
-		PullInterval int `json:"pull_interval"`
-	} `json:"base_config"`
-	Routes []route `json:"routes"`
+type v2ray struct {
+	Port string `json:"port"`
+	Scy  string `json:"scy"`
+	Net  string `json:"net"`
+	Type string `json:"type"`
+	Host string `json:"host"`
+	Path string `json:"path"`
+	TLS  string `json:"tls"`
+	Sni  string `json:"sni"`
+	Alpn string `json:"alpn"`
 }
 
 type shadowsocks struct {
-	Cipher       string `json:"cipher"`
+	CypherMethod string `json:"cypher_method"`
 	Obfs         string `json:"obfs"`
 	ObfsSettings struct {
 		Path string `json:"path"`
 		Host string `json:"host"`
 	} `json:"obfs_settings"`
 	ServerKey string `json:"server_key"`
-}
-
-type v2ray struct {
-	Network         string `json:"network"`
-	NetworkSettings struct {
-		Path        string           `json:"path"`
-		Headers     *json.RawMessage `json:"headers"`
-		ServiceName string           `json:"serviceName"`
-		Header      *json.RawMessage `json:"header"`
-	} `json:"networkSettings"`
-	Tls int `json:"tls"`
-}
-
-type trojan struct {
-	Host       string `json:"host"`
-	ServerName string `json:"server_name"`
 }
 
 type route struct {

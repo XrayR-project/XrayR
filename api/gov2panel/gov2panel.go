@@ -15,6 +15,7 @@ import (
 
 	"github.com/bitly/go-simplejson"
 	"github.com/go-resty/resty/v2"
+	"github.com/gogf/gf/v2/util/gconv"
 	"github.com/xtls/xray-core/common/net"
 	"github.com/xtls/xray-core/infra/conf"
 
@@ -168,7 +169,7 @@ func (c *APIClient) GetNodeInfo() (nodeInfo *api.NodeInfo, err error) {
 	b, _ := nodeInfoResp.Encode()
 	json.Unmarshal(b, server)
 
-	if server.ServerPort == 0 {
+	if gconv.Uint32(server.Port) == 0 {
 		return nil, errors.New("server port must > 0")
 	}
 
@@ -306,7 +307,7 @@ func (c *APIClient) parseTrojanNodeResponse(s *serverConfig) (*api.NodeInfo, err
 	nodeInfo := &api.NodeInfo{
 		NodeType:          c.NodeType,
 		NodeID:            c.NodeID,
-		Port:              uint32(s.ServerPort),
+		Port:              gconv.Uint32(s.Port),
 		TransportProtocol: "tcp",
 		EnableTLS:         true,
 		Host:              s.Host,
@@ -338,9 +339,9 @@ func (c *APIClient) parseSSNodeResponse(s *serverConfig) (*api.NodeInfo, error) 
 	return &api.NodeInfo{
 		NodeType:          c.NodeType,
 		NodeID:            c.NodeID,
-		Port:              uint32(s.ServerPort),
+		Port:              gconv.Uint32(s.Port),
 		TransportProtocol: "tcp",
-		CypherMethod:      s.Cipher,
+		CypherMethod:      s.CypherMethod,
 		ServerKey:         s.ServerKey, // shadowsocks2022 share key
 		NameServerConfig:  s.parseDNSConfig(),
 		Header:            header,
@@ -350,24 +351,14 @@ func (c *APIClient) parseSSNodeResponse(s *serverConfig) (*api.NodeInfo, error) 
 // parseV2rayNodeResponse parse the response for the given nodeInfo format
 func (c *APIClient) parseV2rayNodeResponse(s *serverConfig) (*api.NodeInfo, error) {
 	var (
-		host      string
 		header    json.RawMessage
 		enableTLS bool
 	)
 
-	switch s.Network {
-	case "ws":
-		if s.NetworkSettings.Headers != nil {
-			if httpHeader, err := s.NetworkSettings.Headers.MarshalJSON(); err != nil {
-				return nil, err
-			} else {
-				b, _ := simplejson.NewJson(httpHeader)
-				host = b.Get("Host").MustString()
-			}
-		}
+	switch s.Net {
 	case "tcp":
-		if s.NetworkSettings.Header != nil {
-			if httpHeader, err := s.NetworkSettings.Header.MarshalJSON(); err != nil {
+		if s.Header != nil {
+			if httpHeader, err := s.Header.MarshalJSON(); err != nil {
 				return nil, err
 			} else {
 				header = httpHeader
@@ -375,7 +366,7 @@ func (c *APIClient) parseV2rayNodeResponse(s *serverConfig) (*api.NodeInfo, erro
 		}
 	}
 
-	if s.Tls == 1 {
+	if s.TLS == "tls" {
 		enableTLS = true
 	}
 
@@ -383,15 +374,15 @@ func (c *APIClient) parseV2rayNodeResponse(s *serverConfig) (*api.NodeInfo, erro
 	return &api.NodeInfo{
 		NodeType:          c.NodeType,
 		NodeID:            c.NodeID,
-		Port:              uint32(s.ServerPort),
+		Port:              gconv.Uint32(s.Port),
 		AlterID:           0,
-		TransportProtocol: s.Network,
+		TransportProtocol: s.Net,
 		EnableTLS:         enableTLS,
-		Path:              s.NetworkSettings.Path,
-		Host:              host,
+		Path:              s.Path,
+		Host:              s.Host,
 		EnableVless:       c.EnableVless,
 		VlessFlow:         c.VlessFlow,
-		ServiceName:       s.NetworkSettings.ServiceName,
+		ServiceName:       s.ServerName,
 		Header:            header,
 		NameServerConfig:  s.parseDNSConfig(),
 	}, nil
