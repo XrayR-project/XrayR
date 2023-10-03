@@ -21,11 +21,7 @@ type CustomConfig struct {
 	OffsetPortNode string          `json:"offset_port_node"`
 	ServerSub      string          `json:"server_sub"`
 	Host           string          `json:"host"`
-	MuPort         string          `json:"mu_port"`
-	MuEncryption   string          `json:"mu_encryption"`
-	MuProtocol     string          `json:"mu_protocol"`
-	MuObfs         string          `json:"mu_obfs"`
-	MuSuffix       string          `json:"mu_suffix"`
+	Method         string          `json:"method"`
 	V2Port         string          `json:"v2_port"`
 	TLS            string          `json:"tls"`
 	EnableVless    string          `json:"enable_vless"`
@@ -38,7 +34,6 @@ type CustomConfig struct {
 	Header         json.RawMessage `json:"header"`
 	TrojanPort     string          `json:"trojan_port"`
 	AllowInsecure  string          `json:"allow_insecure"`
-	Grpc           string          `json:"grpc"`
 	Servicename    string          `json:"servicename"`
 	EnableXtls     string          `json:"enable_xtls"`
 	Flow           string          `json:"flow"`
