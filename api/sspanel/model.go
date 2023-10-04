@@ -31,6 +31,8 @@ type CustomConfig struct {
 	Servicename    string          `json:"servicename"`
 	EnableXtls     string          `json:"enable_xtls"`
 	Flow           string          `json:"flow"`
+	EnableREALITY  bool            `json:"enable_reality"`
+	RealityOpts    *REALITYConfig  `json:"reality-opts"`
 }
 
 // UserResponse is the response of user
@@ -83,4 +85,15 @@ type RuleItem struct {
 type IllegalItem struct {
 	ID  int `json:"list_id"`
 	UID int `json:"user_id"`
+}
+
+type REALITYConfig struct {
+	Dest             string   `json:"dest,omitempty"`
+	ProxyProtocolVer uint64   `json:"proxy_protocol_ver,omitempty"`
+	ServerNames      []string `json:"server_names,omitempty"`
+	PrivateKey       string   `json:"private_key,omitempty"`
+	MinClientVer     string   `json:"min_client_ver,omitempty"`
+	MaxClientVer     string   `json:"max_client_ver,omitempty"`
+	MaxTimeDiff      uint64   `json:"max_time_diff,omitempty"`
+	ShortIds         []string `json:"short_ids,omitempty"`
 }

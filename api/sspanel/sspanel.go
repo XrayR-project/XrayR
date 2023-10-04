@@ -792,6 +792,22 @@ func (c *APIClient) ParseSSPanelNodeInfo(nodeInfoResponse *NodeInfoResponse) (*a
 		}
 	}
 
+	// parse reality config
+	realityConfig := new(api.REALITYConfig)
+	if nodeConfig.RealityOpts != nil {
+		r := nodeConfig.RealityOpts
+		realityConfig = &api.REALITYConfig{
+			Dest:             r.Dest,
+			ProxyProtocolVer: r.ProxyProtocolVer,
+			ServerNames:      r.ServerNames,
+			PrivateKey:       r.PrivateKey,
+			MinClientVer:     r.MinClientVer,
+			MaxClientVer:     r.MaxClientVer,
+			MaxTimeDiff:      r.MaxTimeDiff,
+			ShortIds:         r.ShortIds,
+		}
+	}
+
 	// Create GeneralNodeInfo
 	nodeInfo := &api.NodeInfo{
 		NodeType:          c.NodeType,
@@ -808,6 +824,8 @@ func (c *APIClient) ParseSSPanelNodeInfo(nodeInfoResponse *NodeInfoResponse) (*a
 		CypherMethod:      nodeConfig.Method,
 		ServiceName:       nodeConfig.Servicename,
 		Header:            nodeConfig.Header,
+		EnableREALITY:     nodeConfig.EnableREALITY,
+		REALITYConfig:     realityConfig,
 	}
 
 	return nodeInfo, nil
