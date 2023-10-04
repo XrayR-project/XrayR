@@ -8,7 +8,6 @@ type NodeInfoResponse struct {
 	Class           int             `json:"node_class"`
 	SpeedLimit      float64         `json:"node_speedlimit"`
 	TrafficRate     float64         `json:"traffic_rate"`
-	MuOnly          int             `json:"mu_only"`
 	Sort            int             `json:"sort"`
 	RawServerString string          `json:"server"`
 	Type            string          `json:"type"`
@@ -17,22 +16,17 @@ type NodeInfoResponse struct {
 }
 
 type CustomConfig struct {
-	OffsetPortUser string          `json:"offset_port_user"`
 	OffsetPortNode string          `json:"offset_port_node"`
-	ServerSub      string          `json:"server_sub"`
 	Host           string          `json:"host"`
 	Method         string          `json:"method"`
-	V2Port         string          `json:"v2_port"`
 	TLS            string          `json:"tls"`
 	EnableVless    string          `json:"enable_vless"`
-	AlterID        string          `json:"alter_id"`
 	Network        string          `json:"network"`
 	Security       string          `json:"security"`
 	Path           string          `json:"path"`
 	VerifyCert     bool            `json:"verify_cert"`
 	Obfs           string          `json:"obfs"`
 	Header         json.RawMessage `json:"header"`
-	TrojanPort     string          `json:"trojan_port"`
 	AllowInsecure  string          `json:"allow_insecure"`
 	Servicename    string          `json:"servicename"`
 	EnableXtls     string          `json:"enable_xtls"`
@@ -41,22 +35,14 @@ type CustomConfig struct {
 
 // UserResponse is the response of user
 type UserResponse struct {
-	ID            int     `json:"id"`
-	Email         string  `json:"email"`
-	Passwd        string  `json:"passwd"`
-	Port          uint32  `json:"port"`
-	Method        string  `json:"method"`
-	SpeedLimit    float64 `json:"node_speedlimit"`
-	DeviceLimit   int     `json:"node_connector"`
-	Protocol      string  `json:"protocol"`
-	ProtocolParam string  `json:"protocol_param"`
-	Obfs          string  `json:"obfs"`
-	ObfsParam     string  `json:"obfs_param"`
-	ForbiddenIP   string  `json:"forbidden_ip"`
-	ForbiddenPort string  `json:"forbidden_port"`
-	UUID          string  `json:"uuid"`
-	MultiUser     int     `json:"is_multi_user"`
-	AliveIP       int     `json:"alive_ip"`
+	ID          int     `json:"id"`
+	Passwd      string  `json:"passwd"`
+	Port        uint32  `json:"port"`
+	Method      string  `json:"method"`
+	SpeedLimit  float64 `json:"node_speedlimit"`
+	DeviceLimit int     `json:"node_iplimit"`
+	UUID        string  `json:"uuid"`
+	AliveIP     int     `json:"alive_ip"`
 }
 
 // Response is the common response
@@ -70,7 +56,7 @@ type PostData struct {
 	Data interface{} `json:"data"`
 }
 
-// SystemLoad is the data structure of systemload
+// SystemLoad is the data structure of system load
 type SystemLoad struct {
 	Uptime string `json:"uptime"`
 	Load   string `json:"load"`

@@ -518,17 +518,6 @@ func (c *APIClient) ParseSSNodeResponse(nodeInfoResponse *NodeInfoResponse) (*ap
 	if err := json.Unmarshal(response.Data, userListResponse); err != nil {
 		return nil, fmt.Errorf("unmarshal %s failed: %s", reflect.TypeOf(userListResponse), err)
 	}
-	// Find the multi-user
-	for _, u := range *userListResponse {
-		if u.MultiUser > 0 {
-			port = u.Port
-			method = u.Method
-			break
-		}
-	}
-	if port == 0 || method == "" {
-		return nil, fmt.Errorf("cant find the single port multi user")
-	}
 
 	if c.SpeedLimit > 0 {
 		speedLimit = uint64((c.SpeedLimit * 1000000) / 8)
@@ -727,18 +716,13 @@ func (c *APIClient) ParseUserListResponse(userInfoResponse *[]UserResponse) (*[]
 			speedLimit = uint64((user.SpeedLimit * 1000000) / 8)
 		}
 		userList = append(userList, api.UserInfo{
-			UID:           user.ID,
-			Email:         user.Email,
-			UUID:          user.UUID,
-			Passwd:        user.Passwd,
-			SpeedLimit:    speedLimit,
-			DeviceLimit:   deviceLimit,
-			Port:          user.Port,
-			Method:        user.Method,
-			Protocol:      user.Protocol,
-			ProtocolParam: user.ProtocolParam,
-			Obfs:          user.Obfs,
-			ObfsParam:     user.ObfsParam,
+			UID:         user.ID,
+			UUID:        user.UUID,
+			Passwd:      user.Passwd,
+			SpeedLimit:  speedLimit,
+			DeviceLimit: deviceLimit,
+			Port:        user.Port,
+			Method:      user.Method,
 		})
 	}
 
@@ -786,12 +770,6 @@ func (c *APIClient) ParseSSPanelNodeInfo(nodeInfoResponse *NodeInfoResponse) (*a
 		transportProtocol = nodeConfig.Network
 		tlsType = nodeConfig.Security
 
-		if parsedAlterID, err := strconv.ParseInt(nodeConfig.AlterID, 10, 16); err != nil {
-			return nil, err
-		} else {
-			alterID = uint16(parsedAlterID)
-		}
-
 		if tlsType == "tls" || tlsType == "xtls" {
 			enableTLS = true
 		}
@@ -804,10 +782,7 @@ func (c *APIClient) ParseSSPanelNodeInfo(nodeInfoResponse *NodeInfoResponse) (*a
 		tlsType = "tls"
 		transportProtocol = "tcp"
 
-		// Select security type
-		if nodeConfig.EnableXtls == "1" {
-			tlsType = "xtls"
-		} else if nodeConfig.Security != "" {
+		if nodeConfig.Security != "" {
 			tlsType = nodeConfig.Security // try to read security from config
 		}
 
