@@ -46,8 +46,8 @@ type APIClient struct {
 
 // New create api instance
 func New(apiConfig *api.Config) *APIClient {
-
 	client := resty.New()
+
 	client.SetRetryCount(3)
 	if apiConfig.Timeout > 0 {
 		client.SetTimeout(time.Duration(apiConfig.Timeout) * time.Second)
@@ -90,11 +90,11 @@ func New(apiConfig *api.Config) *APIClient {
 
 // readLocalRuleList reads the local rule list file
 func readLocalRuleList(path string) (LocalRuleList []api.DetectRule) {
-
 	LocalRuleList = make([]api.DetectRule, 0)
 	if path != "" {
 		// open the file
 		file, err := os.Open(path)
+		defer file.Close()
 
 		// handle errors while opening
 		if err != nil {
@@ -116,8 +116,6 @@ func readLocalRuleList(path string) (LocalRuleList []api.DetectRule) {
 			log.Fatalf("Error while reading file: %s", err)
 			return
 		}
-
-		file.Close()
 	}
 
 	return LocalRuleList
@@ -183,15 +181,18 @@ func (c *APIClient) GetNodeInfo() (nodeInfo *api.NodeInfo, err error) {
 		return nil, fmt.Errorf("unmarshal %s failed: %s", reflect.TypeOf(nodeInfoResponse), err)
 	}
 
-	// New ssPanel API
+	// determine ssPanel version, if disable custom config or version < 2021.11, then use old api
 	c.version = nodeInfoResponse.Version
-	if !c.DisableCustomConfig {
-		nodeInfo, err = c.ParseSSPanelNodeInfo(nodeInfoResponse)
-		if err != nil {
-			res, _ := json.Marshal(nodeInfoResponse)
-			return nil, fmt.Errorf("Parse node info failed: %s, \nError: %s, \nPlease check the doc of custom_config for help: https://xrayr-project.github.io/XrayR-doc/dui-jie-sspanel/sspanel/sspanel_custom_config", string(res), err)
+	var isExpired bool
+	if compareVersion(c.version, "2021.11") == -1 {
+		isExpired = true
+	}
+
+	if c.DisableCustomConfig || isExpired {
+		if isExpired {
+			log.Print("The panel version is expired, it is recommended to update immediately")
 		}
-	} else {
+
 		switch c.NodeType {
 		case "V2ray":
 			nodeInfo, err = c.ParseV2rayNodeResponse(nodeInfoResponse)
@@ -203,6 +204,12 @@ func (c *APIClient) GetNodeInfo() (nodeInfo *api.NodeInfo, err error) {
 			nodeInfo, err = c.ParseSSPluginNodeResponse(nodeInfoResponse)
 		default:
 			return nil, fmt.Errorf("unsupported Node type: %s", c.NodeType)
+		}
+	} else {
+		nodeInfo, err = c.ParseSSPanelNodeInfo(nodeInfoResponse)
+		if err != nil {
+			res, _ := json.Marshal(nodeInfoResponse)
+			return nil, fmt.Errorf("Parse node info failed: %s, \nError: %s, \nPlease check the doc of custom_config for help: https://xrayr-project.github.io/XrayR-doc/dui-jie-sspanel/sspanel/sspanel_custom_config", string(res), err)
 		}
 	}
 
@@ -739,18 +746,16 @@ func (c *APIClient) ParseUserListResponse(userInfoResponse *[]UserResponse) (*[]
 }
 
 // ParseSSPanelNodeInfo parse the response for the given node info format
-// Only used for SSPanel version >= 2021.11
+// Only available for SSPanel version >= 2021.11
 func (c *APIClient) ParseSSPanelNodeInfo(nodeInfoResponse *NodeInfoResponse) (*api.NodeInfo, error) {
-	var speedLimit uint64 = 0
-	var EnableTLS, EnableVless bool
-	var AlterID uint16 = 0
-	var TLSType, transportProtocol string
+	var (
+		speedLimit                 uint64 = 0
+		enableTLS, enableVless     bool
+		alterID                    uint16 = 0
+		tlsType, transportProtocol string
+	)
 
-	if nodeInfoResponse.Version == "" {
-		return nil, errors.New("panel version must be 2021.11 or above")
-	}
-
-	// Check if custom_config is valid
+	// Check if custom_config is null
 	if len(nodeInfoResponse.CustomConfig) == 0 {
 		return nil, errors.New("custom_config is empty, disable custom config")
 	}
@@ -758,7 +763,7 @@ func (c *APIClient) ParseSSPanelNodeInfo(nodeInfoResponse *NodeInfoResponse) (*a
 	nodeConfig := new(CustomConfig)
 	err := json.Unmarshal(nodeInfoResponse.CustomConfig, nodeConfig)
 	if err != nil {
-		return nil, fmt.Errorf("custom_config is error: %v", err)
+		return nil, fmt.Errorf("custom_config format error: %v", err)
 	}
 
 	if c.SpeedLimit > 0 {
@@ -768,45 +773,42 @@ func (c *APIClient) ParseSSPanelNodeInfo(nodeInfoResponse *NodeInfoResponse) (*a
 	}
 
 	parsedPort, err := strconv.ParseInt(nodeConfig.OffsetPortNode, 10, 32)
-
 	if err != nil {
 		return nil, err
 	}
+
 	port := uint32(parsedPort)
 
-	if c.NodeType == "Shadowsocks" {
+	switch c.NodeType {
+	case "Shadowsocks":
 		transportProtocol = "tcp"
-	}
-
-	if c.NodeType == "V2ray" {
+	case "V2ray":
 		transportProtocol = nodeConfig.Network
-		TLSType = nodeConfig.Security
+		tlsType = nodeConfig.Security
 
 		if parsedAlterID, err := strconv.ParseInt(nodeConfig.AlterID, 10, 16); err != nil {
 			return nil, err
 		} else {
-			AlterID = uint16(parsedAlterID)
+			alterID = uint16(parsedAlterID)
 		}
 
-		if TLSType == "tls" || TLSType == "xtls" {
-			EnableTLS = true
+		if tlsType == "tls" || tlsType == "xtls" {
+			enableTLS = true
 		}
 
 		if nodeConfig.EnableVless == "1" {
-			EnableVless = true
+			enableVless = true
 		}
-	}
-
-	if c.NodeType == "Trojan" {
-		EnableTLS = true
-		TLSType = "tls"
+	case "Trojan":
+		enableTLS = true
+		tlsType = "tls"
 		transportProtocol = "tcp"
 
 		// Select security type
 		if nodeConfig.EnableXtls == "1" {
-			TLSType = "xtls"
+			tlsType = "xtls"
 		} else if nodeConfig.Security != "" {
-			TLSType = nodeConfig.Security // try to read security from config
+			tlsType = nodeConfig.Security // try to read security from config
 		}
 
 		// Select transport protocol
@@ -821,12 +823,12 @@ func (c *APIClient) ParseSSPanelNodeInfo(nodeInfoResponse *NodeInfoResponse) (*a
 		NodeID:            c.NodeID,
 		Port:              port,
 		SpeedLimit:        speedLimit,
-		AlterID:           AlterID,
+		AlterID:           alterID,
 		TransportProtocol: transportProtocol,
 		Host:              nodeConfig.Host,
 		Path:              nodeConfig.Path,
-		EnableTLS:         EnableTLS,
-		EnableVless:       EnableVless,
+		EnableTLS:         enableTLS,
+		EnableVless:       enableVless,
 		VlessFlow:         nodeConfig.Flow,
 		CypherMethod:      nodeConfig.Method,
 		ServiceName:       nodeConfig.Servicename,
@@ -836,6 +838,7 @@ func (c *APIClient) ParseSSPanelNodeInfo(nodeInfoResponse *NodeInfoResponse) (*a
 	return nodeInfo, nil
 }
 
+// compareVersion, version1 > version2 return 1, version1 < version2 return -1, 0 means equal
 func compareVersion(version1, version2 string) int {
 	n, m := len(version1), len(version2)
 	i, j := 0, 0
