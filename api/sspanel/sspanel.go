@@ -768,6 +768,7 @@ func (c *APIClient) ParseSSPanelNodeInfo(nodeInfoResponse *NodeInfoResponse) (*a
 	}
 
 	parsedPort, err := strconv.ParseInt(nodeConfig.OffsetPortNode, 10, 32)
+
 	if err != nil {
 		return nil, err
 	}
@@ -780,6 +781,7 @@ func (c *APIClient) ParseSSPanelNodeInfo(nodeInfoResponse *NodeInfoResponse) (*a
 	if c.NodeType == "V2ray" {
 		transportProtocol = nodeConfig.Network
 		TLSType = nodeConfig.Security
+
 		if parsedAlterID, err := strconv.ParseInt(nodeConfig.AlterID, 10, 16); err != nil {
 			return nil, err
 		} else {
@@ -789,6 +791,7 @@ func (c *APIClient) ParseSSPanelNodeInfo(nodeInfoResponse *NodeInfoResponse) (*a
 		if TLSType == "tls" || TLSType == "xtls" {
 			EnableTLS = true
 		}
+
 		if nodeConfig.EnableVless == "1" {
 			EnableVless = true
 		}
@@ -807,9 +810,7 @@ func (c *APIClient) ParseSSPanelNodeInfo(nodeInfoResponse *NodeInfoResponse) (*a
 		}
 
 		// Select transport protocol
-		if nodeConfig.Grpc == "1" {
-			transportProtocol = "grpc"
-		} else if nodeConfig.Network != "" {
+		if nodeConfig.Network != "" {
 			transportProtocol = nodeConfig.Network // try to read transport protocol from config
 		}
 	}
@@ -827,7 +828,7 @@ func (c *APIClient) ParseSSPanelNodeInfo(nodeInfoResponse *NodeInfoResponse) (*a
 		EnableTLS:         EnableTLS,
 		EnableVless:       EnableVless,
 		VlessFlow:         nodeConfig.Flow,
-		CypherMethod:      nodeConfig.MuEncryption,
+		CypherMethod:      nodeConfig.Method,
 		ServiceName:       nodeConfig.Servicename,
 		Header:            nodeConfig.Header,
 	}
