@@ -25,6 +25,7 @@ Nodes:
       SpeedLimit: 0 # Mbps, Local settings will replace remote settings, 0 means disable
       DeviceLimit: 0 # Local settings will replace remote settings, 0 means disable
       RuleListPath: # /etc/XrayR/rulelist Path to local rulelist file
+      DisableCustomConfig: false # disable custom config for sspanel
     ControllerConfig:
       ListenIP: 0.0.0.0 # IP address you want to listen
       SendIP: 0.0.0.0 # IP address you want to send pacakage
@@ -51,6 +52,7 @@ Nodes:
           Path: # HTTP PATH, Empty for any
           Dest: 80 # Required, Destination of fallback, check https://xtls.github.io/config/features/fallback.html for details.
           ProxyProtocolVer: 0 # Send PROXY protocol version, 0 for disable
+      DisableLocalREALITYConfig: false  # disable local reality config
       EnableREALITY: true # Enable REALITY
       REALITYConfigs:
         Show: true # Show REALITY debug
