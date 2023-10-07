@@ -105,4 +105,3 @@ wget -N https://raw.githubusercontent.com/XrayR-project/XrayR-release/master/ins
 
 [![Stargazers over time](https://starchart.cc/XrayR-project/XrayR.svg)](https://starchart.cc/XrayR-project/XrayR)
 
-
