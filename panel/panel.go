@@ -6,6 +6,7 @@ import (
 	"os"
 	"sync"
 
+	"github.com/XrayR-project/XrayR/api/gov2panel"
 	"github.com/XrayR-project/XrayR/api/newV2board"
 	"github.com/XrayR-project/XrayR/app/mydispatcher"
 
@@ -184,6 +185,8 @@ func (p *Panel) Start() {
 			apiClient = proxypanel.New(nodeConfig.ApiConfig)
 		case "V2RaySocks":
 			apiClient = v2raysocks.New(nodeConfig.ApiConfig)
+		case "GoV2Panel":
+			apiClient = gov2panel.New(nodeConfig.ApiConfig)
 		default:
 			log.Panicf("Unsupport panel type: %s", nodeConfig.PanelType)
 		}

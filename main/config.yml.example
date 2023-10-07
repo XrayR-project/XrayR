@@ -13,7 +13,7 @@ ConnectionConfig:
   DownlinkOnly: 4 # Time limit when the connection is closed after the uplink is closed, Second
   BufferSize: 64 # The internal cache size of each connection, kB
 Nodes:
-  - PanelType: "SSpanel" # Panel type: SSpanel, NewV2board, PMpanel, Proxypanel, V2RaySocks
+  - PanelType: "SSpanel" # Panel type: SSpanel, NewV2board, PMpanel, Proxypanel, V2RaySocks, GoV2Panel
     ApiConfig:
       ApiHost: "http://127.0.0.1:667"
       ApiKey: "123"
@@ -78,7 +78,7 @@ Nodes:
           ALICLOUD_ACCESS_KEY: aaa
           ALICLOUD_SECRET_KEY: bbb
 
-#  - PanelType: "SSpanel" # Panel type: SSpanel, V2board, NewV2board, PMpanel, Proxypanel, V2RaySocks
+#  - PanelType: "SSpanel" # Panel type: SSpanel, V2board, NewV2board, PMpanel, Proxypanel, V2RaySocks, GoV2Panel
 #    ApiConfig:
 #      ApiHost: "http://127.0.0.1:668"
 #      ApiKey: "123"

@@ -62,6 +62,7 @@ A Xray backend framework that can easily support many panels.
 | [PMPanel](https://github.com/ByteInternetHK/PMPanel)   | √     | √      | √                       |
 | [ProxyPanel](https://github.com/ProxyPanel/ProxyPanel) | √     | √      | √                       |
 | [WHMCS (V2RaySocks)](https://v2raysocks.doxtex.com/)   | √     | √      | √                       |
+| [GoV2Panel](https://github.com/pingProMax/gov2panel)   | √     | √      | √                       |
 
 ## 软件安装
 
