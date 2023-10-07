@@ -185,7 +185,11 @@ func (p *Panel) Start() {
 			apiClient = proxypanel.New(nodeConfig.ApiConfig)
 		case "V2RaySocks":
 			apiClient = v2raysocks.New(nodeConfig.ApiConfig)
+<<<<<<< HEAD
 		case "GoV2Panel":
+=======
+		case "Gov2panel":
+>>>>>>> 4c01eb9 (up)
 			apiClient = gov2panel.New(nodeConfig.ApiConfig)
 		default:
 			log.Panicf("Unsupport panel type: %s", nodeConfig.PanelType)
