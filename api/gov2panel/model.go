@@ -6,8 +6,14 @@ type serverConfig struct {
 	v2ray
 	shadowsocks
 	//---
+<<<<<<< HEAD
 	Routes []route          `json:"routes"`
 	Header *json.RawMessage `json:"header"`
+=======
+	ServerName string           `json:"server_name"`
+	Routes     []route          `json:"routes"`
+	Header     *json.RawMessage `json:"header"`
+>>>>>>> 220834b015caa9647f42a3a6ee8aa3827d118474
 }
 
 type v2ray struct {
@@ -23,7 +29,11 @@ type v2ray struct {
 }
 
 type shadowsocks struct {
+<<<<<<< HEAD
 	Encryption   string `json:"encryption"`
+=======
+	CypherMethod string `json:"cypher_method"`
+>>>>>>> 220834b015caa9647f42a3a6ee8aa3827d118474
 	Obfs         string `json:"obfs"`
 	ObfsSettings struct {
 		Path string `json:"path"`

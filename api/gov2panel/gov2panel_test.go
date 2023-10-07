@@ -78,8 +78,13 @@ func TestReportReportUserTraffic(t *testing.T) {
 	for i, userInfo := range *userList {
 		generalUserTraffic[i] = api.UserTraffic{
 			UID:      userInfo.UID,
+<<<<<<< HEAD
 			Upload:   1111,
 			Download: 2222,
+=======
+			Upload:   114514,
+			Download: 114514,
+>>>>>>> 220834b015caa9647f42a3a6ee8aa3827d118474
 		}
 	}
 	// client.Debug()

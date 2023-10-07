@@ -311,7 +311,11 @@ func (c *APIClient) parseTrojanNodeResponse(s *serverConfig) (*api.NodeInfo, err
 		TransportProtocol: "tcp",
 		EnableTLS:         true,
 		Host:              s.Host,
+<<<<<<< HEAD
 		ServiceName:       s.Sni,
+=======
+		ServiceName:       s.ServerName,
+>>>>>>> 220834b015caa9647f42a3a6ee8aa3827d118474
 		NameServerConfig:  s.parseDNSConfig(),
 	}
 	return nodeInfo, nil
@@ -341,7 +345,11 @@ func (c *APIClient) parseSSNodeResponse(s *serverConfig) (*api.NodeInfo, error) 
 		NodeID:            c.NodeID,
 		Port:              gconv.Uint32(s.Port),
 		TransportProtocol: "tcp",
+<<<<<<< HEAD
 		CypherMethod:      s.Encryption,
+=======
+		CypherMethod:      s.CypherMethod,
+>>>>>>> 220834b015caa9647f42a3a6ee8aa3827d118474
 		ServerKey:         s.ServerKey, // shadowsocks2022 share key
 		NameServerConfig:  s.parseDNSConfig(),
 		Header:            header,
@@ -382,7 +390,11 @@ func (c *APIClient) parseV2rayNodeResponse(s *serverConfig) (*api.NodeInfo, erro
 		Host:              s.Host,
 		EnableVless:       c.EnableVless,
 		VlessFlow:         c.VlessFlow,
+<<<<<<< HEAD
 		ServiceName:       s.Sni,
+=======
+		ServiceName:       s.ServerName,
+>>>>>>> 220834b015caa9647f42a3a6ee8aa3827d118474
 		Header:            header,
 		NameServerConfig:  s.parseDNSConfig(),
 	}, nil
