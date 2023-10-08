@@ -14,6 +14,7 @@ require (
 	github.com/fsnotify/fsnotify v1.6.0
 	github.com/go-acme/lego/v4 v4.14.2
 	github.com/go-resty/resty/v2 v2.9.1
+	github.com/gogf/gf/v2 v2.5.4
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/r3labs/diff/v2 v2.15.1
 	github.com/redis/go-redis/v9 v9.2.1
@@ -202,6 +203,8 @@ require (
 	github.com/yandex-cloud/go-sdk v0.0.0-20220805164847-cf028e604997 // indirect
 	github.com/yusufpapurcu/wmi v1.2.3 // indirect
 	go.opencensus.io v0.24.0 // indirect
+	go.opentelemetry.io/otel v1.14.0 // indirect
+	go.opentelemetry.io/otel/trace v1.14.0 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/multierr v1.9.0 // indirect
 	go.uber.org/ratelimit v0.2.0 // indirect
