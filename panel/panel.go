@@ -9,7 +9,7 @@ import (
 	"github.com/XrayR-project/XrayR/api/newV2board"
 	"github.com/XrayR-project/XrayR/app/mydispatcher"
 
-	"github.com/imdario/mergo"
+	"dario.cat/mergo"
 	"github.com/r3labs/diff/v2"
 	"github.com/xtls/xray-core/app/proxyman"
 	"github.com/xtls/xray-core/app/stats"
