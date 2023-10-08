@@ -15,7 +15,7 @@ on:
     branches:
       - 'master'
 env:
-  REGISTRY_IMAGE: xrayr-project/xrayr
+  REGISTRY_IMAGE: ghcr.io/xrayr-project/xrayr
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -82,7 +82,7 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY_IMAGE }}
-      - name: Login to Docker Hub
+      - name: Log in to the Container registry
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
