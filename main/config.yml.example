@@ -53,14 +53,14 @@ Nodes:
           Dest: 80 # Required, Destination of fallback, check https://xtls.github.io/config/features/fallback.html for details.
           ProxyProtocolVer: 0 # Send PROXY protocol version, 0 for disable
       DisableLocalREALITYConfig: false  # disable local reality config
-      EnableREALITY: true # Enable REALITY
+      EnableREALITY: false # Enable REALITY
       REALITYConfigs:
         Show: true # Show REALITY debug
         Dest: www.smzdm.com:443 # Required, Same as fallback
         ProxyProtocolVer: 0 # Send PROXY protocol version, 0 for disable
         ServerNames: # Required, list of available serverNames for the client, * wildcard is not supported at the moment.
           - www.smzdm.com
-        PrivateKey: YOUR_PRIVATE_KEY # Required, execute './xray x25519' to generate.
+        PrivateKey: YOUR_PRIVATE_KEY # Required, execute './XrayR -x25519' to generate.
         MinClientVer: # Optional, minimum version of Xray client, format is x.y.z.
         MaxClientVer: # Optional, maximum version of Xray client, format is x.y.z.
         MaxTimeDiff: 0 # Optional, maximum allowed time difference, unit is in milliseconds.

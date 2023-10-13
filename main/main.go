@@ -15,12 +15,14 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/viper"
 
+	"github.com/XrayR-project/XrayR/common"
 	"github.com/XrayR-project/XrayR/panel"
 )
 
 var (
 	configFile   = flag.String("config", "", "Config file for XrayR.")
 	printVersion = flag.Bool("version", false, "show version")
+	x25519       = flag.Bool("x25519", false, "Generate key pair for x25519 key exchange")
 )
 
 var (
@@ -69,6 +71,10 @@ func main() {
 	flag.Parse()
 	showVersion()
 	if *printVersion {
+		return
+	}
+	if *x25519 {
+		common.X25519()
 		return
 	}
 
