@@ -9,8 +9,9 @@ import (
 	"golang.org/x/crypto/curve25519"
 )
 
-func init() {
-	rootCmd.AddCommand(&cobra.Command{
+var (
+	priKey    string
+	x25519Cmd = &cobra.Command{
 		Use:   "x25519",
 		Short: "Generate key pair for x25519 key exchange",
 		Run: func(cmd *cobra.Command, args []string) {
@@ -18,14 +19,27 @@ func init() {
 				fmt.Println(err)
 			}
 		},
-	})
+	}
+)
+
+func init() {
+	x25519Cmd.PersistentFlags().StringVarP(&priKey, "input", "i", "", "Input private key (base64.RawURLEncoding)")
+	rootCmd.AddCommand(x25519Cmd)
 }
 
 func x25519() error {
-	var publicKey []byte
 	privateKey := make([]byte, curve25519.ScalarSize)
-	if _, err := rand.Read(privateKey); err != nil {
-		return err
+
+	if priKey == "" {
+		if _, err := rand.Read(privateKey); err != nil {
+			return err
+		}
+	} else {
+		p, err := base64.RawURLEncoding.DecodeString(priKey)
+		if err != nil {
+			return err
+		}
+		privateKey = p
 	}
 
 	// Modify random bytes using algorithm described at:
