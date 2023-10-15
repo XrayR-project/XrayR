@@ -19,6 +19,7 @@ import (
 	"github.com/xtls/xray-core/infra/conf"
 
 	"github.com/XrayR-project/XrayR/api"
+	"github.com/XrayR-project/XrayR/api/airgo"
 	"github.com/XrayR-project/XrayR/api/pmpanel"
 	"github.com/XrayR-project/XrayR/api/proxypanel"
 	"github.com/XrayR-project/XrayR/api/sspanel"
@@ -187,6 +188,8 @@ func (p *Panel) Start() {
 			apiClient = v2raysocks.New(nodeConfig.ApiConfig)
 		case "GoV2Panel":
 			apiClient = gov2panel.New(nodeConfig.ApiConfig)
+		case "AirGo":
+			apiClient = airgo.New(nodeConfig.ApiConfig)
 		default:
 			log.Panicf("Unsupport panel type: %s", nodeConfig.PanelType)
 		}
