@@ -3,6 +3,7 @@ package cmd
 import (
 	"crypto/rand"
 	"encoding/base64"
+	"errors"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -38,6 +39,9 @@ func x25519() error {
 		p, err := base64.RawURLEncoding.DecodeString(priKey)
 		if err != nil {
 			return err
+		}
+		if len(p) != curve25519.ScalarSize {
+			return errors.New("invalid private key")
 		}
 		privateKey = p
 	}
