@@ -11,7 +11,7 @@ require (
 	github.com/eko/gocache/lib/v4 v4.1.5
 	github.com/eko/gocache/store/go_cache/v4 v4.2.1
 	github.com/eko/gocache/store/redis/v4 v4.2.1
-	github.com/fsnotify/fsnotify v1.6.0
+	github.com/fsnotify/fsnotify v1.7.0
 	github.com/go-acme/lego/v4 v4.14.2
 	github.com/go-resty/resty/v2 v2.10.0
 	github.com/gogf/gf/v2 v2.5.5
