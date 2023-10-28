@@ -519,6 +519,11 @@ func (c *APIClient) ParseSSNodeResponse(nodeInfoResponse *NodeInfoResponse) (*ap
 		return nil, fmt.Errorf("unmarshal %s failed: %s", reflect.TypeOf(userListResponse), err)
 	}
 
+	// init server port
+	if len(*userListResponse) != 0 {
+		port = (*userListResponse)[0].Port
+	}
+
 	if c.SpeedLimit > 0 {
 		speedLimit = uint64((c.SpeedLimit * 1000000) / 8)
 	} else {
