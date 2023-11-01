@@ -20,7 +20,7 @@ require (
 	github.com/redis/go-redis/v9 v9.3.0
 	github.com/sagernet/sing v0.2.15
 	github.com/sagernet/sing-shadowsocks v0.2.5
-	github.com/shirou/gopsutil/v3 v3.23.9
+	github.com/shirou/gopsutil/v3 v3.23.10
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/viper v1.17.0
 	github.com/stretchr/testify v1.8.4
