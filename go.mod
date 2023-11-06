@@ -18,7 +18,7 @@ require (
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/r3labs/diff/v2 v2.15.1
 	github.com/redis/go-redis/v9 v9.3.0
-	github.com/sagernet/sing v0.2.15
+	github.com/sagernet/sing v0.2.17
 	github.com/sagernet/sing-shadowsocks v0.2.5
 	github.com/shirou/gopsutil/v3 v3.23.10
 	github.com/spf13/cobra v1.7.0
@@ -216,7 +216,7 @@ require (
 	golang.org/x/exp v0.0.0-20230905200255-921286631fa9 // indirect
 	golang.org/x/mod v0.12.0 // indirect
 	golang.org/x/oauth2 v0.12.0 // indirect
-	golang.org/x/sys v0.13.0 // indirect
+	golang.org/x/sys v0.14.0 // indirect
 	golang.org/x/text v0.13.0 // indirect
 	golang.org/x/tools v0.13.0 // indirect
 	google.golang.org/api v0.143.0 // indirect
