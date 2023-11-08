@@ -738,10 +738,10 @@ func (c *APIClient) ParseUserListResponse(userInfoResponse *[]UserResponse) (*[]
 // Only available for SSPanel version >= 2021.11
 func (c *APIClient) ParseSSPanelNodeInfo(nodeInfoResponse *NodeInfoResponse) (*api.NodeInfo, error) {
 	var (
-		speedLimit                 uint64 = 0
-		enableTLS, enableVless     bool
-		alterID                    uint16 = 0
-		tlsType, transportProtocol string
+		speedLimit             uint64 = 0
+		enableTLS, enableVless bool
+		alterID                uint16 = 0
+		transportProtocol      string
 	)
 
 	// Check if custom_config is null
@@ -773,8 +773,8 @@ func (c *APIClient) ParseSSPanelNodeInfo(nodeInfoResponse *NodeInfoResponse) (*a
 		transportProtocol = "tcp"
 	case "V2ray":
 		transportProtocol = nodeConfig.Network
-		tlsType = nodeConfig.Security
 
+		tlsType := nodeConfig.Security
 		if tlsType == "tls" || tlsType == "xtls" {
 			enableTLS = true
 		}
@@ -784,12 +784,7 @@ func (c *APIClient) ParseSSPanelNodeInfo(nodeInfoResponse *NodeInfoResponse) (*a
 		}
 	case "Trojan":
 		enableTLS = true
-		tlsType = "tls"
 		transportProtocol = "tcp"
-
-		if nodeConfig.Security != "" {
-			tlsType = nodeConfig.Security // try to read security from config
-		}
 
 		// Select transport protocol
 		if nodeConfig.Network != "" {
