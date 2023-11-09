@@ -287,11 +287,50 @@ func (c *APIClient) GetNodeRule() (*[]api.DetectRule, error) {
 
 // ReportNodeStatus implements the API interface
 func (c *APIClient) ReportNodeStatus(nodeStatus *api.NodeStatus) (err error) {
+	systemload := NodeStatus{
+		Uptime: int(nodeStatus.Uptime),
+		CPU:    fmt.Sprintf("%d%%", int(nodeStatus.CPU)),
+		Mem:    fmt.Sprintf("%d%%", int(nodeStatus.Mem)),
+		Disk:   fmt.Sprintf("%d%%", int(nodeStatus.Disk)),
+	}
+
+	res, err := c.client.R().
+		SetQueryParam("node_id", strconv.Itoa(c.NodeID)).
+		SetQueryParams(map[string]string{
+			"act":      "nodestatus",
+			"nodetype": strings.ToLower(c.NodeType),
+		}).
+		SetBody(systemload).
+		ForceContentType("application/json").
+		Post(c.APIHost)
+	_, err = c.parseResponse(res, "", err)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
 // ReportNodeOnlineUsers implements the API interface
 func (c *APIClient) ReportNodeOnlineUsers(onlineUserList *[]api.OnlineUser) error {
+	data := make([]NodeOnline, len(*onlineUserList))
+	for i, user := range *onlineUserList {
+		data[i] = NodeOnline{UID: user.UID, IP: user.IP}
+	}
+
+	
+	res, err := c.client.R().
+		SetQueryParam("node_id", strconv.Itoa(c.NodeID)).
+		SetQueryParams(map[string]string{
+			"act":      "onlineusers",
+			"nodetype": strings.ToLower(c.NodeType),
+		}).
+		SetBody(data).
+		ForceContentType("application/json").
+		Post(c.APIHost)
+	_, err = c.parseResponse(res, "", err)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
