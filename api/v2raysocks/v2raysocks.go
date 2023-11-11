@@ -3,6 +3,7 @@ package v2raysocks
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -34,6 +35,7 @@ type APIClient struct {
 	LocalRuleList []api.DetectRule
 	ConfigResp    *simplejson.Json
 	access        sync.Mutex
+	eTags         map[string]string
 }
 
 // New create an api instance
@@ -46,13 +48,16 @@ func New(apiConfig *api.Config) *APIClient {
 	} else {
 		client.SetTimeout(5 * time.Second)
 	}
+
 	client.OnError(func(req *resty.Request, err error) {
-		if v, ok := err.(*resty.ResponseError); ok {
+		var v *resty.ResponseError
+		if errors.As(err, &v) {
 			// v.Response contains the last response from the server
 			// v.Err contains the original error
 			log.Print(v.Err)
 		}
 	})
+	
 	// Create Key for each requests
 	client.SetQueryParams(map[string]string{
 		"node_id": strconv.Itoa(apiConfig.NodeID),
@@ -71,6 +76,7 @@ func New(apiConfig *api.Config) *APIClient {
 		SpeedLimit:    apiConfig.SpeedLimit,
 		DeviceLimit:   apiConfig.DeviceLimit,
 		LocalRuleList: localRuleList,
+		eTags:         make(map[string]string),
 	}
 	return apiClient
 }
@@ -150,12 +156,22 @@ func (c *APIClient) GetNodeInfo() (nodeInfo *api.NodeInfo, err error) {
 		return nil, fmt.Errorf("unsupported Node type: %s", c.NodeType)
 	}
 	res, err := c.client.R().
+		SetHeader("If-None-Match", c.eTags["config"]).
 		SetQueryParams(map[string]string{
 			"act":      "config",
 			"nodetype": nodeType,
 		}).
 		ForceContentType("application/json").
 		Get(c.APIHost)
+		
+	// Etag identifier for a specific version of a resource. StatusCode = 304 means no changed
+	if res.StatusCode() == 304 {
+		return nil, errors.New(api.NodeNotModified)
+	}
+	// update etag
+	if res.Header().Get("Etag") != "" && res.Header().Get("Etag") != c.eTags["config"] {
+		c.eTags["config"] = res.Header().Get("Etag")
+	}
 
 	response, err := c.parseResponse(res, "", err)
 	c.access.Lock()
@@ -194,12 +210,22 @@ func (c *APIClient) GetUserList() (UserList *[]api.UserInfo, err error) {
 		return nil, fmt.Errorf("unsupported Node type: %s", c.NodeType)
 	}
 	res, err := c.client.R().
+		SetHeader("If-None-Match", c.eTags["user"]).
 		SetQueryParams(map[string]string{
 			"act":      "user",
 			"nodetype": nodeType,
 		}).
 		ForceContentType("application/json").
 		Get(c.APIHost)
+		
+	// Etag identifier for a specific version of a resource. StatusCode = 304 means no changed
+	if res.StatusCode() == 304 {
+		return nil, errors.New(api.UserNotModified)
+	}
+	// update etag
+	if res.Header().Get("Etag") != "" && res.Header().Get("Etag") != c.eTags["user"] {
+		c.eTags["user"] = res.Header().Get("Etag")
+	}
 
 	response, err := c.parseResponse(res, "", err)
 	if err != nil {
