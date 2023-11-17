@@ -425,6 +425,8 @@ func (c *APIClient) ParseV2rayNodeResponse(nodeInfoResponse *simplejson.Json) (*
 	var path, host, serviceName string
 	var header json.RawMessage
 	var enableTLS bool
+	var enableVless bool
+	var enableReality  bool
 	var alterID uint16 = 0
 
 	tmpInboundInfo := nodeInfoResponse.Get("inbounds").MustArray()
@@ -452,10 +454,24 @@ func (c *APIClient) ParseV2rayNodeResponse(nodeInfoResponse *simplejson.Json) (*
 		}
 
 	}
-	if inboundInfo.Get("streamSettings").Get("security").MustString() == "tls" {
-		enableTLS = true
-	} else {
-		enableTLS = false
+
+	enableTLS = inboundInfo.Get("streamSettings").Get("security").MustString() == "tls"
+	enableVless = inboundInfo.Get("streamSettings").Get("security").MustString() == "reality"
+	enableReality = enableVless
+
+	realityConfig := new(api.REALITYConfig)
+	if enableVless {
+		// parse reality config
+		realityConfig = &api.REALITYConfig{
+			Dest:             inboundInfo.Get("streamSettings").Get("realitySettings").Get("dest").MustString(),
+			ProxyProtocolVer: inboundInfo.Get("streamSettings").Get("realitySettings").Get("xver").MustUint64(),
+			ServerNames:      inboundInfo.Get("streamSettings").Get("realitySettings").Get("serverNames").MustStringArray(),
+			PrivateKey:       inboundInfo.Get("streamSettings").Get("realitySettings").Get("privateKey").MustString(),
+			MinClientVer:     inboundInfo.Get("streamSettings").Get("realitySettings").Get("minClientVer").MustString(),
+			MaxClientVer:     inboundInfo.Get("streamSettings").Get("realitySettings").Get("maxClientVer").MustString(),
+			MaxTimeDiff:      inboundInfo.Get("streamSettings").Get("realitySettings").Get("maxTimeDiff").MustUint64(),
+			ShortIds:         inboundInfo.Get("streamSettings").Get("realitySettings").Get("shortIds").MustStringArray(),
+		}
 	}
 
 	// Create GeneralNodeInfo
@@ -469,10 +485,12 @@ func (c *APIClient) ParseV2rayNodeResponse(nodeInfoResponse *simplejson.Json) (*
 		EnableTLS:         enableTLS,
 		Path:              path,
 		Host:              host,
-		EnableVless:       c.EnableVless,
+		EnableVless:       enableVless,
 		VlessFlow:         c.VlessFlow,
 		ServiceName:       serviceName,
 		Header:            header,
+		EnableREALITY:     enableReality,
+		REALITYConfig:     realityConfig,
 	}
 	return nodeInfo, nil
 }
