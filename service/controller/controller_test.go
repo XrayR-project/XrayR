@@ -13,8 +13,8 @@ import (
 
 	"github.com/XrayR-project/XrayR/api"
 	"github.com/XrayR-project/XrayR/api/sspanel"
+	_ "github.com/XrayR-project/XrayR/cmd/distro/all"
 	"github.com/XrayR-project/XrayR/common/mylego"
-	_ "github.com/XrayR-project/XrayR/main/distro/all"
 	. "github.com/XrayR-project/XrayR/service/controller"
 )
 
