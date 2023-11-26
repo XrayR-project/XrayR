@@ -63,6 +63,7 @@ A Xray backend framework that can easily support many panels.
 | [ProxyPanel](https://github.com/ProxyPanel/ProxyPanel) | √     | √      | √                       |
 | [WHMCS (V2RaySocks)](https://v2raysocks.doxtex.com/)   | √     | √      | √                       |
 | [GoV2Panel](https://github.com/pingProMax/gov2panel)   | √     | √      | √                       |
+| [AikoPanel](https://github.com/AikoPanel/AikoPanel)    | √     | √      | √                       |
 
 ## 软件安装
 

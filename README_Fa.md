@@ -59,6 +59,7 @@
 | [PMPanel](https://github.com/ByteInternetHK/PMPanel)   | √     | √      | √                       |
 | [ProxyPanel](https://github.com/ProxyPanel/ProxyPanel) | √     | √      | √                       |
 | [WHMCS (V2RaySocks)](https://v2raysocks.doxtex.com/)   | √     | √      | √                       |
+| [AikoPanel](https://github.com/AikoPanel/AikoPanel)    | √     | √      | √                       |
 
 ## نصب نرم افزار
 
