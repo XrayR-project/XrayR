@@ -64,6 +64,7 @@ This project is just my personal learning and development and maintenance. I do 
 | [PMPanel](https://github.com/ByteInternetHK/PMPanel)   | √     | √      | √                       |
 | [ProxyPanel](https://github.com/ProxyPanel/ProxyPanel) | √     | √      | √                       |
 | [WHMCS (V2RaySocks)](https://v2raysocks.doxtex.com/)   | √     | √      | √                       |
+| [BunPanel](https://github.com/pennyMorant/bunpanel-release)   | √     | √      | √                       |
 
 ## Software Installation
 
