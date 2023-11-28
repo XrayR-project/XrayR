@@ -54,10 +54,18 @@ func New(apiConfig *api.Config) *APIClient {
 		}
 	})
 	client.SetBaseURL(apiConfig.APIHost)
+
+	var nodeType string
+
+	if apiConfig.NodeType =="V2ray" && apiConfig.EnableVless {
+		nodeType = "vless"
+	} else {
+		nodeType = "vmess"
+	}
 	// Create Key for each requests
 	client.SetQueryParams(map[string]string{
 		"node_id":   strconv.Itoa(apiConfig.NodeID),
-		"node_type": strings.ToLower(apiConfig.NodeType),
+		"node_type": nodeType,
 		"token":     apiConfig.Key,
 	})
 	// Read local rule list
@@ -358,7 +366,33 @@ func (c *APIClient) parseV2rayNodeResponse(s *serverConfig) (*api.NodeInfo, erro
 		host      string
 		header    json.RawMessage
 		enableTLS bool
+		enableREALITY bool
+		dest string
+		xVer uint64
 	)
+
+	if s.VlessTlsSettings.Dest != "" {
+		dest = s.VlessTlsSettings.Dest
+	} else {
+		dest = s.VlessTlsSettings.Sni
+	}
+	if s.VlessTlsSettings.xVer != 0 {
+		xVer = s.VlessTlsSettings.xVer
+	} else {
+		xVer = 0
+	}
+
+	realityConfig := api.REALITYConfig{
+		Dest:        dest + ":" + s.VlessTlsSettings.ServerPort,
+		ProxyProtocolVer: xVer,
+		ServerNames: []string{s.VlessTlsSettings.Sni},
+		PrivateKey:  s.VlessTlsSettings.PrivateKey,
+		ShortIds:    []string{s.VlessTlsSettings.ShortId},
+	}
+
+	if c.EnableVless {
+		s.NetworkSettings = s.VlessNetworkSettings
+	}
 
 	switch s.Network {
 	case "ws":
@@ -380,8 +414,16 @@ func (c *APIClient) parseV2rayNodeResponse(s *serverConfig) (*api.NodeInfo, erro
 		}
 	}
 
-	if s.Tls == 1 {
+	switch s.Tls {
+	case 0:
+		enableTLS = false
+		enableREALITY = false
+	case 1:
 		enableTLS = true
+		enableREALITY = false
+	case 2:
+		enableTLS = true
+		enableREALITY = true
 	}
 
 	// Create GeneralNodeInfo
@@ -395,9 +437,11 @@ func (c *APIClient) parseV2rayNodeResponse(s *serverConfig) (*api.NodeInfo, erro
 		Path:              s.NetworkSettings.Path,
 		Host:              host,
 		EnableVless:       c.EnableVless,
-		VlessFlow:         c.VlessFlow,
+		VlessFlow:         s.VlessFlow,
 		ServiceName:       s.NetworkSettings.ServiceName,
 		Header:            header,
+		EnableREALITY:     enableREALITY,
+		REALITYConfig:     &realityConfig,
 		NameServerConfig:  s.parseDNSConfig(),
 	}, nil
 }
