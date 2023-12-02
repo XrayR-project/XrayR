@@ -60,7 +60,7 @@ func New(apiConfig *api.Config) *APIClient {
 	if apiConfig.NodeType =="V2ray" && apiConfig.EnableVless {
 		nodeType = "vless"
 	} else {
-		nodeType = "vmess"
+		nodeType = strings.ToLower(apiConfig.NodeType)
 	}
 	// Create Key for each requests
 	client.SetQueryParams(map[string]string{
