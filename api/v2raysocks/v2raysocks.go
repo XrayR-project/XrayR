@@ -5,13 +5,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"regexp"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/bitly/go-simplejson"
 	"github.com/go-resty/resty/v2"
@@ -57,7 +58,7 @@ func New(apiConfig *api.Config) *APIClient {
 			log.Print(v.Err)
 		}
 	})
-	
+
 	// Create Key for each requests
 	client.SetQueryParams(map[string]string{
 		"node_id": strconv.Itoa(apiConfig.NodeID),
@@ -163,7 +164,7 @@ func (c *APIClient) GetNodeInfo() (nodeInfo *api.NodeInfo, err error) {
 		}).
 		ForceContentType("application/json").
 		Get(c.APIHost)
-		
+
 	// Etag identifier for a specific version of a resource. StatusCode = 304 means no changed
 	if res.StatusCode() == 304 {
 		return nil, errors.New(api.NodeNotModified)
@@ -217,7 +218,7 @@ func (c *APIClient) GetUserList() (UserList *[]api.UserInfo, err error) {
 		}).
 		ForceContentType("application/json").
 		Get(c.APIHost)
-		
+
 	// Etag identifier for a specific version of a resource. StatusCode = 304 means no changed
 	if res.StatusCode() == 304 {
 		return nil, errors.New(api.UserNotModified)
@@ -426,7 +427,7 @@ func (c *APIClient) ParseV2rayNodeResponse(nodeInfoResponse *simplejson.Json) (*
 	var header json.RawMessage
 	var enableTLS bool
 	var enableVless bool
-	var enableReality  bool
+	var enableReality bool
 	var alterID uint16 = 0
 
 	tmpInboundInfo := nodeInfoResponse.Get("inbounds").MustArray()

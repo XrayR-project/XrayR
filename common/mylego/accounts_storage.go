@@ -6,11 +6,12 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"errors"
-	"log"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/go-acme/lego/v4/certcrypto"
 	"github.com/go-acme/lego/v4/lego"

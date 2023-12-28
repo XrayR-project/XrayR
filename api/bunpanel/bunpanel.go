@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"reflect"
 	"regexp"
@@ -13,6 +12,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/go-resty/resty/v2"
 
@@ -294,7 +295,7 @@ func (c *APIClient) ParseUserListResponse(userInfoResponse *[]User) (*[]api.User
 		c.access.Unlock()
 	}()
 
-	var deviceLimit, localDeviceLimit int = 0, 0
+	var deviceLimit, localDeviceLimit = 0, 0
 	var speedLimit uint64 = 0
 	var userList []api.UserInfo
 	for _, user := range *userInfoResponse {
@@ -332,8 +333,8 @@ func (c *APIClient) ParseUserListResponse(userInfoResponse *[]User) (*[]api.User
 			UUID:        user.UUID,
 			SpeedLimit:  speedLimit,
 			DeviceLimit: deviceLimit,
-			Passwd: user.UUID,
-			Email: user.UUID + "@bunpanel.user",
+			Passwd:      user.UUID,
+			Email:       user.UUID + "@bunpanel.user",
 		})
 	}
 

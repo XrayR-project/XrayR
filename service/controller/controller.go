@@ -3,10 +3,10 @@ package controller
 import (
 	"errors"
 	"fmt"
-	"log"
 	"reflect"
 	"time"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/xtls/xray-core/common/protocol"
 	"github.com/xtls/xray-core/common/task"
 	"github.com/xtls/xray-core/core"
@@ -44,6 +44,7 @@ type Controller struct {
 	stm          stats.Manager
 	dispatcher   *mydispatcher.DefaultDispatcher
 	startAt      time.Time
+	logger       *log.Entry
 }
 
 type periodicTask struct {
@@ -53,6 +54,11 @@ type periodicTask struct {
 
 // New return a Controller service with default parameters.
 func New(server *core.Instance, api api.API, config *Config, panelType string) *Controller {
+	logger := log.NewEntry(log.StandardLogger()).WithFields(log.Fields{
+		"Host": api.Describe().APIHost,
+		"Type": api.Describe().NodeType,
+		"ID":   api.Describe().NodeID,
+	})
 	controller := &Controller{
 		server:     server,
 		config:     config,
@@ -63,6 +69,7 @@ func New(server *core.Instance, api api.API, config *Config, panelType string) *
 		stm:        server.GetFeature(stats.ManagerType()).(stats.Manager),
 		dispatcher: server.GetFeature(routing.DispatcherType()).(*mydispatcher.DefaultDispatcher),
 		startAt:    time.Now(),
+		logger:     logger,
 	}
 
 	return controller
@@ -85,7 +92,7 @@ func (c *Controller) Start() error {
 	// Add new tag
 	err = c.addNewTag(newNodeInfo)
 	if err != nil {
-		log.Panic(err)
+		c.logger.Panic(err)
 		return err
 	}
 	// Update user
@@ -104,16 +111,16 @@ func (c *Controller) Start() error {
 
 	// Add Limiter
 	if err := c.AddInboundLimiter(c.Tag, newNodeInfo.SpeedLimit, userInfo, c.config.GlobalDeviceLimitConfig); err != nil {
-		log.Print(err)
+		c.logger.Print(err)
 	}
 
 	// Add Rule Manager
 	if !c.config.DisableGetRule {
 		if ruleList, err := c.apiClient.GetNodeRule(); err != nil {
-			log.Printf("Get rule list filed: %s", err)
+			c.logger.Printf("Get rule list filed: %s", err)
 		} else if len(*ruleList) > 0 {
 			if err := c.UpdateRule(c.Tag, *ruleList); err != nil {
-				log.Print(err)
+				c.logger.Print(err)
 			}
 		}
 	}
@@ -155,7 +162,7 @@ func (c *Controller) Start() error {
 
 	// Start periodic tasks
 	for i := range c.tasks {
-		log.Printf("%s Start %s periodic task", c.logPrefix(), c.tasks[i].tag)
+		c.logger.Printf("Start %s periodic task", c.tasks[i].tag)
 		go c.tasks[i].Start()
 	}
 
@@ -167,7 +174,7 @@ func (c *Controller) Close() error {
 	for i := range c.tasks {
 		if c.tasks[i].Periodic != nil {
 			if err := c.tasks[i].Periodic.Close(); err != nil {
-				log.Panicf("%s %s periodic task close failed: %s", c.logPrefix(), c.tasks[i].tag, err)
+				c.logger.Panicf("%s periodic task close failed: %s", c.tasks[i].tag, err)
 			}
 		}
 	}
@@ -189,7 +196,7 @@ func (c *Controller) nodeInfoMonitor() (err error) {
 			nodeInfoChanged = false
 			newNodeInfo = c.nodeInfo
 		} else {
-			log.Print(err)
+			c.logger.Print(err)
 			return nil
 		}
 	}
@@ -205,7 +212,7 @@ func (c *Controller) nodeInfoMonitor() (err error) {
 			usersChanged = false
 			newUserInfo = c.userList
 		} else {
-			log.Print(err)
+			c.logger.Print(err)
 			return nil
 		}
 	}
@@ -217,14 +224,14 @@ func (c *Controller) nodeInfoMonitor() (err error) {
 			oldTag := c.Tag
 			err := c.removeOldTag(oldTag)
 			if err != nil {
-				log.Print(err)
+				c.logger.Print(err)
 				return nil
 			}
 			if c.nodeInfo.NodeType == "Shadowsocks-Plugin" {
 				err = c.removeOldTag(fmt.Sprintf("dokodemo-door_%s+1", c.Tag))
 			}
 			if err != nil {
-				log.Print(err)
+				c.logger.Print(err)
 				return nil
 			}
 			// Add new tag
@@ -232,13 +239,13 @@ func (c *Controller) nodeInfoMonitor() (err error) {
 			c.Tag = c.buildNodeTag()
 			err = c.addNewTag(newNodeInfo)
 			if err != nil {
-				log.Print(err)
+				c.logger.Print(err)
 				return nil
 			}
 			nodeInfoChanged = true
 			// Remove Old limiter
 			if err = c.DeleteInboundLimiter(oldTag); err != nil {
-				log.Print(err)
+				c.logger.Print(err)
 				return nil
 			}
 		} else {
@@ -250,11 +257,11 @@ func (c *Controller) nodeInfoMonitor() (err error) {
 	if !c.config.DisableGetRule {
 		if ruleList, err := c.apiClient.GetNodeRule(); err != nil {
 			if err.Error() != api.RuleNotModified {
-				log.Printf("Get rule list filed: %s", err)
+				c.logger.Printf("Get rule list filed: %s", err)
 			}
 		} else if len(*ruleList) > 0 {
 			if err := c.UpdateRule(c.Tag, *ruleList); err != nil {
-				log.Print(err)
+				c.logger.Print(err)
 			}
 		}
 	}
@@ -262,13 +269,13 @@ func (c *Controller) nodeInfoMonitor() (err error) {
 	if nodeInfoChanged {
 		err = c.addNewUser(newUserInfo, newNodeInfo)
 		if err != nil {
-			log.Print(err)
+			c.logger.Print(err)
 			return nil
 		}
 
 		// Add Limiter
 		if err := c.AddInboundLimiter(c.Tag, newNodeInfo.SpeedLimit, newUserInfo, c.config.GlobalDeviceLimitConfig); err != nil {
-			log.Print(err)
+			c.logger.Print(err)
 			return nil
 		}
 
@@ -283,21 +290,21 @@ func (c *Controller) nodeInfoMonitor() (err error) {
 				}
 				err := c.removeUsers(deletedEmail, c.Tag)
 				if err != nil {
-					log.Print(err)
+					c.logger.Print(err)
 				}
 			}
 			if len(added) > 0 {
 				err = c.addNewUser(&added, c.nodeInfo)
 				if err != nil {
-					log.Print(err)
+					c.logger.Print(err)
 				}
 				// Update Limiter
 				if err := c.UpdateInboundLimiter(c.Tag, &added); err != nil {
-					log.Print(err)
+					c.logger.Print(err)
 				}
 			}
 		}
-		log.Printf("%s %d user deleted, %d user added", c.logPrefix(), len(deleted), len(added))
+		c.logger.Printf("%d user deleted, %d user added", len(deleted), len(added))
 	}
 	c.userList = newUserInfo
 	return nil
@@ -418,7 +425,7 @@ func (c *Controller) addNewUser(userInfo *[]api.UserInfo, nodeInfo *api.NodeInfo
 	if err != nil {
 		return err
 	}
-	log.Printf("%s Added %d new users", c.logPrefix(), len(*userInfo))
+	c.logger.Printf("Added %d new users", len(*userInfo))
 	return nil
 }
 
@@ -466,7 +473,7 @@ func limitUser(c *Controller, user api.UserInfo, silentUsers *[]api.UserInfo) {
 		currentSpeedLimit: c.config.AutoSpeedLimitConfig.LimitSpeed,
 		originSpeedLimit:  user.SpeedLimit,
 	}
-	log.Printf("Limit User: %s Speed: %d End: %s", c.buildUserTag(&user), c.config.AutoSpeedLimitConfig.LimitSpeed, time.Unix(c.limitedUsers[user].end, 0).Format("01-02 15:04:05"))
+	c.logger.Printf("Limit User: %s Speed: %d End: %s", c.buildUserTag(&user), c.config.AutoSpeedLimitConfig.LimitSpeed, time.Unix(c.limitedUsers[user].end, 0).Format("01-02 15:04:05"))
 	user.SpeedLimit = uint64((c.config.AutoSpeedLimitConfig.LimitSpeed * 1000000) / 8)
 	*silentUsers = append(*silentUsers, user)
 }
@@ -480,7 +487,7 @@ func (c *Controller) userInfoMonitor() (err error) {
 	// Get server status
 	CPU, Mem, Disk, Uptime, err := serverstatus.GetSystemInfo()
 	if err != nil {
-		log.Print(err)
+		c.logger.Print(err)
 	}
 	err = c.apiClient.ReportNodeStatus(
 		&api.NodeStatus{
@@ -490,25 +497,25 @@ func (c *Controller) userInfoMonitor() (err error) {
 			Uptime: Uptime,
 		})
 	if err != nil {
-		log.Print(err)
+		c.logger.Print(err)
 	}
 	// Unlock users
 	if c.config.AutoSpeedLimitConfig.Limit > 0 && len(c.limitedUsers) > 0 {
-		log.Printf("%s Limited users:", c.logPrefix())
+		c.logger.Printf("Limited users:")
 		toReleaseUsers := make([]api.UserInfo, 0)
 		for user, limitInfo := range c.limitedUsers {
 			if time.Now().Unix() > limitInfo.end {
 				user.SpeedLimit = limitInfo.originSpeedLimit
 				toReleaseUsers = append(toReleaseUsers, user)
-				log.Printf("User: %s Speed: %d End: nil (Unlimit)", c.buildUserTag(&user), user.SpeedLimit)
+				c.logger.Printf("User: %s Speed: %d End: nil (Unlimit)", c.buildUserTag(&user), user.SpeedLimit)
 				delete(c.limitedUsers, user)
 			} else {
-				log.Printf("User: %s Speed: %d End: %s", c.buildUserTag(&user), limitInfo.currentSpeedLimit, time.Unix(c.limitedUsers[user].end, 0).Format("01-02 15:04:05"))
+				c.logger.Printf("User: %s Speed: %d End: %s", c.buildUserTag(&user), limitInfo.currentSpeedLimit, time.Unix(c.limitedUsers[user].end, 0).Format("01-02 15:04:05"))
 			}
 		}
 		if len(toReleaseUsers) > 0 {
 			if err := c.UpdateInboundLimiter(c.Tag, &toReleaseUsers); err != nil {
-				log.Print(err)
+				c.logger.Print(err)
 			}
 		}
 	}
@@ -559,7 +566,7 @@ func (c *Controller) userInfoMonitor() (err error) {
 	}
 	if len(limitedUsers) > 0 {
 		if err := c.UpdateInboundLimiter(c.Tag, &limitedUsers); err != nil {
-			log.Print(err)
+			c.logger.Print(err)
 		}
 	}
 	if len(userTraffic) > 0 {
@@ -569,7 +576,7 @@ func (c *Controller) userInfoMonitor() (err error) {
 		}
 		// If report traffic error, not clear the traffic
 		if err != nil {
-			log.Print(err)
+			c.logger.Print(err)
 		} else {
 			c.resetTraffic(&upCounterList, &downCounterList)
 		}
@@ -577,23 +584,23 @@ func (c *Controller) userInfoMonitor() (err error) {
 
 	// Report Online info
 	if onlineDevice, err := c.GetOnlineDevice(c.Tag); err != nil {
-		log.Print(err)
+		c.logger.Print(err)
 	} else if len(*onlineDevice) > 0 {
 		if err = c.apiClient.ReportNodeOnlineUsers(onlineDevice); err != nil {
-			log.Print(err)
+			c.logger.Print(err)
 		} else {
-			log.Printf("%s Report %d online users", c.logPrefix(), len(*onlineDevice))
+			c.logger.Printf("Report %d online users", len(*onlineDevice))
 		}
 	}
 
 	// Report Illegal user
 	if detectResult, err := c.GetDetectResult(c.Tag); err != nil {
-		log.Print(err)
+		c.logger.Print(err)
 	} else if len(*detectResult) > 0 {
 		if err = c.apiClient.ReportIllegal(detectResult); err != nil {
-			log.Print(err)
+			c.logger.Print(err)
 		} else {
-			log.Printf("%s Report %d illegal behaviors", c.logPrefix(), len(*detectResult))
+			c.logger.Printf("Report %d illegal behaviors", len(*detectResult))
 		}
 
 	}
@@ -604,9 +611,9 @@ func (c *Controller) buildNodeTag() string {
 	return fmt.Sprintf("%s_%s_%d", c.nodeInfo.NodeType, c.config.ListenIP, c.nodeInfo.Port)
 }
 
-func (c *Controller) logPrefix() string {
-	return fmt.Sprintf("[%s] %s(ID=%d)", c.clientInfo.APIHost, c.nodeInfo.NodeType, c.nodeInfo.NodeID)
-}
+// func (c *Controller) logPrefix() string {
+// 	return fmt.Sprintf("[%s] %s(ID=%d)", c.clientInfo.APIHost, c.nodeInfo.NodeType, c.nodeInfo.NodeID)
+// }
 
 // Check Cert
 func (c *Controller) certMonitor() error {
@@ -615,12 +622,12 @@ func (c *Controller) certMonitor() error {
 		case "dns", "http", "tls":
 			lego, err := mylego.New(c.config.CertConfig)
 			if err != nil {
-				log.Print(err)
+				c.logger.Print(err)
 			}
 			// Xray-core supports the OcspStapling certification hot renew
 			_, _, _, err = lego.RenewCert()
 			if err != nil {
-				log.Print(err)
+				c.logger.Print(err)
 			}
 		}
 	}

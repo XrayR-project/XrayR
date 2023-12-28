@@ -5,13 +5,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"regexp"
 	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/bitly/go-simplejson"
 	"github.com/go-resty/resty/v2"
@@ -57,7 +58,7 @@ func New(apiConfig *api.Config) *APIClient {
 
 	var nodeType string
 
-	if apiConfig.NodeType =="V2ray" && apiConfig.EnableVless {
+	if apiConfig.NodeType == "V2ray" && apiConfig.EnableVless {
 		nodeType = "vless"
 	} else {
 		nodeType = strings.ToLower(apiConfig.NodeType)
@@ -363,12 +364,12 @@ func (c *APIClient) parseSSNodeResponse(s *serverConfig) (*api.NodeInfo, error) 
 // parseV2rayNodeResponse parse the response for the given nodeInfo format
 func (c *APIClient) parseV2rayNodeResponse(s *serverConfig) (*api.NodeInfo, error) {
 	var (
-		host      string
-		header    json.RawMessage
-		enableTLS bool
+		host          string
+		header        json.RawMessage
+		enableTLS     bool
 		enableREALITY bool
-		dest string
-		xVer uint64
+		dest          string
+		xVer          uint64
 	)
 
 	if s.VlessTlsSettings.Dest != "" {
@@ -383,11 +384,11 @@ func (c *APIClient) parseV2rayNodeResponse(s *serverConfig) (*api.NodeInfo, erro
 	}
 
 	realityConfig := api.REALITYConfig{
-		Dest:        dest + ":" + s.VlessTlsSettings.ServerPort,
+		Dest:             dest + ":" + s.VlessTlsSettings.ServerPort,
 		ProxyProtocolVer: xVer,
-		ServerNames: []string{s.VlessTlsSettings.Sni},
-		PrivateKey:  s.VlessTlsSettings.PrivateKey,
-		ShortIds:    []string{s.VlessTlsSettings.ShortId},
+		ServerNames:      []string{s.VlessTlsSettings.Sni},
+		PrivateKey:       s.VlessTlsSettings.PrivateKey,
+		ShortIds:         []string{s.VlessTlsSettings.ShortId},
 	}
 
 	if c.EnableVless {

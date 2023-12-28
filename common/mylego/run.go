@@ -2,11 +2,11 @@ package mylego
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/go-acme/lego/v4/certificate"
 	"github.com/go-acme/lego/v4/lego"
 	"github.com/go-acme/lego/v4/registration"
+	log "github.com/sirupsen/logrus"
 )
 
 const rootPathWarningMessage = `!!!! HEADS UP !!!!

@@ -4,10 +4,11 @@ import (
 	"bytes"
 	"crypto/x509"
 	"encoding/json"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/go-acme/lego/v4/certcrypto"
 	"github.com/go-acme/lego/v4/certificate"
