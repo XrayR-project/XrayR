@@ -15,6 +15,7 @@ import (
 	"github.com/xtls/xray-core/infra/conf"
 
 	"github.com/XrayR-project/XrayR/api"
+	"github.com/XrayR-project/XrayR/api/aikopanel"
 	"github.com/XrayR-project/XrayR/api/bunpanel"
 	"github.com/XrayR-project/XrayR/api/gov2panel"
 	"github.com/XrayR-project/XrayR/api/newV2board"
@@ -188,6 +189,8 @@ func (p *Panel) Start() {
 			apiClient = gov2panel.New(nodeConfig.ApiConfig)
 		case "BunPanel":
 			apiClient = bunpanel.New(nodeConfig.ApiConfig)
+		case "AikoPanel":
+			apiClient = aikopanel.New(nodeConfig.ApiConfig)
 		default:
 			log.Panicf("Unsupport panel type: %s", nodeConfig.PanelType)
 		}
