@@ -62,6 +62,7 @@ Dự án này chỉ là học tập và phát triển và bảo trì cá nhân c
 | [ProxyPanel](https://github.com/ProxyPanel/ProxyPanel) | √     | √      | √                       |
 | [WHMCS (V2RaySocks)](https://v2raysocks.doxtex.com/)   | √     | √      | √                       |
 | [BunPanel](https://github.com/pennyMorant/bunpanel-release)   | √     | √      | √                       |
+| [AikoPanel](https://github.com/AikoPanel/AikoPanel)   | √     | √      | √                       |
 
 ## Cài đặt phần mềm
 

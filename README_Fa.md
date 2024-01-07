@@ -60,6 +60,7 @@
 | [ProxyPanel](https://github.com/ProxyPanel/ProxyPanel) | √     | √      | √                       |
 | [WHMCS (V2RaySocks)](https://v2raysocks.doxtex.com/)   | √     | √      | √                       |
 | [BunPanel](https://github.com/pennyMorant/bunpanel-release)   | √     | √      | √                       |
+| [AikoPanel](https://github.com/AikoPanel/AikoPanel)   | √     | √      | √                       |
 
 ## نصب نرم افزار
 

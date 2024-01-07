@@ -64,6 +64,7 @@ A Xray backend framework that can easily support many panels.
 | [WHMCS (V2RaySocks)](https://v2raysocks.doxtex.com/)   | √     | √      | √                       |
 | [GoV2Panel](https://github.com/pingProMax/gov2panel)   | √     | √      | √                       |
 | [BunPanel](https://github.com/pennyMorant/bunpanel-release)   | √     | √      | √                       |
+| [AikoPanel](https://github.com/AikoPanel/AikoPanel)   | √     | √      | √                       |
 
 ## 软件安装
 
