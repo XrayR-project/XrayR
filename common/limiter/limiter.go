@@ -66,7 +66,9 @@ func (l *Limiter) AddInboundLimiter(tag string, nodeSpeedLimit uint64, userList 
 		// init redis store
 		rs := redisStore.NewRedis(redis.NewClient(
 			&redis.Options{
+				Network:  globalLimit.RedisNetwork,
 				Addr:     globalLimit.RedisAddr,
+				Username: globalLimit.RedisUsername,
 				Password: globalLimit.RedisPassword,
 				DB:       globalLimit.RedisDB,
 			}),

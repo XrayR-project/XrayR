@@ -1,5 +1,5 @@
 Log:
-  Level: warning # Log level: none, error, warning, info, debug 
+  Level: warning # Log level: none, error, warning, info, debug
   AccessPath: # /etc/XrayR/access.Log
   ErrorPath: # /etc/XrayR/error.log
 DnsConfigPath: # /etc/XrayR/dns.json # Path to dns config, check https://xtls.github.io/config/dns.html for help
@@ -40,7 +40,9 @@ Nodes:
         LimitDuration: 0 # How many minutes will the limiting last (unit: minute)
       GlobalDeviceLimitConfig:
         Enable: false # Enable the global device limit of a user
-        RedisAddr: 127.0.0.1:6379 # The redis server address
+        RedisNetwork: tcp # Redis protocol, tcp or unix
+        RedisAddr: 127.0.0.1:6379 # Redis server address, or unix socket path
+        RedisUsername: # Redis username
         RedisPassword: YOUR PASSWORD # Redis password
         RedisDB: 0 # Redis DB
         Timeout: 5 # Timeout for redis request
