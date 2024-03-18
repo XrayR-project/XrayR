@@ -292,11 +292,7 @@ func (c *APIClient) ReportUserTraffic(userTraffic *[]api.UserTraffic) error {
 // GetNodeRule implements the API interface
 func (c *APIClient) GetNodeRule() (*[]api.DetectRule, error) {
 	ruleList := c.LocalRuleList
-	if c.NodeType != "V2ray" {
-		return &ruleList, nil
-	}
 
-	// Only support the rule for v2ray
 	// fix: reuse config response
 	c.access.Lock()
 	defer c.access.Unlock()
@@ -398,14 +394,6 @@ func (c *APIClient) ParseSSNodeResponse(nodeInfoResponse *simplejson.Json) (*api
 	// Shadowsocks 2022
 	if C.Contains(shadowaead_2022.List, method) {
 		serverPsk = inboundInfo.Get("settings").Get("password").MustString()
-	} else {
-		userInfo, err := c.GetUserList()
-		if err != nil {
-			return nil, err
-		}
-		if len(*userInfo) > 0 {
-			method = (*userInfo)[0].Method
-		}
 	}
 
 	// Create GeneralNodeInfo
