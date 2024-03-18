@@ -398,14 +398,6 @@ func (c *APIClient) ParseSSNodeResponse(nodeInfoResponse *simplejson.Json) (*api
 	// Shadowsocks 2022
 	if C.Contains(shadowaead_2022.List, method) {
 		serverPsk = inboundInfo.Get("settings").Get("password").MustString()
-	} else {
-		userInfo, err := c.GetUserList()
-		if err != nil {
-			return nil, err
-		}
-		if len(*userInfo) > 0 {
-			method = (*userInfo)[0].Method
-		}
 	}
 
 	// Create GeneralNodeInfo
