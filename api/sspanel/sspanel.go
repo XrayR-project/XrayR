@@ -474,7 +474,7 @@ func (c *APIClient) ParseV2rayNodeResponse(nodeInfoResponse *NodeInfoResponse) (
 	}
 
 	if err != nil {
-		return nil, fmt.Errorf("marshal Header Type %s into config fialed: %s", header, err)
+		return nil, fmt.Errorf("marshal Header Type %s into config failed: %s", header, err)
 	}
 
 	// Create GeneralNodeInfo
