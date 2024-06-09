@@ -151,7 +151,7 @@ func (c *APIClient) parseResponse(res *resty.Response, path string, err error) (
 func (c *APIClient) GetNodeInfo() (nodeInfo *api.NodeInfo, err error) {
 	var nodeType string
 	switch c.NodeType {
-	case "V2ray", "Trojan", "Shadowsocks":
+	case "V2ray", "Vmess", "Vless", "Trojan", "Shadowsocks":
 		nodeType = strings.ToLower(c.NodeType)
 	default:
 		return nil, fmt.Errorf("unsupported Node type: %s", c.NodeType)
@@ -183,7 +183,7 @@ func (c *APIClient) GetNodeInfo() (nodeInfo *api.NodeInfo, err error) {
 	}
 
 	switch c.NodeType {
-	case "V2ray":
+	case "V2ray", "Vmess", "Vless":
 		nodeInfo, err = c.ParseV2rayNodeResponse(response)
 	case "Trojan":
 		nodeInfo, err = c.ParseTrojanNodeResponse(response)
@@ -205,7 +205,7 @@ func (c *APIClient) GetNodeInfo() (nodeInfo *api.NodeInfo, err error) {
 func (c *APIClient) GetUserList() (UserList *[]api.UserInfo, err error) {
 	var nodeType string
 	switch c.NodeType {
-	case "V2ray", "Trojan", "Shadowsocks":
+	case "V2ray", "Vmess", "Vless", "Trojan", "Shadowsocks":
 		nodeType = strings.ToLower(c.NodeType)
 	default:
 		return nil, fmt.Errorf("unsupported Node type: %s", c.NodeType)
@@ -249,7 +249,7 @@ func (c *APIClient) GetUserList() (UserList *[]api.UserInfo, err error) {
 			user.Email = response.Get("data").GetIndex(i).Get("trojan_user").Get("password").MustString()
 			user.SpeedLimit = response.Get("data").GetIndex(i).Get("trojan_user").Get("speed_limit").MustUint64() * 1000000 / 8
 			user.DeviceLimit = response.Get("data").GetIndex(i).Get("trojan_user").Get("device_limit").MustInt()
-		case "V2ray":
+		case "V2ray", "Vmess", "Vless":
 			user.UUID = response.Get("data").GetIndex(i).Get("v2ray_user").Get("uuid").MustString()
 			user.Email = response.Get("data").GetIndex(i).Get("v2ray_user").Get("email").MustString()
 			user.AlterID = uint16(response.Get("data").GetIndex(i).Get("v2ray_user").Get("alter_id").MustUint64())
@@ -263,7 +263,7 @@ func (c *APIClient) GetUserList() (UserList *[]api.UserInfo, err error) {
 		if c.DeviceLimit > 0 {
 			user.DeviceLimit = c.DeviceLimit
 		}
-		
+
 		userList[i] = user
 	}
 	return &userList, nil
