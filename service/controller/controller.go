@@ -406,7 +406,7 @@ func (c *Controller) addNewUser(userInfo *[]api.UserInfo, nodeInfo *api.NodeInfo
 	users := make([]*protocol.User, 0)
 	switch nodeInfo.NodeType {
 	case "V2ray", "Vmess", "Vless":
-		if nodeInfo.EnableVless {
+		if nodeInfo.EnableVless || (nodeInfo.NodeType == "Vless" && nodeInfo.NodeType != "Vmess") {
 			users = c.buildVlessUser(userInfo)
 		} else {
 			users = c.buildVmessUser(userInfo)
