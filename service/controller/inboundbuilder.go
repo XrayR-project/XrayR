@@ -139,7 +139,7 @@ func InboundBuilder(config *Config, nodeInfo *api.NodeInfo, tag string) (*core.I
 
 	setting, err := json.Marshal(proxySetting)
 	if err != nil {
-		return nil, fmt.Errorf("marshal proxy %s config fialed: %s", nodeInfo.NodeType, err)
+		return nil, fmt.Errorf("marshal proxy %s config failed: %s", nodeInfo.NodeType, err)
 	}
 	inboundDetourConfig.Protocol = protocol
 	inboundDetourConfig.Settings = &setting
@@ -287,13 +287,13 @@ func buildVlessFallbacks(fallbackConfigs []*FallBackConfig) ([]*conf.VLessInboun
 	for i, c := range fallbackConfigs {
 
 		if c.Dest == "" {
-			return nil, fmt.Errorf("dest is required for fallback fialed")
+			return nil, fmt.Errorf("dest is required for fallback failed")
 		}
 
 		var dest json.RawMessage
 		dest, err := json.Marshal(c.Dest)
 		if err != nil {
-			return nil, fmt.Errorf("marshal dest %s config fialed: %s", dest, err)
+			return nil, fmt.Errorf("marshal dest %s config failed: %s", dest, err)
 		}
 		vlessFallBacks[i] = &conf.VLessInboundFallback{
 			Name: c.SNI,
@@ -315,13 +315,13 @@ func buildTrojanFallbacks(fallbackConfigs []*FallBackConfig) ([]*conf.TrojanInbo
 	for i, c := range fallbackConfigs {
 
 		if c.Dest == "" {
-			return nil, fmt.Errorf("dest is required for fallback fialed")
+			return nil, fmt.Errorf("dest is required for fallback failed")
 		}
 
 		var dest json.RawMessage
 		dest, err := json.Marshal(c.Dest)
 		if err != nil {
-			return nil, fmt.Errorf("marshal dest %s config fialed: %s", dest, err)
+			return nil, fmt.Errorf("marshal dest %s config failed: %s", dest, err)
 		}
 		trojanFallBacks[i] = &conf.TrojanInboundFallback{
 			Name: c.SNI,
