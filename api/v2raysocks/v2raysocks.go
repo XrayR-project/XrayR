@@ -423,6 +423,7 @@ func (c *APIClient) ParseV2rayNodeResponse(nodeInfoResponse *simplejson.Json) (*
 	var enableTLS bool
 	var enableVless bool
 	var enableReality bool
+	var vlessFlow string
 	var alterID uint16 = 0
 
 	tmpInboundInfo := nodeInfoResponse.Get("inbounds").MustArray()
@@ -470,6 +471,13 @@ func (c *APIClient) ParseV2rayNodeResponse(nodeInfoResponse *simplejson.Json) (*
 		}
 	}
 
+	// XTLS only supports TLS and REALITY directly for now
+	if (transportProtocol == "h2" || transportProtocol == "grpc") && enableReality {
+		vlessFlow = ""
+	} else {
+		vlessFlow = c.VlessFlow
+	}
+
 	// Create GeneralNodeInfo
 	// AlterID will be updated after next sync
 	nodeInfo := &api.NodeInfo{
@@ -482,7 +490,7 @@ func (c *APIClient) ParseV2rayNodeResponse(nodeInfoResponse *simplejson.Json) (*
 		Path:              path,
 		Host:              host,
 		EnableVless:       enableVless,
-		VlessFlow:         c.VlessFlow,
+		VlessFlow:         vlessFlow,
 		ServiceName:       serviceName,
 		Header:            header,
 		EnableREALITY:     enableReality,
