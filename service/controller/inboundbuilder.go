@@ -199,6 +199,12 @@ func InboundBuilder(config *Config, nodeInfo *api.NodeInfo, tag string) (*core.I
 			AcceptProxyProtocol: nodeInfo.AcceptProxyProtocol,
 		}
 		streamSetting.HTTPUPGRADESettings = httpupgradeSettings
+	case "splithttp":
+		splithttpSetting := &conf.SplitHTTPConfig{
+			Path: nodeInfo.Path,
+			Host: nodeInfo.Host,
+		}
+		streamSetting.SplitHTTPSettings = splithttpSetting
 	}
 	streamSetting.Network = &transportProtocol
 
