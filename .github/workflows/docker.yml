@@ -1,19 +1,8 @@
 name: Publish Docker image
 on:
-  workflow_dispatch:
-  push:
-    branches:
-      - master
-    paths:
-      - "**/*.go"
-      - "go.mod"
-      - "go.sum"
-      - ".github/workflows/*.yml"
-    tags:
-      - 'v*'
-  pull_request:
-    branches:
-      - 'master'
+  release:
+    types:
+      - published
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: xrayr-project/xrayr
