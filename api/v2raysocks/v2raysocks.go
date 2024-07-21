@@ -437,6 +437,12 @@ func (c *APIClient) ParseV2rayNodeResponse(nodeInfoResponse *simplejson.Json) (*
 	case "ws":
 		path = inboundInfo.Get("streamSettings").Get("wsSettings").Get("path").MustString()
 		host = inboundInfo.Get("streamSettings").Get("wsSettings").Get("headers").Get("Host").MustString()
+	case "httpupgrade":
+		host = inboundInfo.Get("streamSettings").Get("httpupgradeSettings").Get("Host").MustString()
+		path = inboundInfo.Get("streamSettings").Get("httpupgradeSettings").Get("path").MustString()
+	case "splithttp":
+		host = inboundInfo.Get("streamSettings").Get("splithttpSettings").Get("Host").MustString()
+		path = inboundInfo.Get("streamSettings").Get("splithttpSettings").Get("path").MustString()
 	case "grpc":
 		if data, ok := inboundInfo.Get("streamSettings").Get("grpcSettings").CheckGet("serviceName"); ok {
 			serviceName = data.MustString()
@@ -449,12 +455,11 @@ func (c *APIClient) ParseV2rayNodeResponse(nodeInfoResponse *simplejson.Json) (*
 				header = httpHeader
 			}
 		}
-
 	}
 
 	enableTLS = inboundInfo.Get("streamSettings").Get("security").MustString() == "tls"
-	enableVless = inboundInfo.Get("streamSettings").Get("security").MustString() == "reality"
-	enableReality = enableVless
+	enableVless = inboundInfo.Get("protocol").MustString() == "vless"
+	enableReality = inboundInfo.Get("streamSettings").Get("security").MustString() == "reality"
 
 	realityConfig := new(api.REALITYConfig)
 	if enableVless {
@@ -472,10 +477,8 @@ func (c *APIClient) ParseV2rayNodeResponse(nodeInfoResponse *simplejson.Json) (*
 	}
 
 	// XTLS only supports TLS and REALITY directly for now
-	if (transportProtocol == "h2" || transportProtocol == "grpc") && enableReality {
-		vlessFlow = ""
-	} else {
-		vlessFlow = c.VlessFlow
+	if transportProtocol == "tcp" && enableReality {
+		vlessFlow = "xtls-rprx-vision"
 	}
 
 	// Create GeneralNodeInfo
