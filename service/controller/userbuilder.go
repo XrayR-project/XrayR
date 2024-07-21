@@ -1,12 +1,14 @@
 package controller
 
 import (
+	"context"
 	"encoding/base64"
 	"fmt"
 	"strings"
 
 	"github.com/sagernet/sing-shadowsocks/shadowaead_2022"
 	C "github.com/sagernet/sing/common"
+	"github.com/xtls/xray-core/common/errors"
 	"github.com/xtls/xray-core/common/protocol"
 	"github.com/xtls/xray-core/common/serial"
 	"github.com/xtls/xray-core/infra/conf"
@@ -81,7 +83,7 @@ func (c *Controller) buildSSUser(userInfo *[]api.UserInfo, method string) (users
 			e := c.buildUserTag(&user)
 			userKey, err := c.checkShadowsocksPassword(user.Passwd, method)
 			if err != nil {
-				newError(fmt.Errorf("[UID: %d] %s", user.UID, err)).AtError().WriteToLog()
+				errors.LogError(context.Background(), "[UID: %d] %s", user.UID, err)
 				continue
 			}
 			users[i] = &protocol.User{
@@ -116,7 +118,7 @@ func (c *Controller) buildSSPluginUser(userInfo *[]api.UserInfo) (users []*proto
 			e := c.buildUserTag(&user)
 			userKey, err := c.checkShadowsocksPassword(user.Passwd, user.Method)
 			if err != nil {
-				newError(fmt.Errorf("[UID: %d] %s", user.UID, err)).AtError().WriteToLog()
+				errors.LogError(context.Background(), "[UID: %d] %s", user.UID, err)
 				continue
 			}
 			users[i] = &protocol.User{
