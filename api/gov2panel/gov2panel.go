@@ -13,7 +13,6 @@ import (
 
 	"github.com/XrayR-project/XrayR/api"
 	"github.com/gogf/gf/v2/encoding/gjson"
-	"github.com/gogf/gf/v2/errors/gerror"
 	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/net/gclient"
 	"github.com/xtls/xray-core/common/net"
@@ -314,7 +313,7 @@ func (c *APIClient) sendRequest(headerM map[string]string, method string, url st
 	case "POST":
 		gResponse, err = client.Post(c.ctx, url, data)
 	default:
-		err = gerror.Newf("unsupported method: %s", method)
+		err = fmt.Errorf("unsupported method: %s", method)
 		return
 	}
 
