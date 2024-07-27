@@ -19,6 +19,10 @@ type NodeOnline struct {
 	IP  string `json:"ip"`
 }
 
+type IllegalItem struct {
+	UID int `json:"user_id"`
+}
+
 type REALITYConfig struct {
 	Dest             string   `json:"dest,omitempty"`
 	ProxyProtocolVer uint64   `json:"proxy_protocol_ver,omitempty"`

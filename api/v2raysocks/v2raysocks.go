@@ -364,6 +364,26 @@ func (c *APIClient) ReportNodeOnlineUsers(onlineUserList *[]api.OnlineUser) erro
 
 // ReportIllegal implements the API interface
 func (c *APIClient) ReportIllegal(detectResultList *[]api.DetectResult) error {
+	data := make([]IllegalItem, len(*detectResultList))
+	for i, r := range *detectResultList {
+		data[i] = IllegalItem{
+			UID: r.UID,
+		}
+	}
+
+	res, err := c.client.R().
+		SetQueryParam("node_id", strconv.Itoa(c.NodeID)).
+		SetQueryParams(map[string]string{
+			"act":       "illegal",
+			"node_type": strings.ToLower(c.NodeType),
+		}).
+		SetBody(data).
+		ForceContentType("application/json").
+		Post(c.APIHost)
+	_, err = c.parseResponse(res, "", err)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
