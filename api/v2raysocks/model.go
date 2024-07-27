@@ -1,7 +1,7 @@
 package v2raysocks
 
 type UserTraffic struct {
-	UID      int   `json:"user_id"`
+	UID      int   `json:"uid"`
 	Upload   int64 `json:"u"`
 	Download int64 `json:"d"`
 }
@@ -20,7 +20,7 @@ type NodeOnline struct {
 }
 
 type IllegalItem struct {
-	UID int `json:"user_id"`
+	UID int `json:"uid"`
 }
 
 type REALITYConfig struct {
