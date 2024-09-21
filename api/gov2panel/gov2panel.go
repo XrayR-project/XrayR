@@ -2,72 +2,92 @@ package gov2panel
 
 import (
 	"bufio"
-	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"regexp"
 	"strconv"
+	"strings"
+	"sync/atomic"
 	"time"
 
-	"github.com/XrayR-project/XrayR/api"
-	"github.com/gogf/gf/v2/encoding/gjson"
-	"github.com/gogf/gf/v2/frame/g"
-	"github.com/gogf/gf/v2/net/gclient"
+	log "github.com/sirupsen/logrus"
+
+	"github.com/bitly/go-simplejson"
+	"github.com/go-resty/resty/v2"
+	"github.com/gogf/gf/v2/util/gconv"
 	"github.com/xtls/xray-core/common/net"
 	"github.com/xtls/xray-core/infra/conf"
+
+	"github.com/XrayR-project/XrayR/api"
 )
 
-// APIClient API config
+// APIClient create an api client to the panel.
 type APIClient struct {
-	ctx                 context.Context
-	APIHost             string
-	NodeID              int
-	Key                 string
-	NodeType            string
-	EnableVless         bool
-	VlessFlow           string
-	Timeout             int
-	SpeedLimit          float64
-	DeviceLimit         int
-	RuleListPath        string
-	DisableCustomConfig bool
-
+	client        *resty.Client
+	APIHost       string
+	NodeID        int
+	Key           string
+	NodeType      string
+	EnableVless   bool
+	VlessFlow     string
+	SpeedLimit    float64
+	DeviceLimit   int
 	LocalRuleList []api.DetectRule
+	resp          atomic.Value
+	eTags         map[string]string
 }
 
 // New create an api instance
 func New(apiConfig *api.Config) *APIClient {
-
-	//https://goframe.org/pages/viewpage.action?pageId=1114381
-
+	client := resty.New()
+	client.SetRetryCount(3)
+	if apiConfig.Timeout > 0 {
+		client.SetTimeout(time.Duration(apiConfig.Timeout) * time.Second)
+	} else {
+		client.SetTimeout(5 * time.Second)
+	}
+	client.OnError(func(req *resty.Request, err error) {
+		if v, ok := err.(*resty.ResponseError); ok {
+			// v.Response contains the last response from the server
+			// v.Err contains the original error
+			log.Print(v.Err)
+		}
+	})
+	client.SetBaseURL(apiConfig.APIHost)
+	// Create Key for each requests
+	client.SetQueryParams(map[string]string{
+		"node_id":   strconv.Itoa(apiConfig.NodeID),
+		"node_type": strings.ToLower(apiConfig.NodeType),
+		"token":     apiConfig.Key,
+	})
+	// Read local rule list
+	localRuleList := readLocalRuleList(apiConfig.RuleListPath)
 	apiClient := &APIClient{
-		ctx:                 context.Background(),
-		APIHost:             apiConfig.APIHost,
-		NodeID:              apiConfig.NodeID,
-		Key:                 apiConfig.Key,
-		NodeType:            apiConfig.NodeType,
-		EnableVless:         apiConfig.EnableVless,
-		VlessFlow:           apiConfig.VlessFlow,
-		Timeout:             apiConfig.Timeout,
-		DeviceLimit:         apiConfig.DeviceLimit,
-		RuleListPath:        apiConfig.RuleListPath,
-		DisableCustomConfig: apiConfig.DisableCustomConfig,
-
-		LocalRuleList: readLocalRuleList(apiConfig.RuleListPath), //加载本地路由规则
+		client:        client,
+		NodeID:        apiConfig.NodeID,
+		Key:           apiConfig.Key,
+		APIHost:       apiConfig.APIHost,
+		NodeType:      apiConfig.NodeType,
+		EnableVless:   apiConfig.EnableVless,
+		VlessFlow:     apiConfig.VlessFlow,
+		SpeedLimit:    apiConfig.SpeedLimit,
+		DeviceLimit:   apiConfig.DeviceLimit,
+		LocalRuleList: localRuleList,
+		eTags:         make(map[string]string),
 	}
 	return apiClient
 }
 
 // readLocalRuleList reads the local rule list file
 func readLocalRuleList(path string) (LocalRuleList []api.DetectRule) {
-
 	LocalRuleList = make([]api.DetectRule, 0)
+
 	if path != "" {
 		// open the file
 		file, err := os.Open(path)
-
+		defer file.Close()
 		// handle errors while opening
 		if err != nil {
 			log.Printf("Error when opening file: %s", err)
@@ -88,79 +108,96 @@ func readLocalRuleList(path string) (LocalRuleList []api.DetectRule) {
 			log.Fatalf("Error while reading file: %s", err)
 			return
 		}
-
-		file.Close()
 	}
 
 	return LocalRuleList
 }
 
-func (c *APIClient) GetNodeInfo() (nodeInfo *api.NodeInfo, err error) {
+// Describe return a description of the client
+func (c *APIClient) Describe() api.ClientInfo {
+	return api.ClientInfo{APIHost: c.APIHost, NodeID: c.NodeID, Key: c.Key, NodeType: c.NodeType}
+}
 
-	apiPath := "/api/server/config"
-	reslutJson, err := c.sendRequest(
-		nil,
-		"POST",
-		apiPath,
-		g.Map{
-			"node_id": c.NodeID,
-		})
+// Debug set the client debug for client
+func (c *APIClient) Debug() {
+	c.client.SetDebug(true)
+}
+
+func (c *APIClient) assembleURL(path string) string {
+	return c.APIHost + path
+}
+
+func (c *APIClient) parseResponse(res *resty.Response, path string, err error) (*simplejson.Json, error) {
+	if err != nil {
+		return nil, fmt.Errorf("request %s failed: %v", c.assembleURL(path), err)
+	}
+
+	if res.StatusCode() > 399 {
+		return nil, fmt.Errorf("request %s failed: %s, %v", c.assembleURL(path), res.String(), err)
+	}
+
+	rtn, err := simplejson.NewJson(res.Body())
+	if err != nil {
+		return nil, fmt.Errorf("ret %s invalid", res.String())
+	}
+
+	return rtn, nil
+}
+
+// GetNodeInfo will pull NodeInfo Config from panel
+func (c *APIClient) GetNodeInfo() (nodeInfo *api.NodeInfo, err error) {
+	server := new(serverConfig)
+	path := "/api/server/config"
+
+	res, err := c.client.R().
+		SetHeader("If-None-Match", c.eTags["node"]).
+		ForceContentType("application/json").
+		Get(path)
+
+	// Etag identifier for a specific version of a resource. StatusCode = 304 means no changed
+	if res.StatusCode() == 304 {
+		return nil, errors.New(api.NodeNotModified)
+	}
+	// update etag
+	if res.Header().Get("Etag") != "" && res.Header().Get("Etag") != c.eTags["node"] {
+		c.eTags["node"] = res.Header().Get("Etag")
+	}
+
+	nodeInfoResp, err := c.parseResponse(res, path, err)
 	if err != nil {
 		return nil, err
 	}
+	b, _ := nodeInfoResp.Encode()
+	json.Unmarshal(b, server)
 
-	if reslutJson.Get("data").String() == "" {
-		return nil, errors.New("gov2panel node config data is null")
-	}
-
-	if reslutJson.Get("data.port").Int() == 0 {
+	if gconv.Uint32(server.Port) == 0 {
 		return nil, errors.New("server port must > 0")
 	}
 
-	nodeInfo = new(api.NodeInfo)
-	err = reslutJson.Get("data").Scan(nodeInfo)
-	if err != nil {
-		return nil, fmt.Errorf("parse node info failed: \nError: %v", err)
+	c.resp.Store(server)
+
+	switch c.NodeType {
+	case "V2ray", "Vmess", "Vless":
+		nodeInfo, err = c.parseV2rayNodeResponse(server)
+	case "Trojan":
+		nodeInfo, err = c.parseTrojanNodeResponse(server)
+	case "Shadowsocks":
+		nodeInfo, err = c.parseSSNodeResponse(server)
+	default:
+		return nil, fmt.Errorf("unsupported node type: %s", c.NodeType)
 	}
 
-	routes := make([]route, 0)
-	err = reslutJson.Get("data.routes").Scan(&routes)
 	if err != nil {
-		return nil, fmt.Errorf("parse node routes failed: \nError: %v", err)
+		return nil, fmt.Errorf("parse node info failed: %s, \nError: %v", res.String(), err)
 	}
-
-	nodeInfo.NodeType = c.NodeType
-	nodeInfo.NodeID = c.NodeID
-	nodeInfo.EnableVless = c.EnableVless
-	nodeInfo.VlessFlow = c.VlessFlow
-
-	nodeInfo.AlterID = 0
-
-	nodeInfo.NameServerConfig = parseDNSConfig(routes)
 
 	return nodeInfo, nil
-
-}
-
-func parseDNSConfig(routes []route) (nameServerList []*conf.NameServerConfig) {
-
-	nameServerList = make([]*conf.NameServerConfig, 0)
-	for i := range routes {
-		if routes[i].Action == "dns" {
-			nameServerList = append(nameServerList, &conf.NameServerConfig{
-				Address: &conf.Address{Address: net.ParseAddress(routes[i].ActionValue)},
-				Domains: routes[i].Match,
-			})
-		}
-	}
-
-	return
 }
 
 // GetUserList will pull user form panel
 func (c *APIClient) GetUserList() (UserList *[]api.UserInfo, err error) {
-
-	apiPath := "/api/server/user"
+	var users []*user
+	path := "/api/server/user"
 
 	switch c.NodeType {
 	case "V2ray", "Trojan", "Shadowsocks", "Vmess", "Vless":
@@ -169,19 +206,29 @@ func (c *APIClient) GetUserList() (UserList *[]api.UserInfo, err error) {
 		return nil, fmt.Errorf("unsupported node type: %s", c.NodeType)
 	}
 
-	reslutJson, err := c.sendRequest(
-		nil,
-		"GET",
-		apiPath,
-		g.Map{
-			"node_id": strconv.Itoa(c.NodeID),
-		})
+	res, err := c.client.R().
+		SetHeader("If-None-Match", c.eTags["users"]).
+		ForceContentType("application/json").
+		Get(path)
+
+	// Etag identifier for a specific version of a resource. StatusCode = 304 means no changed
+	if res.StatusCode() == 304 {
+		return nil, errors.New(api.UserNotModified)
+	}
+	// update etag
+	if res.Header().Get("Etag") != "" && res.Header().Get("Etag") != c.eTags["users"] {
+		c.eTags["users"] = res.Header().Get("Etag")
+	}
+
+	usersResp, err := c.parseResponse(res, path, err)
 	if err != nil {
 		return nil, err
 	}
-
-	var users []*user
-	reslutJson.Get("data.users").Scan(&users)
+	b, _ := usersResp.Get("users").Encode()
+	json.Unmarshal(b, &users)
+	if len(users) == 0 {
+		return nil, errors.New("users is null")
+	}
 
 	userList := make([]api.UserInfo, len(users))
 	for i := 0; i < len(users); i++ {
@@ -208,127 +255,148 @@ func (c *APIClient) GetUserList() (UserList *[]api.UserInfo, err error) {
 	return &userList, nil
 }
 
-func (c *APIClient) ReportNodeStatus(nodeStatus *api.NodeStatus) (err error) {
-	return
-}
-
-func (c *APIClient) ReportNodeOnlineUsers(onlineUser *[]api.OnlineUser) (err error) {
-	return
-}
-
 // ReportUserTraffic reports the user traffic
-func (c *APIClient) ReportUserTraffic(userTraffic *[]api.UserTraffic) (err error) {
-	apiPath := "/api/server/push"
-	reslutJson, err := c.sendRequest(
-		nil,
-		"POST",
-		apiPath,
-		g.Map{
-			"data": userTraffic,
-		})
+func (c *APIClient) ReportUserTraffic(userTraffic *[]api.UserTraffic) error {
+	path := "/api/server/push"
+
+	res, err := c.client.R().SetBody(userTraffic).ForceContentType("application/json").Post(path)
+	_, err = c.parseResponse(res, path, err)
 	if err != nil {
 		return err
 	}
 
-	if reslutJson.Get("code").Int() != 0 {
-		return errors.New(reslutJson.Get("message").String())
-	}
-
-	return
-}
-
-func (c *APIClient) Describe() api.ClientInfo {
-	return api.ClientInfo{APIHost: c.APIHost, NodeID: c.NodeID, Key: c.Key, NodeType: c.NodeType}
+	return nil
 }
 
 // GetNodeRule implements the API interface
 func (c *APIClient) GetNodeRule() (*[]api.DetectRule, error) {
+	routes := c.resp.Load().(*serverConfig).Routes
+
 	ruleList := c.LocalRuleList
-
-	apiPath := "/api/server/config"
-	reslutJson, err := c.sendRequest(
-		nil,
-		"POST",
-		apiPath,
-		g.Map{
-			"node_id": c.NodeID,
-		})
-	if err != nil {
-		return nil, err
-	}
-
-	routes := make([]route, 0)
-	err = reslutJson.Get("data.routes").Scan(&routes)
-	if err != nil {
-		return nil, fmt.Errorf("parse node routes failed: \nError: %v", err)
-	}
 
 	for i := range routes {
 		if routes[i].Action == "block" {
-			for _, v := range routes[i].Match {
-				ruleList = append(ruleList, api.DetectRule{
-					ID:      i,
-					Pattern: regexp.MustCompile(v),
-				})
-			}
 
+			ruleList = append(ruleList, api.DetectRule{
+				ID:      i,
+				Pattern: regexp.MustCompile(strings.Join(routes[i].Match, "|")),
+			})
 		}
 	}
 
 	return &ruleList, nil
-
 }
 
-func (c *APIClient) ReportIllegal(detectResultList *[]api.DetectResult) (err error) {
-	return
+// ReportNodeStatus implements the API interface
+func (c *APIClient) ReportNodeStatus(nodeStatus *api.NodeStatus) (err error) {
+	return nil
 }
 
-func (c *APIClient) Debug() {
-
+// ReportNodeOnlineUsers implements the API interface
+func (c *APIClient) ReportNodeOnlineUsers(onlineUserList *[]api.OnlineUser) error {
+	return nil
 }
 
-// request 统一请求接口
-func (c *APIClient) sendRequest(headerM map[string]string, method string, url string, data g.Map) (reslutJson *gjson.Json, err error) {
-	url = c.APIHost + url
+// ReportIllegal implements the API interface
+func (c *APIClient) ReportIllegal(detectResultList *[]api.DetectResult) error {
+	return nil
+}
 
-	client := gclient.New()
-
-	var gResponse *gclient.Response
-
-	if c.Timeout > 0 {
-		client.SetTimeout(time.Duration(c.Timeout) * time.Second) //方法用于设置当前请求超时时间
-	} else {
-		client.SetTimeout(5 * time.Second)
+// parseTrojanNodeResponse parse the response for the given nodeInfo format
+func (c *APIClient) parseTrojanNodeResponse(s *serverConfig) (*api.NodeInfo, error) {
+	// Create GeneralNodeInfo
+	nodeInfo := &api.NodeInfo{
+		NodeType:          c.NodeType,
+		NodeID:            c.NodeID,
+		Port:              gconv.Uint32(s.Port),
+		TransportProtocol: "tcp",
+		EnableTLS:         true,
+		Host:              s.Host,
+		ServiceName:       s.Sni,
+		NameServerConfig:  s.parseDNSConfig(),
 	}
-	client.Retry(3, 10*time.Second) //方法用于设置请求失败时重连次数和重连间隔。
+	return nodeInfo, nil
+}
 
-	client.SetHeaderMap(headerM)
-	client.SetHeader("Content-Type", "application/json")
+// parseSSNodeResponse parse the response for the given nodeInfo format
+func (c *APIClient) parseSSNodeResponse(s *serverConfig) (*api.NodeInfo, error) {
+	var header json.RawMessage
 
-	data["token"] = c.Key
+	if s.Obfs == "http" {
+		path := "/"
+		if p := s.ObfsSettings.Path; p != "" {
+			if strings.HasPrefix(p, "/") {
+				path = p
+			} else {
+				path += p
+			}
+		}
+		h := simplejson.New()
+		h.Set("type", "http")
+		h.SetPath([]string{"request", "path"}, path)
+		header, _ = h.Encode()
+	}
+	// Create GeneralNodeInfo
+	return &api.NodeInfo{
+		NodeType:          c.NodeType,
+		NodeID:            c.NodeID,
+		Port:              gconv.Uint32(s.Port),
+		TransportProtocol: "tcp",
+		CypherMethod:      s.Encryption,
+		ServerKey:         s.ServerKey, // shadowsocks2022 share key
+		NameServerConfig:  s.parseDNSConfig(),
+		Header:            header,
+	}, nil
+}
 
-	switch method {
-	case "GET":
-		gResponse, err = client.Get(c.ctx, url, data)
-	case "POST":
-		gResponse, err = client.Post(c.ctx, url, data)
-	default:
-		err = fmt.Errorf("unsupported method: %s", method)
-		return
+// parseV2rayNodeResponse parse the response for the given nodeInfo format
+func (c *APIClient) parseV2rayNodeResponse(s *serverConfig) (*api.NodeInfo, error) {
+	var (
+		header    json.RawMessage
+		enableTLS bool
+	)
+
+	switch s.Net {
+	case "tcp":
+		if s.Header != nil {
+			if httpHeader, err := s.Header.MarshalJSON(); err != nil {
+				return nil, err
+			} else {
+				header = httpHeader
+			}
+		}
 	}
 
-	if err != nil {
-		return
+	if s.TLS == "tls" {
+		enableTLS = true
 	}
-	defer gResponse.Close()
 
-	reslutJson = gjson.New(gResponse.ReadAllString())
-	if reslutJson == nil {
-		err = fmt.Errorf("http reslut to json, err : %s", gResponse.ReadAllString())
-	}
-	if reslutJson.Get("code").Int() != 0 {
-		err = errors.New(reslutJson.Get("message").String())
-		return
+	// Create GeneralNodeInfo
+	return &api.NodeInfo{
+		NodeType:          c.NodeType,
+		NodeID:            c.NodeID,
+		Port:              gconv.Uint32(s.Port),
+		AlterID:           0,
+		TransportProtocol: s.Net,
+		EnableTLS:         enableTLS,
+		Path:              s.Path,
+		Host:              s.Host,
+		EnableVless:       c.EnableVless,
+		VlessFlow:         c.VlessFlow,
+		ServiceName:       s.Sni,
+		Header:            header,
+		NameServerConfig:  s.parseDNSConfig(),
+	}, nil
+}
+
+func (s *serverConfig) parseDNSConfig() (nameServerList []*conf.NameServerConfig) {
+	for i := range s.Routes {
+		if s.Routes[i].Action == "dns" {
+			nameServerList = append(nameServerList, &conf.NameServerConfig{
+				Address: &conf.Address{Address: net.ParseAddress(s.Routes[i].ActionValue)},
+				Domains: s.Routes[i].Match,
+			})
+		}
 	}
 
 	return
