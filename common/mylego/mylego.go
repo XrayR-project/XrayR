@@ -149,8 +149,8 @@ func (l *LegoCMD) RenewCert() (CertPath string, KeyPath string, ok bool, err err
 }
 
 func checkCertFile(domain string) (string, string, error) {
-	keyPath := path.Join(defaultPath, "certificates", fmt.Sprintf("%s.key", domain))
-	certPath := path.Join(defaultPath, "certificates", fmt.Sprintf("%s.crt", domain))
+	keyPath := path.Join(defaultPath, "certificates", fmt.Sprintf("%s.key", sanitizedDomain(domain)))
+	certPath := path.Join(defaultPath, "certificates", fmt.Sprintf("%s.crt", sanitizedDomain(domain)))
 	if _, err := os.Stat(keyPath); os.IsNotExist(err) {
 		return "", "", fmt.Errorf("cert key failed: %s", domain)
 	}
