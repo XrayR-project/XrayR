@@ -195,7 +195,7 @@ func (c *APIClient) GetNodeInfo() (nodeInfo *api.NodeInfo, err error) {
 
 	if err != nil {
 		res, _ := response.MarshalJSON()
-		return nil, fmt.Errorf("Parse node info failed: %s, \nError: %s", string(res), err)
+		return nil, fmt.Errorf("parse node info failed: %s, \nError: %s", string(res), err)
 	}
 
 	return nodeInfo, nil
@@ -495,7 +495,9 @@ func (c *APIClient) ParseV2rayNodeResponse(nodeInfoResponse *simplejson.Json) (*
 	}
 
 	// XTLS only supports TLS and REALITY directly for now
-	if transportProtocol == "tcp" && enableReality {
+	if (transportProtocol == "grpc" || transportProtocol == "h2") && enableReality {
+		vlessFlow = ""
+	} else if transportProtocol == "tcp" && enableReality {
 		vlessFlow = "xtls-rprx-vision"
 	} else {
 		vlessFlow = c.VlessFlow
