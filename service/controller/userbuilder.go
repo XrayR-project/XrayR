@@ -89,10 +89,8 @@ func (c *Controller) buildSSUser(userInfo *[]api.UserInfo, method string) (users
 			users[i] = &protocol.User{
 				Level: 0,
 				Email: e,
-				Account: serial.ToTypedMessage(&shadowsocks_2022.User{
+				Account: serial.ToTypedMessage(&shadowsocks_2022.Account{
 					Key:   userKey,
-					Email: e,
-					Level: 0,
 				}),
 			}
 		} else {
@@ -124,10 +122,8 @@ func (c *Controller) buildSSPluginUser(userInfo *[]api.UserInfo) (users []*proto
 			users[i] = &protocol.User{
 				Level: 0,
 				Email: e,
-				Account: serial.ToTypedMessage(&shadowsocks_2022.User{
+				Account: serial.ToTypedMessage(&shadowsocks_2022.Account{
 					Key:   userKey,
-					Email: e,
-					Level: 0,
 				}),
 			}
 		} else {
