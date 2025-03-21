@@ -1,0 +1,7 @@
+services:
+  xrayr:
+    build: .
+    network_mode: host
+    restart: always
+    volumes:
+      - ./XrayR:/etc/XrayR
