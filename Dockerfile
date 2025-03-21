@@ -11,8 +11,11 @@ FROM  alpine
 # 安装必要的工具包
 RUN  apk --update --no-cache add tzdata ca-certificates \
     && cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
-RUN mkdir /etc/XrayR/
-COPY --from=builder /app/XrayR /usr/local/bin
-COPY --from=builder /app/release/config /etc/XrayR
 
-ENTRYPOINT [ "XrayR", "--config", "/etc/XrayR/config.yml"]
+COPY --from=builder /app/init.sh /init.sh
+RUN mkdir /etc/XrayR/ \
+    && chmod +x init.sh
+COPY --from=builder /app/XrayR /usr/local/bin
+COPY --from=builder /app/release/config /home
+
+ENTRYPOINT ["/init.sh"]
