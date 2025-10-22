@@ -146,4 +146,18 @@ func run() error {
 	p.Start()
 	defer p.Close()
 
-	runt
+	// 显式触发 GC，清理配置占用的内存
+	runtime.GC()
+
+	// 等待退出信号
+	osSignals := make(chan os.Signal, 1)
+	signal.Notify(osSignals, os.Interrupt, os.Kill, syscall.SIGTERM)
+	<-osSignals
+
+	return nil
+}
+
+// Execute 执行根命令
+func Execute() error {
+	return rootCmd.Execute()
+}
