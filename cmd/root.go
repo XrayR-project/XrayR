@@ -41,6 +41,24 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&cfgKey, "key", "", "Decrypt key for encrypted config file.")
 }
 
+// AES-256-CFB 解密函数
+func decryptAES(ciphertext []byte, password string) ([]byte, error) {
+	key := sha256.Sum256([]byte(password)) // 32-byte key for AES-256
+	if len(ciphertext) < aes.BlockSize {
+		return nil, fmt.Errorf("ciphertext too short")
+	}
+	iv := ciphertext[:aes.BlockSize]
+	ciphertext = ciphertext[aes.BlockSize:]
+
+	block, err := aes.NewCipher(key[:])
+	if err != nil {
+		return nil, err
+	}
+	stream := cipher.NewCFBDecrypter(block, iv)
+	stream.XORKeyStream(ciphertext, ciphertext)
+	return ciphertext, nil
+}
+
 func getConfig() *viper.Viper {
 	config := viper.New()
 
@@ -60,14 +78,12 @@ func getConfig() *viper.Viper {
 		config.AddConfigPath(".")
 	}
 
-	// 如果是加密文件（例如 config.yml.enc）
 	if strings.HasSuffix(cfgFile, ".enc") {
 		log.Info("Encrypted config detected, decrypting...")
 		data, err := ioutil.ReadFile(cfgFile)
 		if err != nil {
 			log.Panicf("Failed to read config file: %s", err)
 		}
-
 		if cfgKey == "" {
 			log.Panic("You must provide --key to decrypt encrypted config file")
 		}
@@ -77,11 +93,14 @@ func getConfig() *viper.Viper {
 			log.Panicf("Decrypt config file failed: %s", err)
 		}
 
-		// 用解密后的内容初始化 viper
+		// 调试输出解密内容
+		fmt.Println("==== Decrypted config content ====")
+		fmt.Println(string(plaintext))
+		fmt.Println("=================================")
+
 		if err := config.ReadConfig(strings.NewReader(string(plaintext))); err != nil {
 			log.Panicf("Read decrypted config failed: %s", err)
 		}
-
 	} else {
 		if err := config.ReadInConfig(); err != nil {
 			log.Panicf("Config file error: %s \n", err)
@@ -92,28 +111,15 @@ func getConfig() *viper.Viper {
 	return config
 }
 
-func decryptAES(ciphertext []byte, password string) ([]byte, error) {
-	key := sha256.Sum256([]byte(password)) // 32-byte AES 密钥
-	if len(ciphertext) < aes.BlockSize {
-		return nil, fmt.Errorf("ciphertext too short")
-	}
-	iv := ciphertext[:aes.BlockSize]
-	ciphertext = ciphertext[aes.BlockSize:]
-
-	block, err := aes.NewCipher(key[:])
-	if err != nil {
-		return nil, err
-	}
-	stream := cipher.NewCFBDecrypter(block, iv)
-	stream.XORKeyStream(ciphertext, ciphertext)
-	return ciphertext, nil
-}
-
 func run() error {
 	showVersion()
 
 	config := getConfig()
-	panelConfig := &panel.Config{}
+	panelConfig := &panel.Config{
+		// 初始化子结构体，避免 nil pointer
+		LogConfig: &panel.LogConfig{},
+	}
+
 	if err := config.Unmarshal(panelConfig); err != nil {
 		return fmt.Errorf("Parse config file %v failed: %s \n", cfgFile, err)
 	}
@@ -129,6 +135,8 @@ func run() error {
 			fmt.Println("Config file changed:", e.Name)
 			p.Close()
 			runtime.GC()
+
+			// 重新解析配置
 			if err := config.Unmarshal(panelConfig); err != nil {
 				log.Panicf("Parse config file %v failed: %s \n", cfgFile, err)
 			}
