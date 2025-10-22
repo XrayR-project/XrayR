@@ -1,7 +1,11 @@
 package cmd
 
 import (
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/sha256"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/signal"
 	"path"
@@ -21,6 +25,7 @@ import (
 
 var (
 	cfgFile string
+	cfgKey  string // 新增密钥参数
 	rootCmd = &cobra.Command{
 		Use: "XrayR",
 		Run: func(cmd *cobra.Command, args []string) {
@@ -33,12 +38,12 @@ var (
 
 func init() {
 	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "Config file for XrayR.")
+	rootCmd.PersistentFlags().StringVar(&cfgKey, "key", "", "Decrypt key for encrypted config file.")
 }
 
 func getConfig() *viper.Viper {
 	config := viper.New()
 
-	// Set custom path and name
 	if cfgFile != "" {
 		configName := path.Base(cfgFile)
 		configFileExt := path.Ext(cfgFile)
@@ -47,24 +52,61 @@ func getConfig() *viper.Viper {
 		config.SetConfigName(configNameOnly)
 		config.SetConfigType(strings.TrimPrefix(configFileExt, "."))
 		config.AddConfigPath(configPath)
-		// Set ASSET Path and Config Path for XrayR
 		os.Setenv("XRAY_LOCATION_ASSET", configPath)
 		os.Setenv("XRAY_LOCATION_CONFIG", configPath)
 	} else {
-		// Set default config path
 		config.SetConfigName("config")
 		config.SetConfigType("yml")
 		config.AddConfigPath(".")
-
 	}
 
-	if err := config.ReadInConfig(); err != nil {
-		log.Panicf("Config file error: %s \n", err)
+	// 如果是加密文件（例如 config.yml.enc）
+	if strings.HasSuffix(cfgFile, ".enc") {
+		log.Info("Encrypted config detected, decrypting...")
+		data, err := ioutil.ReadFile(cfgFile)
+		if err != nil {
+			log.Panicf("Failed to read config file: %s", err)
+		}
+
+		if cfgKey == "" {
+			log.Panic("You must provide --key to decrypt encrypted config file")
+		}
+
+		plaintext, err := decryptAES(data, cfgKey)
+		if err != nil {
+			log.Panicf("Decrypt config file failed: %s", err)
+		}
+
+		// 用解密后的内容初始化 viper
+		if err := config.ReadConfig(strings.NewReader(string(plaintext))); err != nil {
+			log.Panicf("Read decrypted config failed: %s", err)
+		}
+
+	} else {
+		if err := config.ReadInConfig(); err != nil {
+			log.Panicf("Config file error: %s \n", err)
+		}
 	}
 
-	config.WatchConfig() // Watch the config
-
+	config.WatchConfig()
 	return config
+}
+
+func decryptAES(ciphertext []byte, password string) ([]byte, error) {
+	key := sha256.Sum256([]byte(password)) // 32-byte AES 密钥
+	if len(ciphertext) < aes.BlockSize {
+		return nil, fmt.Errorf("ciphertext too short")
+	}
+	iv := ciphertext[:aes.BlockSize]
+	ciphertext = ciphertext[aes.BlockSize:]
+
+	block, err := aes.NewCipher(key[:])
+	if err != nil {
+		return nil, err
+	}
+	stream := cipher.NewCFBDecrypter(block, iv)
+	stream.XORKeyStream(ciphertext, ciphertext)
+	return ciphertext, nil
 }
 
 func run() error {
@@ -83,12 +125,9 @@ func run() error {
 	p := panel.New(panelConfig)
 	lastTime := time.Now()
 	config.OnConfigChange(func(e fsnotify.Event) {
-		// Discarding event received within a short period of time after receiving an event.
 		if time.Now().After(lastTime.Add(3 * time.Second)) {
-			// Hot reload function
 			fmt.Println("Config file changed:", e.Name)
 			p.Close()
-			// Delete old instance and trigger GC
 			runtime.GC()
 			if err := config.Unmarshal(panelConfig); err != nil {
 				log.Panicf("Parse config file %v failed: %s \n", cfgFile, err)
@@ -106,9 +145,7 @@ func run() error {
 	p.Start()
 	defer p.Close()
 
-	// Explicitly triggering GC to remove garbage from config loading.
 	runtime.GC()
-	// Running backend
 	osSignals := make(chan os.Signal, 1)
 	signal.Notify(osSignals, os.Interrupt, os.Kill, syscall.SIGTERM)
 	<-osSignals
