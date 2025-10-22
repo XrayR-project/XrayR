@@ -1,9 +1,10 @@
 package cmd
 
 import (
+	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
-	"crypto/sha256"
+	"crypto/md5"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -25,7 +26,8 @@ import (
 
 var (
 	cfgFile string
-	cfgKey  string // 新增密钥参数
+	cfgKey  string
+
 	rootCmd = &cobra.Command{
 		Use: "XrayR",
 		Run: func(cmd *cobra.Command, args []string) {
@@ -38,22 +40,53 @@ var (
 
 func init() {
 	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "Config file for XrayR.")
-	rootCmd.PersistentFlags().StringVar(&cfgKey, "key", "", "Decrypt key for encrypted config file.")
+	rootCmd.PersistentFlags().StringVarP(&cfgKey, "key", "k", "", "Key to decrypt encrypted config file.")
 }
 
-// AES-256-CFB 解密函数
-func decryptAES(ciphertext []byte, password string) ([]byte, error) {
-	key := sha256.Sum256([]byte(password)) // 32-byte key for AES-256
-	if len(ciphertext) < aes.BlockSize {
+// EVP_BytesToKey 实现 OpenSSL 默认 key/iv 生成算法
+func evpBytesToKey(password, salt []byte) (key, iv []byte) {
+	var m []byte
+	prev := []byte{}
+	for len(m) < 48 { // AES-256 key=32 bytes + IV=16 bytes
+		h := md5.New()
+		h.Write(prev)
+		h.Write(password)
+		h.Write(salt)
+		prev = h.Sum(nil)
+		m = append(m, prev...)
+	}
+	key = m[:32]
+	iv = m[32:48]
+	return
+}
+
+// decryptOpenSSLAES 解密 OpenSSL aes-256-cfb 加密文件
+func decryptOpenSSLAES(ciphertext []byte, password string) ([]byte, error) {
+	if len(ciphertext) < 16 {
 		return nil, fmt.Errorf("ciphertext too short")
 	}
-	iv := ciphertext[:aes.BlockSize]
-	ciphertext = ciphertext[aes.BlockSize:]
 
-	block, err := aes.NewCipher(key[:])
+	var key, iv []byte
+	if bytes.HasPrefix(ciphertext, []byte("Salted__")) {
+		salt := ciphertext[8:16]
+		ciphertext = ciphertext[16:]
+		key, iv = evpBytesToKey([]byte(password), salt)
+	} else {
+		// 没有 salt 的情况，用 MD5 简单生成 key
+		sum := md5.Sum([]byte(password))
+		key = sum[:]
+		if len(ciphertext) < 16 {
+			return nil, fmt.Errorf("ciphertext too short for IV")
+		}
+		iv = ciphertext[:16]
+		ciphertext = ciphertext[16:]
+	}
+
+	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
 	}
+
 	stream := cipher.NewCFBDecrypter(block, iv)
 	stream.XORKeyStream(ciphertext, ciphertext)
 	return ciphertext, nil
@@ -62,6 +95,7 @@ func decryptAES(ciphertext []byte, password string) ([]byte, error) {
 func getConfig() *viper.Viper {
 	config := viper.New()
 
+	// Set custom path and name
 	if cfgFile != "" {
 		configName := path.Base(cfgFile)
 		configFileExt := path.Ext(cfgFile)
@@ -88,26 +122,21 @@ func getConfig() *viper.Viper {
 			log.Panic("You must provide --key to decrypt encrypted config file")
 		}
 
-		plaintext, err := decryptAES(data, cfgKey)
+		plaintext, err := decryptOpenSSLAES(data, cfgKey)
 		if err != nil {
 			log.Panicf("Decrypt config file failed: %s", err)
 		}
-
-		// 调试输出解密内容
-		fmt.Println("==== Decrypted config content ====")
-		fmt.Println(string(plaintext))
-		fmt.Println("=================================")
 
 		if err := config.ReadConfig(strings.NewReader(string(plaintext))); err != nil {
 			log.Panicf("Read decrypted config failed: %s", err)
 		}
 	} else {
 		if err := config.ReadInConfig(); err != nil {
-			log.Panicf("Config file error: %s \n", err)
+			log.Panicf("Config file error: %s", err)
 		}
 	}
 
-	config.WatchConfig()
+	config.WatchConfig() // Watch the config
 	return config
 }
 
@@ -115,11 +144,7 @@ func run() error {
 	showVersion()
 
 	config := getConfig()
-	panelConfig := &panel.Config{
-		// 初始化子结构体，避免 nil pointer
-		LogConfig: &panel.LogConfig{},
-	}
-
+	panelConfig := &panel.Config{}
 	if err := config.Unmarshal(panelConfig); err != nil {
 		return fmt.Errorf("Parse config file %v failed: %s \n", cfgFile, err)
 	}
@@ -135,16 +160,12 @@ func run() error {
 			fmt.Println("Config file changed:", e.Name)
 			p.Close()
 			runtime.GC()
-
-			// 重新解析配置
 			if err := config.Unmarshal(panelConfig); err != nil {
 				log.Panicf("Parse config file %v failed: %s \n", cfgFile, err)
 			}
-
 			if panelConfig.LogConfig.Level == "debug" {
 				log.SetReportCaller(true)
 			}
-
 			p.Start()
 			lastTime = time.Now()
 		}
@@ -152,8 +173,8 @@ func run() error {
 
 	p.Start()
 	defer p.Close()
-
 	runtime.GC()
+
 	osSignals := make(chan os.Signal, 1)
 	signal.Notify(osSignals, os.Interrupt, os.Kill, syscall.SIGTERM)
 	<-osSignals
