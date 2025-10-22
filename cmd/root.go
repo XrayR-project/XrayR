@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
+	"crypto/sha256"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -42,22 +43,16 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&keyStr, "key", "k", "", "Decryption key for encrypted config.")
 }
 
-// decryptAES256CFB 解密 OpenSSL AES-256-CFB 文件
-func decryptAES256CFB(cipherFile string, key string) ([]byte, error) {
+// decryptAES256CFBWithHash 使用 SHA256(key) 生成 32 字节 AES-256 key 解密配置
+func decryptAES256CFBWithHash(cipherFile string, key string) ([]byte, error) {
 	data, err := ioutil.ReadFile(cipherFile)
 	if err != nil {
 		return nil, err
 	}
 
-	keyBytes := []byte(key)
-	if len(keyBytes) < 32 {
-		keyBytes = append(keyBytes, bytes.Repeat([]byte{0}, 32-len(keyBytes))...)
-	} else if len(keyBytes) > 32 {
-		keyBytes = keyBytes[:32]
-	}
-
-	iv := bytes.Repeat([]byte{0}, aes.BlockSize)
-	block, err := aes.NewCipher(keyBytes)
+	hashKey := sha256.Sum256([]byte(key))       // 任意长度 key -> SHA256 -> 32 字节 key
+	iv := bytes.Repeat([]byte{0}, aes.BlockSize) // IV 置零
+	block, err := aes.NewCipher(hashKey[:])
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +71,7 @@ func getConfig() *viper.Viper {
 		if cfgFile == "" {
 			log.Panicf("Must specify encrypted config file with --config")
 		}
-		plainData, err := decryptAES256CFB(cfgFile, keyStr)
+		plainData, err := decryptAES256CFBWithHash(cfgFile, keyStr)
 		if err != nil {
 			log.Panicf("Failed to decrypt config: %s", err)
 		}
@@ -85,8 +80,8 @@ func getConfig() *viper.Viper {
 		if err := config.ReadConfig(bytes.NewReader(plainData)); err != nil {
 			log.Panicf("Failed to read decrypted config: %s", err)
 		}
-
 	} else {
+		// 普通未加密配置
 		if cfgFile != "" {
 			configName := path.Base(cfgFile)
 			configFileExt := path.Ext(cfgFile)
@@ -146,10 +141,6 @@ func run() error {
 	p.Start()
 	defer p.Close()
 
-	// 显式触发 GC，清理配置占用的内存
-	runtime.GC()
-
-	// 等待退出信号
 	osSignals := make(chan os.Signal, 1)
 	signal.Notify(osSignals, os.Interrupt, os.Kill, syscall.SIGTERM)
 	<-osSignals
@@ -157,7 +148,6 @@ func run() error {
 	return nil
 }
 
-// Execute 执行根命令
 func Execute() error {
 	return rootCmd.Execute()
 }
