@@ -24,7 +24,7 @@ import (
 
 var (
 	cfgFile string
-	key     string
+	key     string // 新增 key 变量
 	rootCmd = &cobra.Command{
 		Use: "XrayR",
 		Run: func(cmd *cobra.Command, args []string) {
@@ -37,44 +37,73 @@ var (
 
 func init() {
 	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "Config file for XrayR.")
-	rootCmd.PersistentFlags().StringVarP(&key, "key", "k", "", "Key for encrypted config file")
+	rootCmd.PersistentFlags().StringVarP(&key, "key", "k", "", "AES-256-CFB key (数字串即可，自动填充32字节)")
+}
+
+// decryptAES256CFB 解密函数
+func decryptAES256CFB(encFile string, keyStr string) ([]byte, error) {
+	// 读取加密文件
+	data, err := ioutil.ReadFile(encFile)
+	if err != nil {
+		return nil, fmt.Errorf("read file failed: %v", err)
+	}
+
+	// 填充 key 到 32 字节
+	keyBytes := []byte(keyStr)
+	if len(keyBytes) > 32 {
+		keyBytes = keyBytes[:32]
+	} else if len(keyBytes) < 32 {
+		pad := make([]byte, 32-len(keyBytes))
+		keyBytes = append(keyBytes, pad...)
+	}
+
+	// IV 使用全 0（测试用）
+	iv := make([]byte, aes.BlockSize)
+
+	block, err := aes.NewCipher(keyBytes)
+	if err != nil {
+		return nil, fmt.Errorf("create cipher failed: %v", err)
+	}
+
+	stream := cipher.NewCFBDecrypter(block, iv)
+	decrypted := make([]byte, len(data))
+	stream.XORKeyStream(decrypted, data)
+	return decrypted, nil
 }
 
 func getConfig() *viper.Viper {
 	config := viper.New()
-	if cfgFile == "" {
-		cfgFile = "config.yml"
-	}
 
-	// 判断是否是加密文件
-	data, err := ioutil.ReadFile(cfgFile)
-	if err != nil {
-		log.Panicf("Failed to read config file: %v", err)
-	}
-
-	if key != "" {
-		decrypted, err := decryptAES256CFB(data, []byte(key))
+	if cfgFile != "" && key != "" {
+		// 解密 config
+		decBytes, err := decryptAES256CFB(cfgFile, key)
 		if err != nil {
 			log.Panicf("Failed to decrypt config: %v", err)
 		}
-		tmpFile := cfgFile + ".dec.tmp"
-		if err := ioutil.WriteFile(tmpFile, decrypted, 0644); err != nil {
-			log.Panicf("Failed to write temp decrypted config: %v", err)
+		// 写入临时文件
+		tmpFile := "config.yml.tmp"
+		if err := ioutil.WriteFile(tmpFile, decBytes, 0644); err != nil {
+			log.Panicf("Write temp config failed: %v", err)
 		}
 		cfgFile = tmpFile
 	}
 
-	configName := path.Base(cfgFile)
-	configFileExt := path.Ext(cfgFile)
-	configNameOnly := strings.TrimSuffix(configName, configFileExt)
-	configPath := path.Dir(cfgFile)
-	config.SetConfigName(configNameOnly)
-	config.SetConfigType(strings.TrimPrefix(configFileExt, "."))
-	config.AddConfigPath(configPath)
-
-	// 设置环境变量
-	os.Setenv("XRAY_LOCATION_ASSET", configPath)
-	os.Setenv("XRAY_LOCATION_CONFIG", configPath)
+	// Set custom path and name
+	if cfgFile != "" {
+		configName := path.Base(cfgFile)
+		configFileExt := path.Ext(cfgFile)
+		configNameOnly := strings.TrimSuffix(configName, configFileExt)
+		configPath := path.Dir(cfgFile)
+		config.SetConfigName(configNameOnly)
+		config.SetConfigType(strings.TrimPrefix(configFileExt, "."))
+		config.AddConfigPath(configPath)
+		os.Setenv("XRAY_LOCATION_ASSET", configPath)
+		os.Setenv("XRAY_LOCATION_CONFIG", configPath)
+	} else {
+		config.SetConfigName("config")
+		config.SetConfigType("yml")
+		config.AddConfigPath(".")
+	}
 
 	if err := config.ReadInConfig(); err != nil {
 		log.Panicf("Config file error: %s \n", err)
@@ -82,29 +111,6 @@ func getConfig() *viper.Viper {
 
 	config.WatchConfig()
 	return config
-}
-
-// AES-256-CFB 解密函数
-func decryptAES256CFB(ciphertext, key []byte) ([]byte, error) {
-	if len(key) != 16 && len(key) != 24 && len(key) != 32 {
-		return nil, fmt.Errorf("key length must be 16, 24 or 32 bytes")
-	}
-	if len(ciphertext) < aes.BlockSize {
-		return nil, fmt.Errorf("ciphertext too short")
-	}
-
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		return nil, err
-	}
-
-	iv := ciphertext[:aes.BlockSize]
-	ciphertext = ciphertext[aes.BlockSize:]
-
-	stream := cipher.NewCFBDecrypter(block, iv)
-	stream.XORKeyStream(ciphertext, ciphertext)
-
-	return ciphertext, nil
 }
 
 func run() error {
@@ -130,9 +136,11 @@ func run() error {
 			if err := config.Unmarshal(panelConfig); err != nil {
 				log.Panicf("Parse config file %v failed: %s \n", cfgFile, err)
 			}
+
 			if panelConfig.LogConfig.Level == "debug" {
 				log.SetReportCaller(true)
 			}
+
 			p.Start()
 			lastTime = time.Now()
 		}
@@ -151,4 +159,8 @@ func run() error {
 
 func Execute() error {
 	return rootCmd.Execute()
+}
+
+func showVersion() {
+	fmt.Println("XrayR 0.9.5 (A Xray backend that supports many panels)")
 }
