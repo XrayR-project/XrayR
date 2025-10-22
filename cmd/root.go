@@ -91,7 +91,7 @@ func getConfig() *viper.Viper {
 		if err != nil {
 			log.Panicf("Decrypt config failed: %s\n", err)
 		}
-
+		fmt.Println("Decrypted config content:\n", string(decrypted))
 		// 临时写入 buffer 并让 viper 读取
 		if err := config.ReadConfig(bytes.NewReader(decrypted)); err != nil {
 			log.Panicf("Parse decrypted config failed: %s\n", err)
