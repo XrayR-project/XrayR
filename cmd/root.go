@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
 	"fmt"
@@ -24,7 +25,7 @@ import (
 
 var (
 	cfgFile string
-	key     string // 新增 key 变量
+	key     string
 	rootCmd = &cobra.Command{
 		Use: "XrayR",
 		Run: func(cmd *cobra.Command, args []string) {
@@ -37,34 +38,21 @@ var (
 
 func init() {
 	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "Config file for XrayR.")
-	rootCmd.PersistentFlags().StringVarP(&key, "key", "k", "", "AES-256-CFB key (数字串即可，自动填充32字节)")
+	rootCmd.PersistentFlags().StringVarP(&key, "key", "k", "", "Password for encrypted config file.")
 }
 
-// decryptAES256CFB 解密函数
-func decryptAES256CFB(encFile string, keyStr string) ([]byte, error) {
-	// 读取加密文件
-	data, err := ioutil.ReadFile(encFile)
+// AES-256-CFB decrypt using password as key
+func decryptAES256CFB(data []byte, password string) ([]byte, error) {
+	hashedKey := make([]byte, 32)
+	copy(hashedKey, []byte(password)) // 填充或截断为 32 字节
+	block, err := aes.NewCipher(hashedKey)
 	if err != nil {
-		return nil, fmt.Errorf("read file failed: %v", err)
+		return nil, err
 	}
-
-	// 填充 key 到 32 字节
-	keyBytes := []byte(keyStr)
-	if len(keyBytes) > 32 {
-		keyBytes = keyBytes[:32]
-	} else if len(keyBytes) < 32 {
-		pad := make([]byte, 32-len(keyBytes))
-		keyBytes = append(keyBytes, pad...)
+	if len(data) < aes.BlockSize {
+		return nil, fmt.Errorf("ciphertext too short")
 	}
-
-	// IV 使用全 0（测试用）
-	iv := make([]byte, aes.BlockSize)
-
-	block, err := aes.NewCipher(keyBytes)
-	if err != nil {
-		return nil, fmt.Errorf("create cipher failed: %v", err)
-	}
-
+	iv := make([]byte, aes.BlockSize) // IV 全 0
 	stream := cipher.NewCFBDecrypter(block, iv)
 	decrypted := make([]byte, len(data))
 	stream.XORKeyStream(decrypted, data)
@@ -74,21 +62,6 @@ func decryptAES256CFB(encFile string, keyStr string) ([]byte, error) {
 func getConfig() *viper.Viper {
 	config := viper.New()
 
-	if cfgFile != "" && key != "" {
-		// 解密 config
-		decBytes, err := decryptAES256CFB(cfgFile, key)
-		if err != nil {
-			log.Panicf("Failed to decrypt config: %v", err)
-		}
-		// 写入临时文件
-		tmpFile := "config.yml.tmp"
-		if err := ioutil.WriteFile(tmpFile, decBytes, 0644); err != nil {
-			log.Panicf("Write temp config failed: %v", err)
-		}
-		cfgFile = tmpFile
-	}
-
-	// Set custom path and name
 	if cfgFile != "" {
 		configName := path.Base(cfgFile)
 		configFileExt := path.Ext(cfgFile)
@@ -105,8 +78,28 @@ func getConfig() *viper.Viper {
 		config.AddConfigPath(".")
 	}
 
-	if err := config.ReadInConfig(); err != nil {
-		log.Panicf("Config file error: %s \n", err)
+	if strings.HasSuffix(cfgFile, ".enc") {
+		// 加密文件读取
+		if key == "" {
+			log.Panic("Encrypted config requires --key")
+		}
+		encData, err := ioutil.ReadFile(cfgFile)
+		if err != nil {
+			log.Panicf("Read encrypted config error: %s\n", err)
+		}
+		decrypted, err := decryptAES256CFB(encData, key)
+		if err != nil {
+			log.Panicf("Decrypt config failed: %s\n", err)
+		}
+
+		// 临时写入 buffer 并让 viper 读取
+		if err := config.ReadConfig(bytes.NewReader(decrypted)); err != nil {
+			log.Panicf("Parse decrypted config failed: %s\n", err)
+		}
+	} else {
+		if err := config.ReadInConfig(); err != nil {
+			log.Panicf("Config file error: %s \n", err)
+		}
 	}
 
 	config.WatchConfig()
@@ -136,11 +129,9 @@ func run() error {
 			if err := config.Unmarshal(panelConfig); err != nil {
 				log.Panicf("Parse config file %v failed: %s \n", cfgFile, err)
 			}
-
 			if panelConfig.LogConfig.Level == "debug" {
 				log.SetReportCaller(true)
 			}
-
 			p.Start()
 			lastTime = time.Now()
 		}
@@ -159,8 +150,4 @@ func run() error {
 
 func Execute() error {
 	return rootCmd.Execute()
-}
-
-func showVersion() {
-	fmt.Println("XrayR 0.9.5 (A Xray backend that supports many panels)")
 }
