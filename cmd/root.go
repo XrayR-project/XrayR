@@ -1,12 +1,7 @@
 package cmd
 
 import (
-	"crypto/aes"
-	"crypto/cipher"
-	"crypto/md5"
-	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/signal"
 	"path"
@@ -16,7 +11,6 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
-
 	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -27,7 +21,8 @@ import (
 var (
 	cfgFile string
 	rootCmd = &cobra.Command{
-		Use: "XrayR",
+		Use:   "XrayR",
+		Short: "XrayR backend server",
 		Run: func(cmd *cobra.Command, args []string) {
 			if err := run(); err != nil {
 				log.Fatal(err)
@@ -38,7 +33,10 @@ var (
 
 func init() {
 	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "Config file for XrayR.")
-	rootCmd.PersistentFlags().String("key", "", "Key to decrypt the encrypted config file")
+}
+
+func Execute() error {
+	return rootCmd.Execute()
 }
 
 func getConfig() *viper.Viper {
@@ -53,33 +51,10 @@ func getConfig() *viper.Viper {
 		config.SetConfigType(strings.TrimPrefix(configFileExt, "."))
 		config.AddConfigPath(configPath)
 
+		// Set env variables
 		os.Setenv("XRAY_LOCATION_ASSET", configPath)
 		os.Setenv("XRAY_LOCATION_CONFIG", configPath)
-	}
-
-	// 获取 key 参数
-	key := ""
-	if rootCmd.Flags().Changed("key") {
-		key, _ = rootCmd.Flags().GetString("key")
-	}
-
-	if key != "" && strings.HasSuffix(cfgFile, ".enc") {
-		fmt.Println("INFO: Encrypted config detected, decrypting...")
-		decrypted, err := decryptAES256CFBFile(cfgFile, key)
-		if err != nil {
-			log.Panicf("Failed to decrypt config: %v", err)
-		}
-
-		tmpFile := path.Join(os.TempDir(), "XrayR_config_decrypted.yml")
-		if err := os.WriteFile(tmpFile, decrypted, 0644); err != nil {
-			log.Panicf("Failed to write temp config file: %v", err)
-		}
-		cfgFile = tmpFile
-		config.SetConfigFile(cfgFile)
-	} else if cfgFile != "" {
-		config.SetConfigFile(cfgFile)
 	} else {
-		// 默认配置
 		config.SetConfigName("config")
 		config.SetConfigType("yml")
 		config.AddConfigPath(".")
@@ -93,56 +68,8 @@ func getConfig() *viper.Viper {
 	return config
 }
 
-// AES-256-CFB 解密函数
-func decryptAES256CFBFile(filename, password string) ([]byte, error) {
-	encData, err := ioutil.ReadFile(filename)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(encData) < 16 {
-		return nil, errors.New("invalid encrypted file")
-	}
-
-	// OpenSSL 默认加盐格式：Salted__ + 8 bytes salt
-	saltPrefix := []byte("Salted__")
-	if string(encData[:8]) != string(saltPrefix) {
-		return nil, errors.New("missing Salted__ header")
-	}
-	salt := encData[8:16]
-	cipherText := encData[16:]
-
-	key, iv := evpBytesToKey([]byte(password), salt, 32, 16)
-
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		return nil, err
-	}
-
-	stream := cipher.NewCFBDecrypter(block, iv)
-	decrypted := make([]byte, len(cipherText))
-	stream.XORKeyStream(decrypted, cipherText)
-
-	return decrypted, nil
-}
-
-// 兼容 OpenSSL EVP_BytesToKey
-func evpBytesToKey(password, salt []byte, keyLen, ivLen int) ([]byte, []byte) {
-	var keyiv []byte
-	var prev []byte
-	for len(keyiv) < keyLen+ivLen {
-		h := md5.New()
-		h.Write(prev)
-		h.Write(password)
-		h.Write(salt)
-		prev = h.Sum(nil)
-		keyiv = append(keyiv, prev...)
-	}
-	return keyiv[:keyLen], keyiv[keyLen : keyLen+ivLen]
-}
-
 func run() error {
-	showVersion()
+	ShowVersion()
 
 	config := getConfig()
 	panelConfig := &panel.Config{}
@@ -156,11 +83,13 @@ func run() error {
 
 	p := panel.New(panelConfig)
 	lastTime := time.Now()
+
 	config.OnConfigChange(func(e fsnotify.Event) {
 		if time.Now().After(lastTime.Add(3 * time.Second)) {
 			fmt.Println("Config file changed:", e.Name)
 			p.Close()
 			runtime.GC()
+
 			if err := config.Unmarshal(panelConfig); err != nil {
 				log.Panicf("Parse config file %v failed: %s \n", cfgFile, err)
 			}
@@ -179,18 +108,10 @@ func run() error {
 
 	runtime.GC()
 
+	// Wait for OS signals
 	osSignals := make(chan os.Signal, 1)
 	signal.Notify(osSignals, os.Interrupt, os.Kill, syscall.SIGTERM)
 	<-osSignals
 
 	return nil
-}
-
-func Execute() error {
-	return rootCmd.Execute()
-}
-
-// 可选：显示版本
-func showVersion() {
-	fmt.Println("XrayR 0.9.5 (A Xray backend that supports many panels)")
 }
