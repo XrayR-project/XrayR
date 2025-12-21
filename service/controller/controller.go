@@ -74,6 +74,13 @@ func New(server *core.Instance, api api.API, config *Config, panelType string) *
 		logger:     logger,
 	}
 
+	// 立即把 controller 配置的 SpliceCopyEnable 推给 dispatcher（运行时传值）
+	if controller.dispatcher != nil {
+		controller.dispatcher.ApplyControllerConfig(&mydispatcher.ControllerConfig{
+			SpliceCopyEnable: config.SpliceCopyEnable,
+		})
+	}
+	
 	return controller
 }
 

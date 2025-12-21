@@ -56,6 +56,7 @@ Nodes:
           ProxyProtocolVer: 0 # Send PROXY protocol version, 0 for disable
       DisableLocalREALITYConfig: false  # disable local reality config
       EnableREALITY: false # Enable REALITY
+      SpliceCopyEnable: false # enable时开启Splice 特性，但会流量统计滞后
       REALITYConfigs:
         Show: true # Show REALITY debug
         Dest: www.amazon.com:443 # Required, Same as fallback

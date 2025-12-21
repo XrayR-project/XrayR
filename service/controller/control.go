@@ -28,12 +28,15 @@ type statsOutboundWrapper struct {
 	outbound.Handler
 	pm policy.Manager
 	sm stats.Manager
+	spliceCopyEnable  bool // 是否允许在 Dispatch 中设置 sess.CanSpliceCopy
 }
 
 func (w *statsOutboundWrapper) Dispatch(ctx context.Context, link *transport.Link) {
-	// Disable kernel splice to avoid Vision/REALITY bypassing userland stats path
-	if sess := session.InboundFromContext(ctx); sess != nil {
-		sess.CanSpliceCopy = 3
+	if !w.spliceCopyEnable {
+		// Disable kernel splice to avoid Vision/REALITY bypassing userland stats path
+		if sess := session.InboundFromContext(ctx); sess != nil {
+			sess.CanSpliceCopy = 3
+		}
 	}
 	w.Handler.Dispatch(ctx, link)
 }
@@ -68,7 +71,13 @@ func (c *Controller) addOutbound(config *core.OutboundHandlerConfig) error {
 		return fmt.Errorf("not an InboundHandler: %s", err)
 	}
 	// Wrap outbound handler to ensure downlink stats are always counted (e.g., REALITY/VLESS cases)
-	handler = &statsOutboundWrapper{Handler: handler, pm: c.pm, sm: c.stm}
+		// 将 controller 配置传入 wrapper，用于在 Dispatch 时决定是否设置 sess.CanSpliceCopy
+	handler = &statsOutboundWrapper{
+		Handler:          handler,
+		pm:               c.pm,
+		sm:               c.stm,
+		spliceCopyEnable: c.config != nil && c.config.SpliceCopyEnable,
+	}
 	if err := c.obm.AddHandler(context.Background(), handler); err != nil {
 		return err
 	}

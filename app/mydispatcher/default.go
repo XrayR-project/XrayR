@@ -104,6 +104,12 @@ type DefaultDispatcher struct {
 	fdns        dns.FakeDNSEngine
 	Limiter     *limiter.Limiter
 	RuleManager *rule.Manager
+	SpliceCopyEnable bool
+}
+
+// 新增一个存储config 的简单配置结构体
+type ControllerConfig struct {
+	SpliceCopyEnable bool
 }
 
 func init() {
@@ -146,6 +152,14 @@ func (d *DefaultDispatcher) Init(config *Config, om outbound.Manager, router rou
 	return nil
 }
 
+// ApplyControllerConfig 由 controller 在运行时调用，把需要的字段传给 dispatcher
+func (d *DefaultDispatcher) ApplyControllerConfig(cc *ControllerConfig) {
+	if d == nil || cc == nil {
+		return
+	}
+	d.SpliceCopyEnable = cc.SpliceCopyEnable
+}
+
 // Type implements common.HasType for registering as a separate feature, not overriding core dispatcher.
 func (*DefaultDispatcher) Type() interface{} {
 	return Type()
@@ -179,10 +193,11 @@ func (d *DefaultDispatcher) getLink(ctx context.Context) (*transport.Link, *tran
 	sessionInbound := session.InboundFromContext(ctx)
 	var user *protocol.MemoryUser
 	if sessionInbound != nil {
-		// Disable splice to avoid Vision/REALITY bypassing stats path
-		sessionInbound.CanSpliceCopy = 3
 		user = sessionInbound.User
-		sessionInbound.CanSpliceCopy = 3
+		if !d.SpliceCopyEnable {
+			// Disable splice to avoid Vision/REALITY bypassing stats path
+			sessionInbound.CanSpliceCopy = 3
+		}
 	}
 
 	if user != nil && len(user.Email) > 0 {
