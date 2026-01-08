@@ -4,8 +4,6 @@ package limiter
 import (
 	"context"
 	"fmt"
-	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -31,9 +29,9 @@ type UserInfo struct {
 type InboundInfo struct {
 	Tag            string
 	NodeSpeedLimit uint64
-	UserInfo       *sync.Map // Key: Email value: UserInfo
-	BucketHub      *sync.Map // key: Email, value: *rate.Limiter
-	UserOnlineIP   *sync.Map // Key: Email, value: {Key: IP, value: UID}
+	UserInfo       *sync.Map // Key: user tag (buildUserTag) -> UserInfo
+	BucketHub      *sync.Map // Key: user tag -> *rate.Limiter
+	UserOnlineIP   *sync.Map // Key: user tag -> {Key: IP, value: UID}
 	GlobalLimit    struct {
 		config         *GlobalDeviceLimitConfig
 		globalOnlineIP *marshaler.Marshaler
@@ -85,7 +83,8 @@ func (l *Limiter) AddInboundLimiter(tag string, nodeSpeedLimit uint64, userList 
 
 	userMap := new(sync.Map)
 	for _, u := range *userList {
-		userMap.Store(fmt.Sprintf("%s|%s|%d", tag, u.Email, u.UID), UserInfo{
+		userKey := fmt.Sprintf("%s|%s|%d", tag, u.Email, u.UID)
+		userMap.Store(userKey, UserInfo{
 			UID:         u.UID,
 			SpeedLimit:  u.SpeedLimit,
 			DeviceLimit: u.DeviceLimit,
@@ -101,7 +100,8 @@ func (l *Limiter) UpdateInboundLimiter(tag string, updatedUserList *[]api.UserIn
 		inboundInfo := value.(*InboundInfo)
 		// Update User info
 		for _, u := range *updatedUserList {
-			inboundInfo.UserInfo.Store(fmt.Sprintf("%s|%s|%d", tag, u.Email, u.UID), UserInfo{
+			userKey := fmt.Sprintf("%s|%s|%d", tag, u.Email, u.UID)
+			inboundInfo.UserInfo.Store(userKey, UserInfo{
 				UID:         u.UID,
 				SpeedLimit:  u.SpeedLimit,
 				DeviceLimit: u.DeviceLimit,
@@ -109,13 +109,13 @@ func (l *Limiter) UpdateInboundLimiter(tag string, updatedUserList *[]api.UserIn
 			// Update old limiter bucket
 			limit := determineRate(inboundInfo.NodeSpeedLimit, u.SpeedLimit)
 			if limit > 0 {
-				if bucket, ok := inboundInfo.BucketHub.Load(fmt.Sprintf("%s|%s|%d", tag, u.Email, u.UID)); ok {
+				if bucket, ok := inboundInfo.BucketHub.Load(userKey); ok {
 					limiter := bucket.(*rate.Limiter)
 					limiter.SetLimit(rate.Limit(limit))
 					limiter.SetBurst(int(limit))
 				}
 			} else {
-				inboundInfo.BucketHub.Delete(fmt.Sprintf("%s|%s|%d", tag, u.Email, u.UID))
+				inboundInfo.BucketHub.Delete(userKey)
 			}
 		}
 	} else {
@@ -161,17 +161,17 @@ func (l *Limiter) GetOnlineDevice(tag string) (*[]api.OnlineUser, error) {
 	return &onlineUser, nil
 }
 
-func (l *Limiter) GetUserBucket(tag string, email string, ip string) (limiter *rate.Limiter, SpeedLimit bool, Reject bool) {
+func (l *Limiter) GetUserBucket(tag string, userKey string, ip string) (limiter *rate.Limiter, SpeedLimit bool, Reject bool) {
 	if value, ok := l.InboundInfo.Load(tag); ok {
 		var (
-			userLimit        uint64 = 0
+			userLimit        uint64
 			deviceLimit, uid int
 		)
 
 		inboundInfo := value.(*InboundInfo)
 		nodeLimit := inboundInfo.NodeSpeedLimit
 
-		if v, ok := inboundInfo.UserInfo.Load(email); ok {
+		if v, ok := inboundInfo.UserInfo.Load(userKey); ok {
 			u := v.(UserInfo)
 			uid = u.UID
 			userLimit = u.SpeedLimit
@@ -181,10 +181,8 @@ func (l *Limiter) GetUserBucket(tag string, email string, ip string) (limiter *r
 		// Local device limit
 		ipMap := new(sync.Map)
 		ipMap.Store(ip, uid)
-		// If any device is online
-		if v, ok := inboundInfo.UserOnlineIP.LoadOrStore(email, ipMap); ok {
+		if v, ok := inboundInfo.UserOnlineIP.LoadOrStore(userKey, ipMap); ok {
 			ipMap := v.(*sync.Map)
-			// If this is a new ip
 			if _, ok := ipMap.LoadOrStore(ip, uid); !ok {
 				counter := 0
 				ipMap.Range(func(key, value interface{}) bool {
@@ -198,45 +196,39 @@ func (l *Limiter) GetUserBucket(tag string, email string, ip string) (limiter *r
 			}
 		}
 
-		// GlobalLimit
 		if inboundInfo.GlobalLimit.config != nil && inboundInfo.GlobalLimit.config.Enable {
-			if reject := globalLimit(inboundInfo, email, uid, ip, deviceLimit); reject {
+			if reject := globalLimit(inboundInfo, userKey, uid, ip, deviceLimit); reject {
 				return nil, false, true
 			}
 		}
 
-		// Speed limit
-		limit := determineRate(nodeLimit, userLimit) // Determine the speed limit rate
+		limit := determineRate(nodeLimit, userLimit)
 		if limit > 0 {
-			limiter := rate.NewLimiter(rate.Limit(limit), int(limit)) // Byte/s
-			if v, ok := inboundInfo.BucketHub.LoadOrStore(email, limiter); ok {
+			limiter := rate.NewLimiter(rate.Limit(limit), int(limit))
+			if v, ok := inboundInfo.BucketHub.LoadOrStore(userKey, limiter); ok {
 				bucket := v.(*rate.Limiter)
 				return bucket, true, false
-			} else {
-				return limiter, true, false
 			}
-		} else {
-			return nil, false, false
+			return limiter, true, false
 		}
-	} else {
-		errors.LogDebug(context.Background(), "Get Inbound Limiter information failed")
 		return nil, false, false
 	}
+
+	errors.LogDebug(context.Background(), "Get Inbound Limiter information failed")
+	return nil, false, false
 }
 
 // Global device limit
-func globalLimit(inboundInfo *InboundInfo, email string, uid int, ip string, deviceLimit int) bool {
+func globalLimit(inboundInfo *InboundInfo, userKey string, uid int, ip string, deviceLimit int) bool {
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(inboundInfo.GlobalLimit.config.Timeout)*time.Second)
 	defer cancel()
 
-	// reformat email for unique key
-	uniqueKey := strings.Replace(email, inboundInfo.Tag, strconv.Itoa(deviceLimit), 1)
+	uniqueKey := userKey
 
 	v, err := inboundInfo.GlobalLimit.globalOnlineIP.Get(ctx, uniqueKey, new(map[string]int))
 	if err != nil {
 		if _, ok := err.(*store.NotFound); ok {
-			// If the email is a new device
 			go pushIP(inboundInfo, uniqueKey, &map[string]int{ip: uid})
 		} else {
 			errors.LogErrorInner(context.Background(), err, "cache service")
@@ -245,12 +237,10 @@ func globalLimit(inboundInfo *InboundInfo, email string, uid int, ip string, dev
 	}
 
 	ipMap := v.(*map[string]int)
-	// Reject device reach limit directly
 	if deviceLimit > 0 && len(*ipMap) > deviceLimit {
 		return true
 	}
 
-	// If the ip is not in cache
 	if _, ok := (*ipMap)[ip]; !ok {
 		(*ipMap)[ip] = uid
 		go pushIP(inboundInfo, uniqueKey, ipMap)

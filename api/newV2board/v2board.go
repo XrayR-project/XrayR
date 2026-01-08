@@ -125,6 +125,11 @@ func (c *APIClient) Describe() api.ClientInfo {
 	return api.ClientInfo{APIHost: c.APIHost, NodeID: c.NodeID, Key: c.Key, NodeType: c.NodeType}
 }
 
+// GetXrayRCertConfig is not provided by newV2board; return nil to indicate absence.
+func (c *APIClient) GetXrayRCertConfig() (*api.XrayRCertConfig, error) {
+	return nil, nil
+}
+
 // Debug set the client debug for client
 func (c *APIClient) Debug() {
 	c.client.SetDebug(true)

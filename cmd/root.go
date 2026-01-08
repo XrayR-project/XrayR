@@ -32,6 +32,12 @@ var (
 )
 
 func init() {
+	// Configure global logger time format.
+	log.SetFormatter(&log.TextFormatter{
+		FullTimestamp:   true,
+		TimestampFormat: "2006/01/02 15:04:05.000000",
+	})
+
 	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "Config file for XrayR.")
 }
 
@@ -76,31 +82,68 @@ func run() error {
 		return fmt.Errorf("Parse config file %v failed: %s \n", cfgFile, err)
 	}
 
-	if panelConfig.LogConfig.Level == "debug" {
+	if panelConfig.LogConfig != nil && panelConfig.LogConfig.Level == "debug" {
 		log.SetReportCaller(true)
+	} else {
+		log.SetReportCaller(false)
 	}
 
+	// Create initial panel instance.
 	p := panel.New(panelConfig)
 	lastTime := time.Now()
 	config.OnConfigChange(func(e fsnotify.Event) {
-		// Discarding event received within a short period of time after receiving an event.
-		if time.Now().After(lastTime.Add(3 * time.Second)) {
-			// Hot reload function
-			fmt.Println("Config file changed:", e.Name)
-			p.Close()
-			// Delete old instance and trigger GC
-			runtime.GC()
-			if err := config.Unmarshal(panelConfig); err != nil {
-				log.Panicf("Parse config file %v failed: %s \n", cfgFile, err)
-			}
-
-			if panelConfig.LogConfig.Level == "debug" {
-				log.SetReportCaller(true)
-			}
-
-			p.Start()
-			lastTime = time.Now()
+		// Discard events received within a short period of time after receiving an event.
+		if !time.Now().After(lastTime.Add(3 * time.Second)) {
+			return
 		}
+
+		// Hot reload function
+		fmt.Println("Config file changed:", e.Name)
+
+		// To avoid stopping running services due to temporary write/parse errors, read and parse
+		// the updated config into a new viper instance first, and only swap when successful.
+		newPanelConfig := &panel.Config{}
+		newViper := viper.New()
+		if e.Name != "" {
+			newViper.SetConfigFile(e.Name)
+		} else if cfgFile != "" {
+			newViper.SetConfigFile(cfgFile)
+		} else {
+			// Fallback to the same search logic as getConfig
+			newViper.SetConfigName("config")
+			newViper.SetConfigType("yml")
+			newViper.AddConfigPath(".")
+		}
+
+		if err := newViper.ReadInConfig(); err != nil {
+			log.Errorf("Hot reload: failed to read new config file %s: %v; keeping existing configuration", e.Name, err)
+			return
+		}
+		if err := newViper.Unmarshal(newPanelConfig); err != nil {
+			log.Errorf("Hot reload: failed to parse new config file %s: %v; keeping existing configuration", e.Name, err)
+			return
+		}
+		if len(newPanelConfig.NodesConfig) == 0 {
+			log.Warnf("Hot reload: new config file %s contains no Nodes; ignoring reload to avoid stopping running services", e.Name)
+			return
+		}
+
+		// Swap to the new config and panel instance after successful parse.
+		p.Close()
+		// Delete old instance and trigger GC
+		runtime.GC()
+
+		if newPanelConfig.LogConfig != nil && newPanelConfig.LogConfig.Level == "debug" {
+			log.SetReportCaller(true)
+		} else {
+			log.SetReportCaller(false)
+		}
+
+		panelConfig = newPanelConfig
+		p = panel.New(panelConfig)
+
+		p.Start()
+		lastTime = time.Now()
 	})
 
 	p.Start()

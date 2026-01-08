@@ -39,7 +39,7 @@ type NodeStatus struct {
 type NodeInfo struct {
 	AcceptProxyProtocol bool
 	Authority           string
-	NodeType            string // Must be V2ray, Trojan, and Shadowsocks
+	NodeType            string // V2ray/Vmess, VLESS, Trojan, Shadowsocks, Hysteria2, AnyTLS, Tuic
 	NodeID              int
 	Port                uint32
 	SpeedLimit          uint64 // Bps
@@ -47,6 +47,7 @@ type NodeInfo struct {
 	TransportProtocol   string
 	FakeType            string
 	Host                string
+	SNI                 string
 	Path                string
 	EnableTLS           bool
 	EnableSniffing      bool
@@ -78,6 +79,9 @@ type NodeInfo struct {
 	Security            string
 	Key                 string
 	RejectUnknownSni    bool
+	Hysteria2Config     *Hysteria2Config
+	AnyTLSConfig        *AnyTLSConfig
+	TuicConfig          *TuicConfig
 }
 
 type UserInfo struct {
@@ -119,6 +123,37 @@ type DetectRule struct {
 type DetectResult struct {
 	UID    int
 	RuleID int
+	IP     string
+}
+
+// XrayRCertConfig carries optional panel-provided certificate settings
+// (e.g., DNS provider, ACME email, and DNS-01 environment variables).
+type XrayRCertConfig struct {
+	Provider string            `json:"provider"`
+	Email    string            `json:"email"`
+	DNSEnv   map[string]string `json:"dns_env"`
+}
+
+type Hysteria2Config struct {
+	Obfs                  string
+	ObfsPassword          string
+	UpMbps                int
+	DownMbps              int
+	IgnoreClientBandwidth bool
+	PortHopEnabled        bool
+	PortHopPorts          string
+}
+
+type AnyTLSConfig struct {
+	PaddingScheme []string
+}
+
+type TuicConfig struct {
+	CongestionControl string
+	UDPRelayMode      string
+	ZeroRTTHandshake  bool
+	Heartbeat         int
+	ALPN              []string
 }
 
 type REALITYConfig struct {

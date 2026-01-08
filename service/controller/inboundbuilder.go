@@ -57,10 +57,10 @@ func InboundBuilder(config *Config, nodeInfo *api.NodeInfo, tag string) (*core.I
 	var proxySetting any
 	// Build Protocol and Protocol setting
 	switch nodeInfo.NodeType {
-	case "V2ray", "Vmess", "Vless":
-		if nodeInfo.EnableVless || (nodeInfo.NodeType == "Vless" && nodeInfo.NodeType != "Vmess") {
+	case "V2ray", "Vmess", "Vless", "VLESS":
+		// Protocol selection is driven solely by NodeType
+		if strings.EqualFold(nodeInfo.NodeType, "Vless") || strings.EqualFold(nodeInfo.NodeType, "VLESS") {
 			protocol = "vless"
-			// Enable fallback
 			if config.EnableFallback {
 				fallbackConfigs, err := buildVlessFallbacks(config.FallBackConfigs)
 				if err == nil {
@@ -82,7 +82,6 @@ func InboundBuilder(config *Config, nodeInfo *api.NodeInfo, tag string) (*core.I
 		}
 	case "Trojan":
 		protocol = "trojan"
-		// Enable fallback
 		if config.EnableFallback {
 			fallbackConfigs, err := buildTrojanFallbacks(config.FallBackConfigs)
 			if err == nil {
@@ -105,8 +104,6 @@ func InboundBuilder(config *Config, nodeInfo *api.NodeInfo, tag string) (*core.I
 		}
 
 		proxySetting, _ := proxySetting.(*conf.ShadowsocksServerConfig)
-		// shadowsocks must have a random password
-		// shadowsocks2022's password == user PSK, thus should a length of string >= 32 and base64 encoder
 		b := make([]byte, 32)
 		rand.Read(b)
 		randPasswd := hex.EncodeToString(b)
@@ -134,7 +131,7 @@ func InboundBuilder(config *Config, nodeInfo *api.NodeInfo, tag string) (*core.I
 			NetworkList: []string{"tcp", "udp"},
 		}
 	default:
-		return nil, fmt.Errorf("unsupported node type: %s, Only support: V2ray, Trojan, Shadowsocks, and Shadowsocks-Plugin", nodeInfo.NodeType)
+		return nil, fmt.Errorf("unsupported node type: %s, Only support: Vmess, VLESS, Trojan, Shadowsocks, and Shadowsocks-Plugin", nodeInfo.NodeType)
 	}
 
 	setting, err := json.Marshal(proxySetting)
@@ -155,7 +152,7 @@ func InboundBuilder(config *Config, nodeInfo *api.NodeInfo, tag string) (*core.I
 	switch networkType {
 	case "tcp":
 		tcpSetting := &conf.TCPConfig{
-			AcceptProxyProtocol: config.EnableProxyProtocol,
+			AcceptProxyProtocol: config.EnableProxyProtocol || nodeInfo.AcceptProxyProtocol,
 			HeaderConfig:        nodeInfo.Header,
 		}
 		streamSetting.TCPSettings = tcpSetting
@@ -163,7 +160,7 @@ func InboundBuilder(config *Config, nodeInfo *api.NodeInfo, tag string) (*core.I
 		headers := make(map[string]string)
 		headers["Host"] = nodeInfo.Host
 		wsSettings := &conf.WebSocketConfig{
-			AcceptProxyProtocol: config.EnableProxyProtocol,
+			AcceptProxyProtocol: config.EnableProxyProtocol || nodeInfo.AcceptProxyProtocol,
 			Host:                nodeInfo.Host,
 			Path:                nodeInfo.Path,
 			Headers:             headers,
@@ -180,7 +177,7 @@ func InboundBuilder(config *Config, nodeInfo *api.NodeInfo, tag string) (*core.I
 			Headers:             nodeInfo.Headers,
 			Path:                nodeInfo.Path,
 			Host:                nodeInfo.Host,
-			AcceptProxyProtocol: nodeInfo.AcceptProxyProtocol,
+			AcceptProxyProtocol: config.EnableProxyProtocol || nodeInfo.AcceptProxyProtocol,
 		}
 		streamSetting.HTTPUPGRADESettings = httpupgradeSettings
 	case "splithttp", "xhttp":
@@ -194,14 +191,14 @@ func InboundBuilder(config *Config, nodeInfo *api.NodeInfo, tag string) (*core.I
 
 	// Build TLS and REALITY settings
 	var isREALITY bool
-	if config.DisableLocalREALITYConfig {
-		if nodeInfo.REALITYConfig != nil && nodeInfo.EnableREALITY {
+	// Prefer panel-provided REALITY settings; do not fall back to config.yml keys.
+	if nodeInfo.REALITYConfig != nil && nodeInfo.EnableREALITY {
+		r := nodeInfo.REALITYConfig
+		if r.Dest != "" && r.PrivateKey != "" {
 			isREALITY = true
 			streamSetting.Security = "reality"
-
-			r := nodeInfo.REALITYConfig
 			streamSetting.REALITYSettings = &conf.REALITYConfig{
-				Show:         config.REALITYConfigs.Show,
+				Show:         true,
 				Dest:         []byte(`"` + r.Dest + `"`),
 				Xver:         r.ProxyProtocolVer,
 				ServerNames:  r.ServerNames,
@@ -212,24 +209,9 @@ func InboundBuilder(config *Config, nodeInfo *api.NodeInfo, tag string) (*core.I
 				ShortIds:     r.ShortIds,
 			}
 		}
-	} else if config.EnableREALITY && config.REALITYConfigs != nil {
-		isREALITY = true
-		streamSetting.Security = "reality"
-
-		streamSetting.REALITYSettings = &conf.REALITYConfig{
-			Show:         config.REALITYConfigs.Show,
-			Dest:         []byte(`"` + config.REALITYConfigs.Dest + `"`),
-			Xver:         config.REALITYConfigs.ProxyProtocolVer,
-			ServerNames:  config.REALITYConfigs.ServerNames,
-			PrivateKey:   config.REALITYConfigs.PrivateKey,
-			MinClientVer: config.REALITYConfigs.MinClientVer,
-			MaxClientVer: config.REALITYConfigs.MaxClientVer,
-			MaxTimeDiff:  config.REALITYConfigs.MaxTimeDiff,
-			ShortIds:     config.REALITYConfigs.ShortIds,
-		}
 	}
 
-	if !isREALITY && nodeInfo.EnableTLS && config.CertConfig.CertMode != "none" {
+	if !isREALITY && nodeInfo.EnableTLS && config.CertConfig != nil && config.CertConfig.CertMode != "none" {
 		streamSetting.Security = "tls"
 		certFile, keyFile, err := getCertFile(config.CertConfig)
 		if err != nil {
@@ -243,9 +225,9 @@ func InboundBuilder(config *Config, nodeInfo *api.NodeInfo, tag string) (*core.I
 	}
 
 	// Support ProxyProtocol for any transport protocol
-	if networkType != "tcp" && networkType != "ws" && config.EnableProxyProtocol {
+	if networkType != "tcp" && networkType != "ws" && (config.EnableProxyProtocol || nodeInfo.AcceptProxyProtocol) {
 		sockoptConfig := &conf.SocketConfig{
-			AcceptProxyProtocol: config.EnableProxyProtocol,
+			AcceptProxyProtocol: config.EnableProxyProtocol || nodeInfo.AcceptProxyProtocol,
 		}
 		streamSetting.SocketSettings = sockoptConfig
 	}

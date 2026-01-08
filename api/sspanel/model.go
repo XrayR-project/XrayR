@@ -16,24 +16,46 @@ type NodeInfoResponse struct {
 }
 
 type CustomConfig struct {
-	OffsetPortNode string          `json:"offset_port_node"`
-	Host           string          `json:"host"`
-	Method         string          `json:"method"`
-	ServerKey      string          `json:"server_key"`
-	TLS            string          `json:"tls"`
-	EnableVless    string          `json:"enable_vless"`
-	Network        string          `json:"network"`
-	Security       string          `json:"security"`
-	Path           string          `json:"path"`
-	VerifyCert     bool            `json:"verify_cert"`
-	Obfs           string          `json:"obfs"`
-	Header         json.RawMessage `json:"header"`
-	AllowInsecure  string          `json:"allow_insecure"`
-	Servicename    string          `json:"servicename"`
-	EnableXtls     string          `json:"enable_xtls"`
-	Flow           string          `json:"flow"`
-	EnableREALITY  bool            `json:"enable_reality"`
-	RealityOpts    *REALITYConfig  `json:"reality-opts"`
+	OffsetPortNode        string          `json:"offset_port_node"`
+	OffsetPortUser        string          `json:"offset_port_user"`
+	Host                  string          `json:"host"`
+	Method                string          `json:"method"`
+	ServerKey             string          `json:"server_key"`
+	TLS                   string          `json:"tls"`
+	EnableVless           string          `json:"enable_vless"`
+	Network               string          `json:"network"`
+	Security              string          `json:"security"`
+	Path                  string          `json:"path"`
+	VerifyCert            bool            `json:"verify_cert"`
+	Obfs                  string          `json:"obfs"`
+	Header                json.RawMessage `json:"header"`
+	AllowInsecure         string          `json:"allow_insecure"`
+	Servicename           string          `json:"servicename"`
+	EnableXtls            string          `json:"enable_xtls"`
+	Flow                  string          `json:"flow"`
+	EnableREALITY         bool            `json:"enable_reality"`
+	RealityOpts           *REALITYConfig  `json:"reality-opts"`
+	ObfsPassword          string          `json:"obfs_password"`
+	UpMbps                string          `json:"up_mbps"`
+	DownMbps              string          `json:"down_mbps"`
+	ServerName            string          `json:"server_name"`
+	Sni                   string          `json:"sni"`
+	Alpn                  []string        `json:"alpn"`
+	Fingerprint           string          `json:"fingerprint"`
+	IgnoreClientBandwidth bool            `json:"ignore_client_bandwidth"`
+	PaddingScheme         []string        `json:"padding_scheme"`
+	// Hysteria2 port hopping fields kept raw to allow loose types from panel JSON
+	PortHopEnableRaw   json.RawMessage `json:"port_hop_enable"`
+	PortHopPortsRaw    json.RawMessage `json:"port_hop_ports"`
+	PortHopIntervalRaw json.RawMessage `json:"port_hop_interval"`
+	// TUIC-specific transport tuning
+	CongestionControl string `json:"congestion_control"`
+	UDPRelayMode      string `json:"udp_relay_mode"`
+	ZeroRTTHandshake  string `json:"zero_rtt_handshake"`
+	Heartbeat         string `json:"heartbeat"`
+	// Per-node proxy protocol control
+	EnableProxyProtocol bool   `json:"enable_proxy_protocol"`
+	ProxyProtocolVer    uint64 `json:"proxy_protocol_ver"`
 }
 
 // UserResponse is the response of user
@@ -84,8 +106,9 @@ type RuleItem struct {
 }
 
 type IllegalItem struct {
-	ID  int `json:"list_id"`
-	UID int `json:"user_id"`
+	ID  int    `json:"list_id"`
+	UID int    `json:"user_id"`
+	IP  string `json:"ip,omitempty"`
 }
 
 type REALITYConfig struct {

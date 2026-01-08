@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -615,7 +616,23 @@ func (c *Controller) userInfoMonitor() (err error) {
 }
 
 func (c *Controller) buildNodeTag() string {
-	return fmt.Sprintf("%s_%s_%d", c.nodeInfo.NodeType, c.config.ListenIP, c.nodeInfo.Port)
+	// Normalize NodeType for tag prefix so same-node routing and data path guards
+	// consistently recognize managed protocols.
+	base := c.nodeInfo.NodeType
+	switch strings.ToLower(base) {
+	case "vless":
+		base = "VLESS"
+	case "trojan":
+		base = "Trojan"
+	case "vmess", "v2ray":
+		base = "Vmess"
+	case "shadowsocks":
+		base = "Shadowsocks"
+	}
+
+	// Include NodeID to avoid cross-node mixing when multiple logical nodes share
+	// the same NodeType/ListenIP/Port (e.g., CDN or multi-node deployments).
+	return fmt.Sprintf("%s_%s_%d_%d", base, c.config.ListenIP, c.nodeInfo.Port, c.nodeInfo.NodeID)
 }
 
 // func (c *Controller) logPrefix() string {

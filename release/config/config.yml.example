@@ -13,12 +13,12 @@ ConnectionConfig:
   DownlinkOnly: 4 # Time limit when the connection is closed after the uplink is closed, Second
   BufferSize: 64 # The internal cache size of each connection, kB
 Nodes:
-  - PanelType: "SSpanel" # Panel type: SSpanel, NewV2board, PMpanel, Proxypanel, V2RaySocks, GoV2Panel, BunPanel
+  - PanelType: "SSPanel" # Panel type: SSPanel/SSpanel, NewV2board, PMpanel, Proxypanel, V2RaySocks, GoV2Panel, BunPanel
     ApiConfig:
       ApiHost: "http://127.0.0.1:667"
       ApiKey: "123"
-      NodeID: 41
-      NodeType: V2ray # Node type: V2ray, Vmess, Vless, Shadowsocks, Trojan, Shadowsocks-Plugin
+      NodeID: 41 # Single ID or comma-separated list, e.g. "41,42,43" for multiple logical nodes
+      NodeType: V2ray # Node type: V2ray, Vmess, Vless, Shadowsocks, Trojan, Shadowsocks-Plugin, Hysteria2, AnyTLS, Tuic
       Timeout: 30 # Timeout for the api request
       EnableVless: false # Enable Vless for V2ray Type
       VlessFlow: "xtls-rprx-vision" # Only support vless
@@ -69,16 +69,18 @@ Nodes:
         ShortIds: # Required, list of available shortIds for the client, can be used to differentiate between different clients.
           - ""
           - 0123456789abcdef
-      CertConfig:
-        CertMode: dns # Option about how to get certificate: none, file, http, tls, dns. Choose "none" will forcedly disable the tls config.
-        CertDomain: "node1.test.com" # Domain to cert
-        CertFile: /etc/XrayR/cert/node1.test.com.cert # Provided if the CertMode is file
-        KeyFile: /etc/XrayR/cert/node1.test.com.key
-        Provider: alidns # DNS cert provider, Get the full support list here: https://go-acme.github.io/lego/dns/
-        Email: test@me.com
-        DNSEnv: # DNS ENV option used by DNS provider
-          ALICLOUD_ACCESS_KEY: aaa
-          ALICLOUD_SECRET_KEY: bbb
+      # CertConfig is typically managed by the panel for SSPanel nodes. If you
+      # need to override locally, uncomment and fill the fields below:
+      # CertConfig:
+      #   CertMode: dns # none, file, http, tls, dns
+      #   CertDomain: "node1.test.com"
+      #   CertFile: /etc/XrayR/cert/node1.test.com.cert
+      #   KeyFile: /etc/XrayR/cert/node1.test.com.key
+      #   Provider: alidns
+      #   Email: test@me.com
+      #   DNSEnv:
+      #     ALICLOUD_ACCESS_KEY: aaa
+      #     ALICLOUD_SECRET_KEY: bbb
 
 #  - PanelType: "SSpanel" # Panel type: SSpanel, V2board, NewV2board, PMpanel, Proxypanel, V2RaySocks, GoV2Panel
 #    ApiConfig:

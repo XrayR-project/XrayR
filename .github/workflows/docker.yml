@@ -5,7 +5,7 @@ on:
       - published
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: xrayr-project/xrayr
+  IMAGE_NAME: XrayR-project/XrayR
 
 jobs:
   build:

@@ -25,6 +25,7 @@ import (
 	"github.com/XrayR-project/XrayR/api/v2raysocks"
 	"github.com/XrayR-project/XrayR/app/mydispatcher"
 	_ "github.com/XrayR-project/XrayR/cmd/distro/all"
+	"github.com/XrayR-project/XrayR/common/mylego"
 	"github.com/XrayR-project/XrayR/service"
 	"github.com/XrayR-project/XrayR/service/controller"
 )
@@ -176,7 +177,7 @@ func (p *Panel) Start() {
 	for _, nodeConfig := range p.panelConfig.NodesConfig {
 		var apiClient api.API
 		switch nodeConfig.PanelType {
-		case "SSpanel":
+		case "SSpanel", "SSPanel":
 			apiClient = sspanel.New(nodeConfig.ApiConfig)
 		case "NewV2board", "V2board":
 			apiClient = newV2board.New(nodeConfig.ApiConfig)
@@ -199,6 +200,32 @@ func (p *Panel) Start() {
 		if nodeConfig.ControllerConfig != nil {
 			if err := mergo.Merge(controllerConfig, nodeConfig.ControllerConfig, mergo.WithOverride); err != nil {
 				log.Panicf("Read Controller Config Failed")
+			}
+		}
+
+		// Merge panel-delivered cert config for XrayR (currently only SSPanel supports this).
+		if panelCert, err := apiClient.GetXrayRCertConfig(); err != nil {
+			log.Warnf("Failed to get XrayR cert config from panel: %v", err)
+		} else if panelCert != nil {
+			if controllerConfig.CertConfig == nil {
+				controllerConfig.CertConfig = &mylego.CertConfig{}
+			}
+			if controllerConfig.CertConfig.CertMode == "" {
+				controllerConfig.CertConfig.CertMode = "dns"
+			}
+			if panelCert.Provider != "" {
+				controllerConfig.CertConfig.Provider = panelCert.Provider
+			}
+			if panelCert.Email != "" {
+				controllerConfig.CertConfig.Email = panelCert.Email
+			}
+			if len(panelCert.DNSEnv) > 0 {
+				if controllerConfig.CertConfig.DNSEnv == nil {
+					controllerConfig.CertConfig.DNSEnv = make(map[string]string)
+				}
+				for k, v := range panelCert.DNSEnv {
+					controllerConfig.CertConfig.DNSEnv[k] = v
+				}
 			}
 		}
 		controllerService = controller.New(server, apiClient, controllerConfig, nodeConfig.PanelType)

@@ -7,7 +7,7 @@ import (
 )
 
 var (
-	version  = "0.9.7"
+	version  = "0.9.8"
 	codename = "XrayR"
 	intro    = "A Xray backend that supports many panels"
 )

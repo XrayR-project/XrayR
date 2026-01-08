@@ -46,6 +46,11 @@ func (*APIClient) ReportNodeStatus(nodeStatus *api.NodeStatus) (err error) {
 	return nil
 }
 
+// GetXrayRCertConfig is not supported by BunPanel; return nil to indicate absence.
+func (*APIClient) GetXrayRCertConfig() (*api.XrayRCertConfig, error) {
+	return nil, nil
+}
+
 // GetNodeRule implements api.API.
 func (c *APIClient) GetNodeRule() (*[]api.DetectRule, error) {
 	ruleList := c.LocalRuleList

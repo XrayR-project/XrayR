@@ -236,6 +236,11 @@ func (c *APIClient) Describe() api.ClientInfo {
 	return api.ClientInfo{APIHost: c.APIHost, NodeID: c.NodeID, Key: c.Key, NodeType: c.NodeType}
 }
 
+// GetXrayRCertConfig is not provided by GoV2Panel; return nil to indicate absence.
+func (c *APIClient) GetXrayRCertConfig() (*api.XrayRCertConfig, error) {
+	return nil, nil
+}
+
 // GetNodeRule implements the API interface
 func (c *APIClient) GetNodeRule() (*[]api.DetectRule, error) {
 	ruleList := c.LocalRuleList
