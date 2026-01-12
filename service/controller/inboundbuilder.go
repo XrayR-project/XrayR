@@ -58,8 +58,9 @@ func InboundBuilder(config *Config, nodeInfo *api.NodeInfo, tag string) (*core.I
 	// Build Protocol and Protocol setting
 	switch nodeInfo.NodeType {
 	case "V2ray", "Vmess", "Vless", "VLESS":
-		// Protocol selection is driven solely by NodeType
-		if strings.EqualFold(nodeInfo.NodeType, "Vless") || strings.EqualFold(nodeInfo.NodeType, "VLESS") {
+		//  Protocol selection is driven solely by NodeType
+		useVless := nodeInfo.EnableVless || strings.EqualFold(nodeInfo.NodeType, "Vless") || strings.EqualFold(nodeInfo.NodeType, "VLESS")
+		if useVless {
 			protocol = "vless"
 			if config.EnableFallback {
 				fallbackConfigs, err := buildVlessFallbacks(config.FallBackConfigs)
