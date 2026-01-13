@@ -129,7 +129,7 @@ func (l *Limiter) DeleteInboundLimiter(tag string) error {
 	return nil
 }
 
-func (l *Limiter) GetOnlineDevice(tag string) (*[]api.OnlineUser, error) {
+func (l *Limiter) GetOnlineDevice(tag string, keepOnlineIP bool) (*[]api.OnlineUser, error) {
 	var onlineUser []api.OnlineUser
 
 	if value, ok := l.InboundInfo.Load(tag); ok {
@@ -151,7 +151,9 @@ func (l *Limiter) GetOnlineDevice(tag string) (*[]api.OnlineUser, error) {
 				onlineUser = append(onlineUser, api.OnlineUser{UID: uid, IP: ip})
 				return true
 			})
-			inboundInfo.UserOnlineIP.Delete(email) // Reset online device
+			if !keepOnlineIP {
+				inboundInfo.UserOnlineIP.Delete(email) // Reset online device unless retention requested
+			}
 			return true
 		})
 	} else {

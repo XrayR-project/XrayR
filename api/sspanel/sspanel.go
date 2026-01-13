@@ -760,10 +760,10 @@ func (c *APIClient) ParseUserListResponse(userInfoResponse *[]UserResponse) (*[]
 // Only available for SSPanel version >= 2021.11
 func (c *APIClient) ParseSSPanelNodeInfo(nodeInfoResponse *NodeInfoResponse) (*api.NodeInfo, error) {
 	var (
-		speedLimit             uint64 = 0
-		enableTLS, enableVless bool
-		alterID                uint16 = 0
-		transportProtocol      string
+		speedLimit                            uint64 = 0
+		enableTLS, enableVless, enableREALITY bool
+		alterID                               uint16 = 0
+		transportProtocol                     string
 	)
 
 	// Check if custom_config is null
@@ -796,12 +796,20 @@ func (c *APIClient) ParseSSPanelNodeInfo(nodeInfoResponse *NodeInfoResponse) (*a
 	case "V2ray":
 		transportProtocol = nodeConfig.Network
 
-		tlsType := nodeConfig.Security
+		tlsType := strings.ToLower(nodeConfig.Security)
 		if tlsType == "tls" || tlsType == "xtls" {
 			enableTLS = true
 		}
+		if tlsType == "reality" {
+			enableREALITY = true
+			enableVless = true
+		}
 
-		if nodeConfig.EnableVless == "1" {
+		if nodeConfig.EnableREALITY {
+			enableREALITY = true
+		}
+
+		if nodeConfig.EnableVless == "1" || strings.EqualFold(nodeConfig.EnableVless, "true") {
 			enableVless = true
 		}
 	case "Trojan":
@@ -865,7 +873,7 @@ func (c *APIClient) ParseSSPanelNodeInfo(nodeInfoResponse *NodeInfoResponse) (*a
 		ServerKey:           nodeConfig.ServerKey,
 		ServiceName:         nodeConfig.Servicename,
 		Header:              nodeConfig.Header,
-		EnableREALITY:       nodeConfig.EnableREALITY,
+		EnableREALITY:       enableREALITY,
 		REALITYConfig:       realityConfig,
 		AcceptProxyProtocol: nodeConfig.EnableProxyProtocol,
 		ProxyProtocolVer:    nodeConfig.ProxyProtocolVer,
