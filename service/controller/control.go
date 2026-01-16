@@ -310,10 +310,7 @@ func (c *Controller) DeleteInboundLimiter(tag string) error {
 }
 
 func (c *Controller) GetOnlineDevice(tag string) (*[]api.OnlineUser, error) {
-	// SSPanel requires alive IPs to persist across report cycles; other panels
-	// prefer the legacy one-shot clear to avoid stale entries.
-	keepOnlineIP := strings.Contains(strings.ToLower(c.panelType), "sspanel")
-	return c.dispatcher.Limiter.GetOnlineDevice(tag, keepOnlineIP)
+	return c.dispatcher.Limiter.GetOnlineDevice(tag)
 }
 
 func (c *Controller) UpdateRule(tag string, newRuleList []api.DetectRule) error {
