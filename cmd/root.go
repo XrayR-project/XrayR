@@ -41,7 +41,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "Config file for XrayR.")
 }
 
-func getConfig() *viper.Viper {
+func getConfig() (*viper.Viper, error) {
 	config := viper.New()
 
 	// Set custom path and name
@@ -65,18 +65,21 @@ func getConfig() *viper.Viper {
 	}
 
 	if err := config.ReadInConfig(); err != nil {
-		log.Panicf("Config file error: %s \n", err)
+		return nil, fmt.Errorf("config file error: %w", err)
 	}
 
 	config.WatchConfig() // Watch the config
 
-	return config
+	return config, nil
 }
 
 func run() error {
 	showVersion()
 
-	config := getConfig()
+	config, err := getConfig()
+	if err != nil {
+		return err
+	}
 	panelConfig := &panel.Config{}
 	if err := config.Unmarshal(panelConfig); err != nil {
 		return fmt.Errorf("Parse config file %v failed: %s \n", cfgFile, err)
@@ -129,7 +132,9 @@ func run() error {
 		}
 
 		// Swap to the new config and panel instance after successful parse.
-		p.Close()
+		if err := p.Close(); err != nil {
+			log.Errorf("Hot reload: failed to close old panel: %v", err)
+		}
 		// Delete old instance and trigger GC
 		runtime.GC()
 
@@ -142,18 +147,27 @@ func run() error {
 		panelConfig = newPanelConfig
 		p = panel.New(panelConfig)
 
-		p.Start()
+		if err := p.Start(); err != nil {
+			log.Errorf("Hot reload: failed to start new panel: %v", err)
+			return
+		}
 		lastTime = time.Now()
 	})
 
-	p.Start()
-	defer p.Close()
+	if err := p.Start(); err != nil {
+		return fmt.Errorf("failed to start panel: %w", err)
+	}
+	defer func() {
+		if err := p.Close(); err != nil {
+			log.Errorf("Failed to close panel: %v", err)
+		}
+	}()
 
 	// Explicitly triggering GC to remove garbage from config loading.
 	runtime.GC()
 	// Running backend
 	osSignals := make(chan os.Signal, 1)
-	signal.Notify(osSignals, os.Interrupt, os.Kill, syscall.SIGTERM)
+	signal.Notify(osSignals, os.Interrupt, syscall.SIGTERM)
 	<-osSignals
 
 	return nil

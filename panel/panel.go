@@ -2,6 +2,8 @@ package panel
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"os"
 	"sync"
 
@@ -32,25 +34,32 @@ import (
 
 // Panel Structure
 type Panel struct {
-	access      sync.Mutex
-	panelConfig *Config
-	Server      *core.Instance
-	Service     []service.Service
-	Running     bool
+	access       sync.Mutex
+	serverMutex  sync.RWMutex
+	serviceMutex sync.RWMutex
+	panelConfig  *Config
+	Server       *core.Instance
+	Service      []service.Service
+	Running      bool
+	logger       *log.Entry
 }
 
 func New(panelConfig *Config) *Panel {
-	p := &Panel{panelConfig: panelConfig}
+	logger := log.WithFields(log.Fields{"module": "panel"})
+	p := &Panel{
+		panelConfig: panelConfig,
+		logger:      logger,
+	}
 	return p
 }
 
-func (p *Panel) loadCore(panelConfig *Config) *core.Instance {
+func (p *Panel) loadCore(panelConfig *Config) (*core.Instance, error) {
 	// Log Config
 	coreLogConfig := &conf.LogConfig{}
 	logConfig := getDefaultLogConfig()
 	if panelConfig.LogConfig != nil {
 		if _, err := diff.Merge(logConfig, panelConfig.LogConfig, logConfig); err != nil {
-			log.Panicf("Read Log config failed: %s", err)
+			return nil, fmt.Errorf("read log config failed: %w", err)
 		}
 	}
 	coreLogConfig.LogLevel = logConfig.Level
@@ -61,10 +70,10 @@ func (p *Panel) loadCore(panelConfig *Config) *core.Instance {
 	coreDnsConfig := &conf.DNSConfig{}
 	if panelConfig.DnsConfigPath != "" {
 		if data, err := os.ReadFile(panelConfig.DnsConfigPath); err != nil {
-			log.Panicf("Failed to read DNS config file at: %s", panelConfig.DnsConfigPath)
+			return nil, fmt.Errorf("failed to read DNS config file at %s: %w", panelConfig.DnsConfigPath, err)
 		} else {
 			if err = json.Unmarshal(data, coreDnsConfig); err != nil {
-				log.Panicf("Failed to unmarshal DNS config: %s", panelConfig.DnsConfigPath)
+				return nil, fmt.Errorf("failed to unmarshal DNS config %s: %w", panelConfig.DnsConfigPath, err)
 			}
 		}
 	}
@@ -76,32 +85,32 @@ func (p *Panel) loadCore(panelConfig *Config) *core.Instance {
 
 	dnsConfig, err := coreDnsConfig.Build()
 	if err != nil {
-		log.Panicf("Failed to understand DNS config, Please check: https://xtls.github.io/config/dns.html for help: %s", err)
+		return nil, fmt.Errorf("failed to understand DNS config, please check https://xtls.github.io/config/dns.html for help: %w", err)
 	}
 
 	// Routing config
 	coreRouterConfig := &conf.RouterConfig{}
 	if panelConfig.RouteConfigPath != "" {
 		if data, err := os.ReadFile(panelConfig.RouteConfigPath); err != nil {
-			log.Panicf("Failed to read Routing config file at: %s", panelConfig.RouteConfigPath)
+			return nil, fmt.Errorf("failed to read routing config file at %s: %w", panelConfig.RouteConfigPath, err)
 		} else {
 			if err = json.Unmarshal(data, coreRouterConfig); err != nil {
-				log.Panicf("Failed to unmarshal Routing config: %s", panelConfig.RouteConfigPath)
+				return nil, fmt.Errorf("failed to unmarshal routing config %s: %w", panelConfig.RouteConfigPath, err)
 			}
 		}
 	}
 	routeConfig, err := coreRouterConfig.Build()
 	if err != nil {
-		log.Panicf("Failed to understand Routing config  Please check: https://xtls.github.io/config/routing.html for help: %s", err)
+		return nil, fmt.Errorf("failed to understand routing config, please check https://xtls.github.io/config/routing.html for help: %w", err)
 	}
 	// Custom Inbound config
 	var coreCustomInboundConfig []conf.InboundDetourConfig
 	if panelConfig.InboundConfigPath != "" {
 		if data, err := os.ReadFile(panelConfig.InboundConfigPath); err != nil {
-			log.Panicf("Failed to read Custom Inbound config file at: %s", panelConfig.OutboundConfigPath)
+			return nil, fmt.Errorf("failed to read custom inbound config file at %s: %w", panelConfig.InboundConfigPath, err)
 		} else {
 			if err = json.Unmarshal(data, &coreCustomInboundConfig); err != nil {
-				log.Panicf("Failed to unmarshal Custom Inbound config: %s", panelConfig.OutboundConfigPath)
+				return nil, fmt.Errorf("failed to unmarshal custom inbound config %s: %w", panelConfig.InboundConfigPath, err)
 			}
 		}
 	}
@@ -109,7 +118,7 @@ func (p *Panel) loadCore(panelConfig *Config) *core.Instance {
 	for _, config := range coreCustomInboundConfig {
 		oc, err := config.Build()
 		if err != nil {
-			log.Panicf("Failed to understand Inbound config, Please check: https://xtls.github.io/config/inbound.html for help: %s", err)
+			return nil, fmt.Errorf("failed to understand inbound config, please check https://xtls.github.io/config/inbound.html for help: %w", err)
 		}
 		inBoundConfig = append(inBoundConfig, oc)
 	}
@@ -117,10 +126,10 @@ func (p *Panel) loadCore(panelConfig *Config) *core.Instance {
 	var coreCustomOutboundConfig []conf.OutboundDetourConfig
 	if panelConfig.OutboundConfigPath != "" {
 		if data, err := os.ReadFile(panelConfig.OutboundConfigPath); err != nil {
-			log.Panicf("Failed to read Custom Outbound config file at: %s", panelConfig.OutboundConfigPath)
+			return nil, fmt.Errorf("failed to read custom outbound config file at %s: %w", panelConfig.OutboundConfigPath, err)
 		} else {
 			if err = json.Unmarshal(data, &coreCustomOutboundConfig); err != nil {
-				log.Panicf("Failed to unmarshal Custom Outbound config: %s", panelConfig.OutboundConfigPath)
+				return nil, fmt.Errorf("failed to unmarshal custom outbound config %s: %w", panelConfig.OutboundConfigPath, err)
 			}
 		}
 	}
@@ -128,12 +137,15 @@ func (p *Panel) loadCore(panelConfig *Config) *core.Instance {
 	for _, config := range coreCustomOutboundConfig {
 		oc, err := config.Build()
 		if err != nil {
-			log.Panicf("Failed to understand Outbound config, Please check: https://xtls.github.io/config/outbound.html for help: %s", err)
+			return nil, fmt.Errorf("failed to understand outbound config, please check https://xtls.github.io/config/outbound.html for help: %w", err)
 		}
 		outBoundConfig = append(outBoundConfig, oc)
 	}
 	// Policy config
-	levelPolicyConfig := parseConnectionConfig(panelConfig.ConnectionConfig)
+	levelPolicyConfig, err := parseConnectionConfig(panelConfig.ConnectionConfig)
+	if err != nil {
+		return nil, err
+	}
 	corePolicyConfig := &conf.PolicyConfig{}
 	corePolicyConfig.Levels = map[uint32]*conf.Policy{0: levelPolicyConfig}
 	policyConfig, _ := corePolicyConfig.Build()
@@ -155,23 +167,28 @@ func (p *Panel) loadCore(panelConfig *Config) *core.Instance {
 	}
 	server, err := core.New(config)
 	if err != nil {
-		log.Panicf("failed to create instance: %s", err)
+		return nil, fmt.Errorf("failed to create instance: %w", err)
 	}
 
-	return server
+	return server, nil
 }
 
 // Start the panel
-func (p *Panel) Start() {
+func (p *Panel) Start() error {
 	p.access.Lock()
 	defer p.access.Unlock()
-	log.Print("Start the panel..")
+	p.logger.Info("Starting panel")
 	// Load Core
-	server := p.loadCore(p.panelConfig)
-	if err := server.Start(); err != nil {
-		log.Panicf("Failed to start instance: %s", err)
+	server, err := p.loadCore(p.panelConfig)
+	if err != nil {
+		return fmt.Errorf("failed to load core: %w", err)
 	}
+	if err := server.Start(); err != nil {
+		return fmt.Errorf("failed to start instance: %w", err)
+	}
+	p.serverMutex.Lock()
 	p.Server = server
+	p.serverMutex.Unlock()
 
 	// Load Nodes config
 	for _, nodeConfig := range p.panelConfig.NodesConfig {
@@ -192,20 +209,20 @@ func (p *Panel) Start() {
 		case "BunPanel":
 			apiClient = bunpanel.New(nodeConfig.ApiConfig)
 		default:
-			log.Panicf("Unsupport panel type: %s", nodeConfig.PanelType)
+			return fmt.Errorf("unsupported panel type: %s", nodeConfig.PanelType)
 		}
 		var controllerService service.Service
 		// Register controller service
 		controllerConfig := getDefaultControllerConfig()
 		if nodeConfig.ControllerConfig != nil {
 			if err := mergo.Merge(controllerConfig, nodeConfig.ControllerConfig, mergo.WithOverride); err != nil {
-				log.Panicf("Read Controller Config Failed")
+				return fmt.Errorf("failed to read controller config: %w", err)
 			}
 		}
 
 		// Merge panel-delivered cert config for XrayR (currently only SSPanel supports this).
 		if panelCert, err := apiClient.GetXrayRCertConfig(); err != nil {
-			log.Warnf("Failed to get XrayR cert config from panel: %v", err)
+			p.logger.Warnf("Failed to get XrayR cert config from panel: %v", err)
 		} else if panelCert != nil {
 			if controllerConfig.CertConfig == nil {
 				controllerConfig.CertConfig = &mylego.CertConfig{}
@@ -229,45 +246,70 @@ func (p *Panel) Start() {
 			}
 		}
 		controllerService = controller.New(server, apiClient, controllerConfig, nodeConfig.PanelType)
+		p.serviceMutex.Lock()
 		p.Service = append(p.Service, controllerService)
+		p.serviceMutex.Unlock()
 
 	}
 
 	// Start all the service
-	for _, s := range p.Service {
-		err := s.Start()
-		if err != nil {
-			log.Panicf("Panel Start failed: %s", err)
+	p.serviceMutex.RLock()
+	services := make([]service.Service, len(p.Service))
+	copy(services, p.Service)
+	p.serviceMutex.RUnlock()
+
+	for _, s := range services {
+		if err := s.Start(); err != nil {
+			p.logger.Errorf("Failed to start service: %v", err)
+			return fmt.Errorf("failed to start service: %w", err)
 		}
 	}
 	p.Running = true
-	return
+	return nil
 }
 
 // Close the panel
-func (p *Panel) Close() {
+func (p *Panel) Close() error {
 	p.access.Lock()
 	defer p.access.Unlock()
-	for _, s := range p.Service {
-		err := s.Close()
-		if err != nil {
-			log.Panicf("Panel Close failed: %s", err)
+
+	p.serviceMutex.RLock()
+	services := make([]service.Service, len(p.Service))
+	copy(services, p.Service)
+	p.serviceMutex.RUnlock()
+
+	var errs []error
+	for _, s := range services {
+		if err := s.Close(); err != nil {
+			p.logger.Errorf("Failed to close service: %v", err)
+			errs = append(errs, err)
 		}
 	}
+
+	p.serviceMutex.Lock()
 	p.Service = nil
-	p.Server.Close()
+	p.serviceMutex.Unlock()
+
+	p.serverMutex.Lock()
+	if p.Server != nil {
+		if err := p.Server.Close(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	p.serverMutex.Unlock()
+
 	p.Running = false
-	return
+	return errors.Join(errs...)
 }
 
-func parseConnectionConfig(c *ConnectionConfig) (policy *conf.Policy) {
+func parseConnectionConfig(c *ConnectionConfig) (*conf.Policy, error) {
 	connectionConfig := getDefaultConnectionConfig()
 	if c != nil {
 		if _, err := diff.Merge(connectionConfig, c, connectionConfig); err != nil {
-			log.Panicf("Read ConnectionConfig failed: %s", err)
+			return nil, fmt.Errorf("read connection config failed: %w", err)
 		}
 	}
-	policy = &conf.Policy{
+	policy := &conf.Policy{
 		StatsUserUplink:   true,
 		StatsUserDownlink: true,
 		Handshake:         &connectionConfig.Handshake,
@@ -277,5 +319,5 @@ func parseConnectionConfig(c *ConnectionConfig) (policy *conf.Policy) {
 		BufferSize:        &connectionConfig.BufferSize,
 	}
 
-	return
+	return policy, nil
 }

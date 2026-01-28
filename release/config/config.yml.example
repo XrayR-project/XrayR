@@ -18,7 +18,7 @@ Nodes:
       ApiHost: "http://127.0.0.1:667"
       ApiKey: "123"
       NodeID: 41 # Single ID or comma-separated list, e.g. "41,42,43" for multiple logical nodes
-      NodeType: V2ray # Node type: V2ray/Vmess, Vless, Shadowsocks, Trojan, Shadowsocks-Plugin
+      NodeType: V2ray # Node type: V2ray, Vmess, Vless, Shadowsocks, Trojan, Shadowsocks-Plugin
       Timeout: 30 # Timeout for the api request
       EnableVless: false # Enable Vless for V2ray Type
       VlessFlow: "xtls-rprx-vision" # Only support vless
