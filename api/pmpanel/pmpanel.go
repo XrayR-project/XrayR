@@ -88,9 +88,14 @@ func readLocalRuleList(path string) (LocalRuleList []api.DetectRule) {
 
 		// read line by line
 		for fileScanner.Scan() {
+			pattern, err := regexp.Compile(fileScanner.Text())
+			if err != nil {
+				log.Printf("Invalid rule regex: %s, skipping", err)
+				continue
+			}
 			LocalRuleList = append(LocalRuleList, api.DetectRule{
 				ID:      -1,
-				Pattern: regexp.MustCompile(fileScanner.Text()),
+				Pattern: pattern,
 			})
 		}
 		// handle first encountered error while reading
@@ -107,7 +112,7 @@ func readLocalRuleList(path string) (LocalRuleList []api.DetectRule) {
 
 // Describe return a description of the client
 func (c *APIClient) Describe() api.ClientInfo {
-	return api.ClientInfo{APIHost: c.APIHost, NodeID: c.NodeID, Key: c.Key, NodeType: c.NodeType}
+	return api.ClientInfo{APIHost: c.APIHost, NodeID: c.NodeID, Key: "", NodeType: c.NodeType}
 }
 
 // GetXrayRCertConfig is not provided by PMPanel; return nil to indicate absence.
@@ -129,7 +134,7 @@ func (c *APIClient) parseResponse(res *resty.Response, path string, err error) (
 		return nil, fmt.Errorf("request %s failed: %s", c.assembleURL(path), err)
 	}
 
-	if res.StatusCode() > 400 {
+	if res.StatusCode() >= 400 {
 		body := res.Body()
 		return nil, fmt.Errorf("request %s failed: %s, %s", c.assembleURL(path), string(body), err)
 	}
@@ -349,9 +354,14 @@ func (c *APIClient) GetNodeRule() (*[]api.DetectRule, error) {
 	}
 
 	for _, r := range *ruleListResponse {
+		pattern, err := regexp.Compile(r.Content)
+		if err != nil {
+			log.Printf("Invalid rule regex from panel (ID=%d): %s, skipping", r.ID, err)
+			continue
+		}
 		ruleList = append(ruleList, api.DetectRule{
 			ID:      r.ID,
-			Pattern: regexp.MustCompile(r.Content),
+			Pattern: pattern,
 		})
 	}
 	return &ruleList, nil
@@ -379,6 +389,12 @@ func (c *APIClient) ParseV2rayNodeResponse(nodeInfoResponse *NodeInfoResponse) (
 		serviceName = nodeInfoResponse.Sni
 	case "tcp":
 		// TODO
+	case "splithttp", "xhttp":
+		host = nodeInfoResponse.Host
+		path = nodeInfoResponse.Path
+	case "httpupgrade":
+		host = nodeInfoResponse.Host
+		path = nodeInfoResponse.Path
 	}
 	// Compatible with more node types config
 	switch nodeInfoResponse.Security {

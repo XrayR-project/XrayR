@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 
 	"dario.cat/mergo"
@@ -29,7 +30,10 @@ import (
 	_ "github.com/XrayR-project/XrayR/cmd/distro/all"
 	"github.com/XrayR-project/XrayR/common/mylego"
 	"github.com/XrayR-project/XrayR/service"
+	"github.com/XrayR-project/XrayR/service/anytls"
 	"github.com/XrayR-project/XrayR/service/controller"
+	"github.com/XrayR-project/XrayR/service/hysteria2"
+	"github.com/XrayR-project/XrayR/service/tuic"
 )
 
 // Panel Structure
@@ -245,7 +249,20 @@ func (p *Panel) Start() error {
 				}
 			}
 		}
-		controllerService = controller.New(server, apiClient, controllerConfig, nodeConfig.PanelType)
+		nodeType := apiClient.Describe().NodeType
+		if nodeType == "" && nodeConfig.ApiConfig != nil {
+			nodeType = nodeConfig.ApiConfig.NodeType
+		}
+		switch {
+		case strings.EqualFold(nodeType, "Hysteria2"), strings.EqualFold(nodeType, "Hysteria"):
+			controllerService = hysteria2.New(apiClient, controllerConfig)
+		case strings.EqualFold(nodeType, "Tuic"):
+			controllerService = tuic.New(apiClient, controllerConfig)
+		case strings.EqualFold(nodeType, "AnyTLS"):
+			controllerService = anytls.New(apiClient, controllerConfig)
+		default:
+			controllerService = controller.New(server, apiClient, controllerConfig, nodeConfig.PanelType)
+		}
 		p.serviceMutex.Lock()
 		p.Service = append(p.Service, controllerService)
 		p.serviceMutex.Unlock()
@@ -260,7 +277,7 @@ func (p *Panel) Start() error {
 
 	for _, s := range services {
 		if err := s.Start(); err != nil {
-			p.logger.Errorf("Failed to start service: %v", err)
+			p.logger.Error("Failed to start service")
 			return fmt.Errorf("failed to start service: %w", err)
 		}
 	}

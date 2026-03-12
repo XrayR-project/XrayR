@@ -361,7 +361,11 @@ func (h *Hysteria2Service) nodeMonitor() error {
 
 	if nodeInfo == nil || nodeInfo.NodeType != "Hysteria2" {
 		if h.logger != nil {
-			h.logger.Warnf("Hysteria2 node monitor: unexpected node info: %v", nodeInfo)
+			if nodeInfo == nil {
+				h.logger.Warn("Hysteria2 node monitor: unexpected node info: <nil>")
+			} else {
+				h.logger.Warnf("Hysteria2 node monitor: unexpected node info: type=%s id=%d", nodeInfo.NodeType, nodeInfo.NodeID)
+			}
 		}
 		return nil
 	}

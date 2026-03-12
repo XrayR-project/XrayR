@@ -27,6 +27,9 @@ func (s *TuicService) buildSingBox() (*box.Box, string, error) {
 	if port == 0 {
 		return nil, "", fmt.Errorf("invalid port 0")
 	}
+	if port > 65535 {
+		return nil, "", fmt.Errorf("invalid port %d: must be between 1 and 65535", port)
+	}
 
 	certFile, keyFile, err := getOrIssueCert(s.config.CertConfig)
 	if err != nil {
@@ -54,9 +57,12 @@ func (s *TuicService) buildSingBox() (*box.Box, string, error) {
 		KeyPath:         keyFile,
 	}
 
-	// Set ALPN for TUIC (only if configured, no hardcoded default)
+	// Set ALPN for TUIC. QUIC requires ALPN negotiation (RFC 9001).
+	// Default to "h3" which matches Xboard's default TUIC client ALPN.
 	if len(s.nodeInfo.TuicConfig.ALPN) > 0 {
 		tlsOpt.ALPN = s.nodeInfo.TuicConfig.ALPN
+	} else {
+		tlsOpt.ALPN = badoption.Listable[string]{"h3"}
 	}
 
 	s.mu.RLock()
@@ -80,8 +86,11 @@ func (s *TuicService) buildSingBox() (*box.Box, string, error) {
 		heartbeat = 10 * time.Second
 	}
 
-	// Auth timeout (default 10 seconds for better network tolerance)
+	// Auth timeout — use panel value if provided, otherwise default to 10 seconds
 	authTimeout := 10 * time.Second
+	if s.nodeInfo.TuicConfig.AuthTimeout > 0 {
+		authTimeout = time.Duration(s.nodeInfo.TuicConfig.AuthTimeout) * time.Second
+	}
 
 	inOpts := &option.TUICInboundOptions{
 		ListenOptions:     listen,

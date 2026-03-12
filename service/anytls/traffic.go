@@ -366,7 +366,11 @@ func (s *AnyTLSService) nodeMonitor() error {
 
 	if nodeInfo == nil || nodeInfo.NodeType != "AnyTLS" {
 		if s.logger != nil {
-			s.logger.Warnf("AnyTLS node monitor: unexpected node info: %v", nodeInfo)
+			if nodeInfo == nil {
+				s.logger.Warn("AnyTLS node monitor: unexpected node info: <nil>")
+			} else {
+				s.logger.Warnf("AnyTLS node monitor: unexpected node info: type=%s id=%d", nodeInfo.NodeType, nodeInfo.NodeID)
+			}
 		}
 		return nil
 	}

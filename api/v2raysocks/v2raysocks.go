@@ -101,9 +101,14 @@ func readLocalRuleList(path string) (LocalRuleList []api.DetectRule) {
 
 		// read line by line
 		for fileScanner.Scan() {
+			pattern, err := regexp.Compile(fileScanner.Text())
+			if err != nil {
+				log.Printf("Invalid rule regex: %s, skipping", err)
+				continue
+			}
 			LocalRuleList = append(LocalRuleList, api.DetectRule{
 				ID:      -1,
-				Pattern: regexp.MustCompile(fileScanner.Text()),
+				Pattern: pattern,
 			})
 		}
 		// handle first encountered error while reading
@@ -120,7 +125,7 @@ func readLocalRuleList(path string) (LocalRuleList []api.DetectRule) {
 
 // Describe return a description of the client
 func (c *APIClient) Describe() api.ClientInfo {
-	return api.ClientInfo{APIHost: c.APIHost, NodeID: c.NodeID, Key: c.Key, NodeType: c.NodeType}
+	return api.ClientInfo{APIHost: c.APIHost, NodeID: c.NodeID, Key: "", NodeType: c.NodeType}
 }
 
 // GetXrayRCertConfig is not provided by V2RaySocks panel; return nil to indicate absence.
@@ -142,7 +147,7 @@ func (c *APIClient) parseResponse(res *resty.Response, path string, err error) (
 		return nil, fmt.Errorf("request %s failed: %s", c.assembleURL(path), err)
 	}
 
-	if res.StatusCode() > 400 {
+	if res.StatusCode() >= 400 {
 		body := res.Body()
 		return nil, fmt.Errorf("request %s failed: %s, %s", c.assembleURL(path), string(body), err)
 	}
@@ -313,9 +318,14 @@ func (c *APIClient) GetNodeRule() (*[]api.DetectRule, error) {
 	ruleListResponse := c.ConfigResp.Get("routing").Get("rules").GetIndex(1).Get("domain").MustStringArray()
 	for i, rule := range ruleListResponse {
 		rule = strings.TrimPrefix(rule, "regexp:")
+		pattern, err := regexp.Compile(rule)
+		if err != nil {
+			log.Printf("Invalid rule regex (index=%d): %s, skipping", i, err)
+			continue
+		}
 		ruleListItem := api.DetectRule{
 			ID:      i,
-			Pattern: regexp.MustCompile(rule),
+			Pattern: pattern,
 		}
 		ruleList = append(ruleList, ruleListItem)
 	}
@@ -469,6 +479,15 @@ func (c *APIClient) ParseV2rayNodeResponse(nodeInfoResponse *simplejson.Json) (*
 	case "splithttp":
 		host = inboundInfo.Get("streamSettings").Get("splithttpSettings").Get("Host").MustString()
 		path = inboundInfo.Get("streamSettings").Get("splithttpSettings").Get("path").MustString()
+	case "xhttp":
+		host = inboundInfo.Get("streamSettings").Get("xhttpSettings").Get("Host").MustString()
+		if host == "" {
+			host = inboundInfo.Get("streamSettings").Get("splithttpSettings").Get("Host").MustString()
+		}
+		path = inboundInfo.Get("streamSettings").Get("xhttpSettings").Get("path").MustString()
+		if path == "" {
+			path = inboundInfo.Get("streamSettings").Get("splithttpSettings").Get("path").MustString()
+		}
 	case "grpc":
 		if data, ok := inboundInfo.Get("streamSettings").Get("grpcSettings").CheckGet("serviceName"); ok {
 			serviceName = data.MustString()
@@ -529,5 +548,38 @@ func (c *APIClient) ParseV2rayNodeResponse(nodeInfoResponse *simplejson.Json) (*
 		EnableREALITY:     enableReality,
 		REALITYConfig:     realityConfig,
 	}
+
+	// Parse XHTTP settings if transport is splithttp/xhttp
+	if transportProtocol == "splithttp" || transportProtocol == "xhttp" {
+		settingsKey := "splithttpSettings"
+		if transportProtocol == "xhttp" {
+			if _, ok := inboundInfo.Get("streamSettings").CheckGet("xhttpSettings"); ok {
+				settingsKey = "xhttpSettings"
+			}
+		}
+		ss := inboundInfo.Get("streamSettings").Get(settingsKey)
+		nodeInfo.XHTTPMode = ss.Get("mode").MustString()
+		nodeInfo.XPaddingObfsMode = ss.Get("xPaddingObfsMode").MustBool()
+		nodeInfo.XPaddingKey = ss.Get("xPaddingKey").MustString()
+		nodeInfo.XPaddingHeader = ss.Get("xPaddingHeader").MustString()
+		nodeInfo.XPaddingPlacement = ss.Get("xPaddingPlacement").MustString()
+		nodeInfo.XPaddingMethod = ss.Get("xPaddingMethod").MustString()
+		nodeInfo.UplinkHTTPMethod = ss.Get("uplinkHTTPMethod").MustString()
+		nodeInfo.SessionPlacement = ss.Get("sessionPlacement").MustString()
+		nodeInfo.SessionKey = ss.Get("sessionKey").MustString()
+		nodeInfo.SeqPlacement = ss.Get("seqPlacement").MustString()
+		nodeInfo.SeqKey = ss.Get("seqKey").MustString()
+		nodeInfo.UplinkDataPlacement = ss.Get("uplinkDataPlacement").MustString()
+		nodeInfo.UplinkDataKey = ss.Get("uplinkDataKey").MustString()
+		nodeInfo.UplinkChunkSize = uint32(ss.Get("uplinkChunkSize").MustUint64())
+		nodeInfo.NoGRPCHeader = ss.Get("noGRPCHeader").MustBool()
+		nodeInfo.NoSSEHeader = ss.Get("noSSEHeader").MustBool()
+		if extra := ss.Get("extra"); extra.Interface() != nil {
+			if extraBytes, err := extra.MarshalJSON(); err == nil {
+				nodeInfo.XHTTPExtra = extraBytes
+			}
+		}
+	}
+
 	return nodeInfo, nil
 }

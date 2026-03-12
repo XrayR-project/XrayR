@@ -7,7 +7,6 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"github.com/xtls/xray-core/common"
-	xlog "github.com/xtls/xray-core/common/log"
 	"github.com/xtls/xray-core/common/protocol"
 	"github.com/xtls/xray-core/common/session"
 	"github.com/xtls/xray-core/core"
@@ -34,6 +33,8 @@ var xrayRManagedPrefixes = []string{
 	"Trojan_",
 	"Vmess_",
 	"Shadowsocks_",
+	"Socks_",
+	"HTTP_",
 }
 
 // isXrayRManagedTag checks if a tag is managed by XrayR (i.e., it belongs to a specific node).
@@ -79,83 +80,53 @@ func (w *dataPathWrapper) Dispatch(ctx context.Context, link *transport.Link) {
 	}
 
 	// --- FIRST: Enforce "same node in, same node out" semantics -------------
+	// This runs on EVERY connection so it must be as fast as possible.
 	if sess := session.InboundFromContext(ctx); sess != nil {
 		inTag := sess.Tag
-		if isXrayRManagedTag(inTag) && inTag != "" && inTag != w.tag {
+		if inTag != "" && inTag != w.tag && isXrayRManagedTag(inTag) {
 			if w.obm != nil {
-				if h := w.obm.GetHandler(inTag); h != nil {
-					if h == w {
-						log.WithFields(log.Fields{
-							"inbound_tag":  inTag,
-							"outbound_tag": w.tag,
-						}).Warn("same-node routing: manager returned current outbound; using it directly")
-					} else {
-						if am := xlog.AccessMessageFromContext(ctx); am != nil {
-							am.Detour = inTag + " => " + h.Tag()
-						}
-						log.WithFields(log.Fields{
-							"inbound_tag":       inTag,
-							"selected_outbound": w.tag,
-							"reroute_outbound":  h.Tag(),
-						}).Info("same-node routing: rerouting to outbound with matching tag")
-						h.Dispatch(ctx, link)
-						return
-					}
-				} else {
-					log.WithFields(log.Fields{
-						"inbound_tag":  inTag,
-						"outbound_tag": w.tag,
-					}).Error("same-node routing: no outbound handler found for inbound tag; rejecting connection")
-					common.Close(link.Writer)
-					common.Interrupt(link.Reader)
+				if h := w.obm.GetHandler(inTag); h != nil && h != w {
+					h.Dispatch(ctx, link)
 					return
 				}
-			} else {
-				log.WithFields(log.Fields{
-					"inbound_tag":  inTag,
-					"outbound_tag": w.tag,
-				}).Error("same-node routing: outbound manager is nil; rejecting connection")
-				common.Close(link.Writer)
-				common.Interrupt(link.Reader)
-				return
 			}
+			// No matching outbound found or obm is nil — reject
+			common.Close(link.Writer)
+			common.Interrupt(link.Reader)
+			return
 		}
 	}
 
 	// --- Now we're in the correct wrapper (inTag matches w.tag) -------------
 	if sess := session.InboundFromContext(ctx); sess != nil && sess.User != nil {
 		email := sess.User.Email
-		srcIP := sess.Source.Address.IP().String()
-		var destStr string
-		if outs := session.OutboundsFromContext(ctx); len(outs) > 0 {
-			ob := outs[len(outs)-1]
-			destStr = ob.Target.String()
-		}
+		if email != "" {
+			srcIP := sess.Source.Address.IP().String()
+			nodeTag := w.tag
 
-		nodeTag := w.tag
-
-		if w.ruleMgr != nil && email != "" && destStr != "" {
-			if w.ruleMgr.Detect(nodeTag, destStr, email, srcIP) {
-				log.WithFields(log.Fields{
-					"tag":   nodeTag,
-					"user":  email,
-					"srcIP": srcIP,
-					"dest":  destStr,
-				}).Warn("audit rule hit, closing connection")
-				common.Close(link.Writer)
-				common.Interrupt(link.Reader)
-				return
+			// Rule check (single pass — dispatcher no longer duplicates this)
+			if w.ruleMgr != nil {
+				var destStr string
+				if outs := session.OutboundsFromContext(ctx); len(outs) > 0 {
+					destStr = outs[len(outs)-1].Target.String()
+				}
+				if destStr != "" && w.ruleMgr.Detect(nodeTag, destStr, email, srcIP) {
+					common.Close(link.Writer)
+					common.Interrupt(link.Reader)
+					return
+				}
 			}
-		}
 
-		if w.limiter != nil && email != "" {
-			if bucket, ok, reject := w.limiter.GetUserBucket(nodeTag, email, srcIP); reject {
-				common.Close(link.Writer)
-				common.Interrupt(link.Reader)
-				return
-			} else if ok && bucket != nil {
-				link.Reader = w.limiter.RateReader(link.Reader, bucket)
-				link.Writer = w.limiter.RateWriter(link.Writer, bucket)
+			// Device limit + rate limit (single pass — dispatcher no longer duplicates this)
+			if w.limiter != nil {
+				if bucket, ok, reject := w.limiter.GetUserBucket(nodeTag, email, srcIP); reject {
+					common.Close(link.Writer)
+					common.Interrupt(link.Reader)
+					return
+				} else if ok && bucket != nil {
+					link.Reader = w.limiter.RateReader(link.Reader, bucket)
+					link.Writer = w.limiter.RateWriter(link.Writer, bucket)
+				}
 			}
 		}
 	}
@@ -268,21 +239,24 @@ func (c *Controller) removeUsers(users []string, tag string) error {
 }
 
 func (c *Controller) getTraffic(email string) (up int64, down int64, upCounter stats.Counter, downCounter stats.Counter) {
-	upName := "user>>>" + email + ">>>traffic>>>uplink"
-	downName := "user>>>" + email + ">>>traffic>>>downlink"
-	upCounter = c.stm.GetCounter(upName)
-	downCounter = c.stm.GetCounter(downName)
-	if upCounter != nil && upCounter.Value() != 0 {
-		up = upCounter.Value()
-	} else {
-		upCounter = nil
+	// Use pre-known prefixes/suffixes to reduce string allocation.
+	// The stats manager lookups are the expensive part — avoid calling Value() twice.
+	const prefix = "user>>>"
+	const upSuffix = ">>>traffic>>>uplink"
+	const downSuffix = ">>>traffic>>>downlink"
+	upCounter = c.stm.GetCounter(prefix + email + upSuffix)
+	downCounter = c.stm.GetCounter(prefix + email + downSuffix)
+	if upCounter != nil {
+		if up = upCounter.Value(); up == 0 {
+			upCounter = nil
+		}
 	}
-	if downCounter != nil && downCounter.Value() != 0 {
-		down = downCounter.Value()
-	} else {
-		downCounter = nil
+	if downCounter != nil {
+		if down = downCounter.Value(); down == 0 {
+			downCounter = nil
+		}
 	}
-	return up, down, upCounter, downCounter
+	return
 }
 
 func (c *Controller) resetTraffic(upCounterList *[]stats.Counter, downCounterList *[]stats.Counter) {

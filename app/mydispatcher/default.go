@@ -4,7 +4,6 @@ package mydispatcher
 
 import (
 	"context"
-	"fmt"
 	"regexp"
 	"strings"
 	"sync"
@@ -202,24 +201,12 @@ func (d *DefaultDispatcher) getLink(ctx context.Context) (*transport.Link, *tran
 		// Disable splice to avoid Vision/REALITY bypassing stats path
 		sessionInbound.CanSpliceCopy = 3
 		user = sessionInbound.User
-		sessionInbound.CanSpliceCopy = 3
 	}
 
 	if user != nil && len(user.Email) > 0 {
-		// Speed Limit and Device Limit
-		bucket, ok, reject := d.Limiter.GetUserBucket(sessionInbound.Tag, user.Email, sessionInbound.Source.Address.IP().String())
-		if reject {
-			errors.LogWarning(ctx, "Devices reach the limit: ", user.Email)
-			common.Close(outboundLink.Writer)
-			common.Close(inboundLink.Writer)
-			common.Interrupt(outboundLink.Reader)
-			common.Interrupt(inboundLink.Reader)
-			return nil, nil, newError("Devices reach the limit: ", user.Email)
-		}
-		if ok {
-			inboundLink.Writer = d.Limiter.RateWriter(inboundLink.Writer, bucket)
-			outboundLink.Writer = d.Limiter.RateWriter(outboundLink.Writer, bucket)
-		}
+		// NOTE: Rate limiting and device limit are handled by dataPathWrapper.Dispatch()
+		// in control.go. Doing it here as well would double-apply limits.
+		// Only traffic stats counters need to be set up here.
 
 		p := d.policy.ForLevel(user.Level)
 		if p.Stats.UserUplink {
@@ -291,7 +278,7 @@ func (d *DefaultDispatcher) shouldOverride(ctx context.Context, result SniffResu
 // Dispatch implements routing.Dispatcher.
 func (d *DefaultDispatcher) Dispatch(ctx context.Context, destination net.Destination) (*transport.Link, error) {
 	if !destination.IsValid() {
-		panic("Dispatcher: Invalid destination.")
+		return nil, newError("Dispatcher: Invalid destination")
 	}
 	outbounds := session.OutboundsFromContext(ctx)
 	if len(outbounds) == 0 {
@@ -466,28 +453,15 @@ func (d *DefaultDispatcher) routedDispatch(ctx context.Context, link *transport.
 
 	var handler outbound.Handler
 
-	// Check if domain and protocol hit the rule
-	sessionInbound := session.InboundFromContext(ctx)
-	// Whether the inbound connection contains a user
-	if sessionInbound.User != nil {
-		srcIP := ""
-		if sessionInbound.Source.Address != nil {
-			srcIP = sessionInbound.Source.Address.IP().String()
-		}
-		if d.RuleManager.Detect(sessionInbound.Tag, destination.String(), sessionInbound.User.Email, srcIP) {
-			errors.LogError(ctx, fmt.Sprintf("User %s access %s reject by rule", sessionInbound.User.Email, destination.String()))
-			newError("destination is reject by rule")
-			common.Close(link.Writer)
-			common.Interrupt(link.Reader)
-			return
-		}
-	}
+	// NOTE: Rule checking is handled by dataPathWrapper.Dispatch() in control.go.
+	// Doing it here as well would double-check every connection.
+	// Only routing logic remains here.
 
 	routingLink := routingSession.AsRoutingContext(ctx)
 	inTag := routingLink.GetInboundTag()
 	isPickRoute := 0
 
-	if sessionInbound != nil && sessionInbound.Tag != "" {
+	if sessionInbound := session.InboundFromContext(ctx); sessionInbound != nil && sessionInbound.Tag != "" {
 		inTag = sessionInbound.Tag
 	}
 	isXrayRNode := isXrayRManagedTag(inTag)

@@ -115,9 +115,14 @@ func readLocalRuleList(path string) (LocalRuleList []api.DetectRule) {
 
 		// read line by line
 		for fileScanner.Scan() {
+			pattern, err := regexp.Compile(fileScanner.Text())
+			if err != nil {
+				log.Printf("Invalid rule regex: %s, skipping", err)
+				continue
+			}
 			LocalRuleList = append(LocalRuleList, api.DetectRule{
 				ID:      -1,
-				Pattern: regexp.MustCompile(fileScanner.Text()),
+				Pattern: pattern,
 			})
 		}
 		// handle first encountered error while reading
@@ -132,7 +137,7 @@ func readLocalRuleList(path string) (LocalRuleList []api.DetectRule) {
 
 // Describe return a description of the client
 func (c *APIClient) Describe() api.ClientInfo {
-	return api.ClientInfo{APIHost: c.APIHost, NodeID: c.NodeID, Key: c.Key, NodeType: c.NodeType}
+	return api.ClientInfo{APIHost: c.APIHost, NodeID: c.NodeID, Key: "", NodeType: c.NodeType}
 }
 
 // Debug set the client debug for client
@@ -149,7 +154,7 @@ func (c *APIClient) parseResponse(res *resty.Response, path string, err error) (
 		return nil, fmt.Errorf("request %s failed: %s", c.assembleURL(path), err)
 	}
 
-	if res.StatusCode() > 400 {
+	if res.StatusCode() >= 400 {
 		body := res.Body()
 		return nil, fmt.Errorf("request %s failed: %s, %v", c.assembleURL(path), string(body), err)
 	}
@@ -403,6 +408,46 @@ func (c *APIClient) ParseNodeInfo(nodeInfoResponse *Server) (*api.NodeInfo, erro
 		json.Unmarshal(nodeConfig.TcpSettings, tcpConfig)
 	}
 
+	// Parse SplitHTTP/XHTTP settings
+	splithttpConfig := new(SplitHTTPSettings)
+	if nodeConfig.XHTTPSettings != nil {
+		json.Unmarshal(nodeConfig.XHTTPSettings, splithttpConfig)
+	} else if nodeConfig.SplitHTTPSettings != nil {
+		json.Unmarshal(nodeConfig.SplitHTTPSettings, splithttpConfig)
+	}
+
+	// Parse HttpUpgrade settings
+	httpupgradeConfig := new(HttpUpgradeSettings)
+	if nodeConfig.HttpUpgradeSettings != nil {
+		json.Unmarshal(nodeConfig.HttpUpgradeSettings, httpupgradeConfig)
+	}
+
+	// Determine Host and Path based on transport protocol
+	var host, path, serviceName string
+	var header json.RawMessage
+	var headers map[string]string
+
+	switch transportProtocol {
+	case "ws":
+		host = wsConfig.Headers.Host
+		path = wsConfig.Path
+	case "grpc":
+		serviceName = grpcConfig.ServiceName
+	case "tcp":
+		header = tcpConfig.Header
+	case "splithttp", "xhttp":
+		host = splithttpConfig.Host
+		path = splithttpConfig.Path
+		headers = splithttpConfig.Headers
+	case "httpupgrade":
+		host = httpupgradeConfig.Host
+		path = httpupgradeConfig.Path
+		headers = httpupgradeConfig.Headers
+	default:
+		host = wsConfig.Headers.Host
+		path = wsConfig.Path
+	}
+
 	// Create GeneralNodeInfo
 	nodeInfo := &api.NodeInfo{
 		NodeType:          c.NodeType,
@@ -411,16 +456,36 @@ func (c *APIClient) ParseNodeInfo(nodeInfoResponse *Server) (*api.NodeInfo, erro
 		SpeedLimit:        speedLimit,
 		AlterID:           alterID,
 		TransportProtocol: transportProtocol,
-		Host:              wsConfig.Headers.Host,
-		Path:              wsConfig.Path,
+		Host:              host,
+		Path:              path,
 		EnableTLS:         enableTLS,
 		EnableVless:       enableVless,
 		VlessFlow:         nodeConfig.Flow,
 		CypherMethod:      nodeConfig.Method,
-		ServiceName:       grpcConfig.ServiceName,
-		Header:            tcpConfig.Header,
+		ServiceName:       serviceName,
+		Header:            header,
+		Headers:           headers,
 		EnableREALITY:     enableREALITY,
 		REALITYConfig:     realityConfig,
+		// XHTTP bypass CDN fields
+		XHTTPMode:           splithttpConfig.Mode,
+		XHTTPExtra:          splithttpConfig.Extra,
+		XPaddingBytes:       splithttpConfig.XPaddingBytes,
+		XPaddingObfsMode:    splithttpConfig.XPaddingObfsMode,
+		XPaddingKey:         splithttpConfig.XPaddingKey,
+		XPaddingHeader:      splithttpConfig.XPaddingHeader,
+		XPaddingPlacement:   splithttpConfig.XPaddingPlacement,
+		XPaddingMethod:      splithttpConfig.XPaddingMethod,
+		UplinkHTTPMethod:    splithttpConfig.UplinkHTTPMethod,
+		SessionPlacement:    splithttpConfig.SessionPlacement,
+		SessionKey:          splithttpConfig.SessionKey,
+		SeqPlacement:        splithttpConfig.SeqPlacement,
+		SeqKey:              splithttpConfig.SeqKey,
+		UplinkDataPlacement: splithttpConfig.UplinkDataPlacement,
+		UplinkDataKey:       splithttpConfig.UplinkDataKey,
+		UplinkChunkSize:     splithttpConfig.UplinkChunkSize,
+		NoGRPCHeader:        splithttpConfig.NoGRPCHeader,
+		NoSSEHeader:         splithttpConfig.NoSSEHeader,
 	}
 
 	return nodeInfo, nil

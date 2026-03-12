@@ -2,7 +2,6 @@ package limiter
 
 import (
 	"context"
-	"io"
 	"time"
 
 	"github.com/xtls/xray-core/common"
@@ -10,10 +9,13 @@ import (
 	"golang.org/x/time/rate"
 )
 
+// rateWaitTimeout is the maximum time to wait for rate limiter tokens.
+// Using a package-level constant avoids creating a new duration per I/O op.
+const rateWaitTimeout = 30 * time.Second
+
 type Writer struct {
 	writer  buf.Writer
 	limiter *rate.Limiter
-	w       io.Writer
 }
 
 type Reader struct {
@@ -40,8 +42,18 @@ func (w *Writer) Close() error {
 }
 
 func (w *Writer) WriteMultiBuffer(mb buf.MultiBuffer) error {
-	ctx := context.Background()
-	w.limiter.WaitN(ctx, int(mb.Len()))
+	n := int(mb.Len())
+	// Fast path: if tokens are immediately available, skip context allocation
+	if w.limiter.AllowN(time.Now(), n) {
+		return w.writer.WriteMultiBuffer(mb)
+	}
+	// Slow path: wait for tokens with timeout
+	ctx, cancel := context.WithTimeout(context.Background(), rateWaitTimeout)
+	defer cancel()
+	if err := w.limiter.WaitN(ctx, n); err != nil {
+		buf.ReleaseMulti(mb)
+		return err
+	}
 	return w.writer.WriteMultiBuffer(mb)
 }
 
@@ -50,8 +62,17 @@ func (r *Reader) ReadMultiBuffer() (buf.MultiBuffer, error) {
 	if err != nil || mb.IsEmpty() {
 		return mb, err
 	}
-	ctx := context.Background()
-	r.limiter.WaitN(ctx, int(mb.Len()))
+	n := int(mb.Len())
+	// Fast path: skip context allocation if tokens available
+	if r.limiter.AllowN(time.Now(), n) {
+		return mb, nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), rateWaitTimeout)
+	defer cancel()
+	if err := r.limiter.WaitN(ctx, n); err != nil {
+		buf.ReleaseMulti(mb)
+		return nil, err
+	}
 	return mb, nil
 }
 
@@ -59,21 +80,27 @@ func (r *Reader) ReadMultiBufferTimeout(timeout time.Duration) (buf.MultiBuffer,
 	type timeoutReader interface {
 		ReadMultiBufferTimeout(time.Duration) (buf.MultiBuffer, error)
 	}
-	if tr, ok := r.reader.(timeoutReader); ok {
-		mb, err := tr.ReadMultiBufferTimeout(timeout)
-		if err != nil || mb.IsEmpty() {
-			return mb, err
-		}
-		ctx := context.Background()
-		r.limiter.WaitN(ctx, int(mb.Len()))
-		return mb, nil
-	}
 
-	mb, err := r.reader.ReadMultiBuffer()
+	var mb buf.MultiBuffer
+	var err error
+	if tr, ok := r.reader.(timeoutReader); ok {
+		mb, err = tr.ReadMultiBufferTimeout(timeout)
+	} else {
+		mb, err = r.reader.ReadMultiBuffer()
+	}
 	if err != nil || mb.IsEmpty() {
 		return mb, err
 	}
-	ctx := context.Background()
-	r.limiter.WaitN(ctx, int(mb.Len()))
+	n := int(mb.Len())
+	// Fast path: skip context allocation if tokens available
+	if r.limiter.AllowN(time.Now(), n) {
+		return mb, nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), rateWaitTimeout)
+	defer cancel()
+	if err := r.limiter.WaitN(ctx, n); err != nil {
+		buf.ReleaseMulti(mb)
+		return nil, err
+	}
 	return mb, nil
 }

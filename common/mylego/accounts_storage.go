@@ -186,7 +186,7 @@ func generatePrivateKey(file string, keyType certcrypto.KeyType) (crypto.Private
 		return nil, err
 	}
 
-	certOut, err := os.Create(file)
+	certOut, err := os.OpenFile(file, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, filePerm)
 	if err != nil {
 		return nil, err
 	}

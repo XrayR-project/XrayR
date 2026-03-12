@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -61,16 +60,42 @@ func New(server *core.Instance, api api.API, config *Config, panelType string) *
 		"Type": api.Describe().NodeType,
 		"ID":   api.Describe().NodeID,
 	})
+	ibmRaw := server.GetFeature(inbound.ManagerType())
+	ibmTyped, ok := ibmRaw.(inbound.Manager)
+	if !ok {
+		logger.Panicf("failed to get inbound.Manager feature, got %T", ibmRaw)
+	}
+	obmRaw := server.GetFeature(outbound.ManagerType())
+	obmTyped, ok := obmRaw.(outbound.Manager)
+	if !ok {
+		logger.Panicf("failed to get outbound.Manager feature, got %T", obmRaw)
+	}
+	stmRaw := server.GetFeature(stats.ManagerType())
+	stmTyped, ok := stmRaw.(stats.Manager)
+	if !ok {
+		logger.Panicf("failed to get stats.Manager feature, got %T", stmRaw)
+	}
+	pmRaw := server.GetFeature(policy.ManagerType())
+	pmTyped, ok := pmRaw.(policy.Manager)
+	if !ok {
+		logger.Panicf("failed to get policy.Manager feature, got %T", pmRaw)
+	}
+	dispRaw := server.GetFeature(mydispatcher.Type())
+	dispTyped, ok := dispRaw.(*mydispatcher.DefaultDispatcher)
+	if !ok {
+		logger.Panicf("failed to get mydispatcher.DefaultDispatcher feature, got %T", dispRaw)
+	}
+
 	controller := &Controller{
 		server:     server,
 		config:     config,
 		apiClient:  api,
 		panelType:  panelType,
-		ibm:        server.GetFeature(inbound.ManagerType()).(inbound.Manager),
-		obm:        server.GetFeature(outbound.ManagerType()).(outbound.Manager),
-		stm:        server.GetFeature(stats.ManagerType()).(stats.Manager),
-		pm:         server.GetFeature(policy.ManagerType()).(policy.Manager),
-		dispatcher: server.GetFeature(mydispatcher.Type()).(*mydispatcher.DefaultDispatcher),
+		ibm:        ibmTyped,
+		obm:        obmTyped,
+		stm:        stmTyped,
+		pm:         pmTyped,
+		dispatcher: dispTyped,
 		startAt:    time.Now(),
 		logger:     logger,
 	}
@@ -86,8 +111,8 @@ func (c *Controller) Start() error {
 	if err != nil {
 		return err
 	}
-	if newNodeInfo.Port == 0 {
-		return errors.New("server port must > 0")
+	if newNodeInfo.Port == 0 || newNodeInfo.Port > 65535 {
+		return fmt.Errorf("invalid server port: %d, must be 1-65535", newNodeInfo.Port)
 	}
 	c.nodeInfo = newNodeInfo
 	c.Tag = c.buildNodeTag()
@@ -203,8 +228,8 @@ func (c *Controller) nodeInfoMonitor() (err error) {
 			return nil
 		}
 	}
-	if newNodeInfo.Port == 0 {
-		return errors.New("server port must > 0")
+	if newNodeInfo.Port == 0 || newNodeInfo.Port > 65535 {
+		return fmt.Errorf("invalid server port: %d, must be 1-65535", newNodeInfo.Port)
 	}
 
 	// Update User
@@ -285,25 +310,36 @@ func (c *Controller) nodeInfoMonitor() (err error) {
 	} else {
 		var deleted, added []api.UserInfo
 		if usersChanged {
-			deleted, added = compareUserList(c.userList, newUserInfo)
-			if len(deleted) > 0 {
-				deletedEmail := make([]string, len(deleted))
-				for i, u := range deleted {
-					deletedEmail[i] = fmt.Sprintf("%s|%s|%d", c.Tag, u.Email, u.UID)
-				}
-				err := c.removeUsers(deletedEmail, c.Tag)
-				if err != nil {
+			// Socks/HTTP don't support incremental user changes — full rebuild
+			if c.nodeInfo.NodeType == "Socks" || c.nodeInfo.NodeType == "HTTP" {
+				if err := c.rebuildInboundWithUsers(newUserInfo, c.nodeInfo); err != nil {
 					c.logger.Print(err)
 				}
-			}
-			if len(added) > 0 {
-				err = c.addNewUser(&added, c.nodeInfo)
-				if err != nil {
+				if err := c.AddInboundLimiter(c.Tag, c.nodeInfo.SpeedLimit, newUserInfo, c.config.GlobalDeviceLimitConfig); err != nil {
 					c.logger.Print(err)
 				}
-				// Update Limiter
-				if err := c.UpdateInboundLimiter(c.Tag, &added); err != nil {
-					c.logger.Print(err)
+				deleted, added = compareUserList(c.userList, newUserInfo)
+			} else {
+				deleted, added = compareUserList(c.userList, newUserInfo)
+				if len(deleted) > 0 {
+					deletedEmail := make([]string, len(deleted))
+					for i, u := range deleted {
+						deletedEmail[i] = fmt.Sprintf("%s|%s|%d", c.Tag, u.Email, u.UID)
+					}
+					err := c.removeUsers(deletedEmail, c.Tag)
+					if err != nil {
+						c.logger.Print(err)
+					}
+				}
+				if len(added) > 0 {
+					err = c.addNewUser(&added, c.nodeInfo)
+					if err != nil {
+						c.logger.Print(err)
+					}
+					// Update Limiter
+					if err := c.UpdateInboundLimiter(c.Tag, &added); err != nil {
+						c.logger.Print(err)
+					}
 				}
 			}
 		}
@@ -326,6 +362,17 @@ func (c *Controller) removeOldTag(oldTag string) (err error) {
 }
 
 func (c *Controller) addNewTag(newNodeInfo *api.NodeInfo) (err error) {
+	// Socks/HTTP inbounds are built with users embedded (no UserManager support).
+	// Skip here — the inbound will be created by rebuildInboundWithUsers() in addNewUser().
+	if newNodeInfo.NodeType == "Socks" || newNodeInfo.NodeType == "HTTP" {
+		// Still need the outbound for routing
+		outBoundConfig, err := OutboundBuilder(c.config, newNodeInfo, c.Tag)
+		if err != nil {
+			return err
+		}
+		return c.addOutbound(outBoundConfig)
+	}
+
 	if newNodeInfo.NodeType != "Shadowsocks-Plugin" {
 		inboundConfig, err := InboundBuilder(c.config, newNodeInfo, c.Tag)
 		if err != nil {
@@ -405,7 +452,32 @@ func (c *Controller) addInboundForSSPlugin(newNodeInfo api.NodeInfo) (err error)
 	return nil
 }
 
+// rebuildInboundWithUsers rebuilds the socks/http inbound with all users embedded.
+// This is needed because socks/http inbounds don't support proxy.UserManager.
+func (c *Controller) rebuildInboundWithUsers(userInfo *[]api.UserInfo, nodeInfo *api.NodeInfo) error {
+	// Remove existing inbound if present (ignore errors for first-time setup)
+	_ = c.removeInbound(c.Tag)
+
+	// Build inbound with all users
+	inboundConfig, err := InboundBuilderWithUsers(c.config, nodeInfo, c.Tag, userInfo)
+	if err != nil {
+		return err
+	}
+	err = c.addInbound(inboundConfig)
+	if err != nil {
+		return err
+	}
+
+	c.logger.Printf("Rebuilt %s inbound with %d users", nodeInfo.NodeType, len(*userInfo))
+	return nil
+}
+
 func (c *Controller) addNewUser(userInfo *[]api.UserInfo, nodeInfo *api.NodeInfo) (err error) {
+	// Socks/HTTP don't support proxy.UserManager — rebuild entire inbound with users embedded
+	if nodeInfo.NodeType == "Socks" || nodeInfo.NodeType == "HTTP" {
+		return c.rebuildInboundWithUsers(userInfo, nodeInfo)
+	}
+
 	users := make([]*protocol.User, 0)
 	switch nodeInfo.NodeType {
 	case "V2ray", "Vmess", "Vless":
@@ -433,37 +505,30 @@ func (c *Controller) addNewUser(userInfo *[]api.UserInfo, nodeInfo *api.NodeInfo
 }
 
 func compareUserList(old, new *[]api.UserInfo) (deleted, added []api.UserInfo) {
-	mSrc := make(map[api.UserInfo]byte) // 按源数组建索引
-	mAll := make(map[api.UserInfo]byte) // 源+目所有元素建索引
-
-	var set []api.UserInfo // 交集
-
-	// 1.源数组建立map
-	for _, v := range *old {
-		mSrc[v] = 0
-		mAll[v] = 0
+	// Use UID as the primary key for O(N) comparison instead of the full struct
+	// which is expensive to hash with 50k users.
+	type userKey struct {
+		UID   int
+		Email string
 	}
-	// 2.目数组中，存不进去，即重复元素，所有存不进去的集合就是并集
+
+	oldMap := make(map[userKey]api.UserInfo, len(*old))
+	for _, v := range *old {
+		oldMap[userKey{v.UID, v.Email}] = v
+	}
+
+	newMap := make(map[userKey]struct{}, len(*new))
 	for _, v := range *new {
-		l := len(mAll)
-		mAll[v] = 1
-		if l != len(mAll) { // 长度变化，即可以存
-			l = len(mAll)
-		} else { // 存不了，进并集
-			set = append(set, v)
+		k := userKey{v.UID, v.Email}
+		newMap[k] = struct{}{}
+		if _, exists := oldMap[k]; !exists {
+			added = append(added, v)
 		}
 	}
-	// 3.遍历交集，在并集中找，找到就从并集中删，删完后就是补集（即并-交=所有变化的元素）
-	for _, v := range set {
-		delete(mAll, v)
-	}
-	// 4.此时，mall是补集，所有元素去源中找，找到就是删除的，找不到的必定能在目数组中找到，即新加的
-	for v := range mAll {
-		_, exist := mSrc[v]
-		if exist {
+
+	for k, v := range oldMap {
+		if _, exists := newMap[k]; !exists {
 			deleted = append(deleted, v)
-		} else {
-			added = append(added, v)
 		}
 	}
 
@@ -504,42 +569,39 @@ func (c *Controller) userInfoMonitor() (err error) {
 	}
 	// Unlock users
 	if c.config.AutoSpeedLimitConfig.Limit > 0 && len(c.limitedUsers) > 0 {
-		c.logger.Printf("Limited users:")
 		toReleaseUsers := make([]api.UserInfo, 0)
+		now := time.Now().Unix()
 		for user, limitInfo := range c.limitedUsers {
-			if time.Now().Unix() > limitInfo.end {
+			if now > limitInfo.end {
 				user.SpeedLimit = limitInfo.originSpeedLimit
 				toReleaseUsers = append(toReleaseUsers, user)
-				c.logger.Printf("User: %s Speed: %d End: nil (Unlimit)", c.buildUserTag(&user), user.SpeedLimit)
 				delete(c.limitedUsers, user)
-			} else {
-				c.logger.Printf("User: %s Speed: %d End: %s", c.buildUserTag(&user), limitInfo.currentSpeedLimit, time.Unix(c.limitedUsers[user].end, 0).Format("01-02 15:04:05"))
 			}
 		}
 		if len(toReleaseUsers) > 0 {
+			c.logger.Printf("Releasing %d speed-limited users, %d still limited", len(toReleaseUsers), len(c.limitedUsers))
 			if err := c.UpdateInboundLimiter(c.Tag, &toReleaseUsers); err != nil {
 				c.logger.Print(err)
 			}
 		}
 	}
 
-	// Get User traffic
-	var userTraffic []api.UserTraffic
-	var upCounterList []stats.Counter
-	var downCounterList []stats.Counter
+	// Get User traffic — optimized: pre-allocate and batch
+	userCount := len(*c.userList)
+	userTraffic := make([]api.UserTraffic, 0, userCount/10) // typically ~10% have traffic
+	upCounterList := make([]stats.Counter, 0, userCount/10)
+	downCounterList := make([]stats.Counter, 0, userCount/10)
 	AutoSpeedLimit := int64(c.config.AutoSpeedLimitConfig.Limit)
 	UpdatePeriodic := int64(c.config.UpdatePeriodic)
 	limitedUsers := make([]api.UserInfo, 0)
+	speedThreshold := AutoSpeedLimit * 1000000 * UpdatePeriodic / 8
 	for _, user := range *c.userList {
 		userTag := c.buildUserTag(&user)
 		up, down, upCounter, downCounter := c.getTraffic(userTag)
-		if down > 0 {
-			c.logger.Printf("Traffic counted: tag=%s up=%d down=%d", userTag, up, down)
-		}
 		if up > 0 || down > 0 {
 			// Over speed users
 			if AutoSpeedLimit > 0 {
-				if down > AutoSpeedLimit*1000000*UpdatePeriodic/8 || up > AutoSpeedLimit*1000000*UpdatePeriodic/8 {
+				if down > speedThreshold || up > speedThreshold {
 					if _, ok := c.limitedUsers[user]; !ok {
 						if c.config.AutoSpeedLimitConfig.WarnTimes == 0 {
 							limitUser(c, user, &limitedUsers)
@@ -628,6 +690,10 @@ func (c *Controller) buildNodeTag() string {
 		base = "Vmess"
 	case "shadowsocks":
 		base = "Shadowsocks"
+	case "socks":
+		base = "Socks"
+	case "http":
+		base = "HTTP"
 	}
 
 	// Include NodeID to avoid cross-node mixing when multiple logical nodes share

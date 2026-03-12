@@ -56,6 +56,25 @@ type CustomConfig struct {
 	// Per-node proxy protocol control
 	EnableProxyProtocol bool   `json:"enable_proxy_protocol"`
 	ProxyProtocolVer    uint64 `json:"proxy_protocol_ver"`
+	// XHTTP (SplitHTTP) bypass CDN fields — new in Xray-core v26.2+
+	XHTTPMode           string          `json:"xhttp_mode"`
+	XHTTPExtra          json.RawMessage `json:"xhttp_extra"`
+	XPaddingBytes       *[2]int32       `json:"x_padding_bytes"`
+	XPaddingObfsMode    bool            `json:"x_padding_obfs_mode"`
+	XPaddingKey         string          `json:"x_padding_key"`
+	XPaddingHeader      string          `json:"x_padding_header"`
+	XPaddingPlacement   string          `json:"x_padding_placement"`
+	XPaddingMethod      string          `json:"x_padding_method"`
+	UplinkHTTPMethod    string          `json:"uplink_http_method"`
+	SessionPlacement    string          `json:"session_placement"`
+	SessionKey          string          `json:"session_key"`
+	SeqPlacement        string          `json:"seq_placement"`
+	SeqKey              string          `json:"seq_key"`
+	UplinkDataPlacement string          `json:"uplink_data_placement"`
+	UplinkDataKey       string          `json:"uplink_data_key"`
+	UplinkChunkSize     uint32          `json:"uplink_chunk_size"`
+	NoGRPCHeader        bool            `json:"no_grpc_header"`
+	NoSSEHeader         bool            `json:"no_sse_header"`
 }
 
 // UserResponse is the response of user

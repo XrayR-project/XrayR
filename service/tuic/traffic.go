@@ -387,7 +387,11 @@ func (s *TuicService) nodeMonitor() error {
 
 	if nodeInfo == nil || nodeInfo.NodeType != "Tuic" {
 		if s.logger != nil {
-			s.logger.Warnf("TUIC node monitor: unexpected node info: %v", nodeInfo)
+			if nodeInfo == nil {
+				s.logger.Warn("TUIC node monitor: unexpected node info: <nil>")
+			} else {
+				s.logger.Warnf("TUIC node monitor: unexpected node info: type=%s id=%d", nodeInfo.NodeType, nodeInfo.NodeID)
+			}
 		}
 		return nil
 	}

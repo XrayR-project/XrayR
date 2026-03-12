@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/eko/gocache/lib/v4/cache"
@@ -26,12 +27,76 @@ type UserInfo struct {
 	DeviceLimit int
 }
 
+// connIP tracks a single online IP with its UID and last-seen timestamp.
+type connIP struct {
+	UID      int
+	LastSeen int64 // unix timestamp
+}
+
+// userOnlineEntry stores per-user IP tracking with an atomic device counter
+// to avoid O(N) Range() for device counting.
+type userOnlineEntry struct {
+	ips   sync.Map // Key: IP string -> connIP
+	count int32    // atomic device count — avoids Range() for counting
+}
+
+func newUserOnlineEntry() *userOnlineEntry {
+	return &userOnlineEntry{}
+}
+
+// addIP records an IP for this user. Returns false (reject) if device limit exceeded.
+func (e *userOnlineEntry) addIP(ip string, uid int, deviceLimit int) (reject bool) {
+	now := time.Now().Unix()
+	// Fast path: IP already tracked
+	if v, loaded := e.ips.Load(ip); loaded {
+		entry := v.(connIP)
+		entry.LastSeen = now
+		e.ips.Store(ip, entry)
+		return false
+	}
+	// New IP — check device limit before adding
+	if deviceLimit > 0 {
+		current := atomic.LoadInt32(&e.count)
+		if int(current) >= deviceLimit {
+			return true // reject
+		}
+	}
+	// Try to store; if another goroutine stored the same IP concurrently, don't double-count
+	if _, loaded := e.ips.LoadOrStore(ip, connIP{UID: uid, LastSeen: now}); !loaded {
+		atomic.AddInt32(&e.count, 1)
+	}
+	return false
+}
+
+// cleanStale removes IPs not seen within ttl and returns remaining count.
+func (e *userOnlineEntry) cleanStale(ttl int64) int32 {
+	now := time.Now().Unix()
+	e.ips.Range(func(key, value interface{}) bool {
+		entry := value.(connIP)
+		if now-entry.LastSeen > ttl {
+			e.ips.Delete(key)
+			atomic.AddInt32(&e.count, -1)
+		}
+		return true
+	})
+	return atomic.LoadInt32(&e.count)
+}
+
+// collectOnline gathers all online user records efficiently.
+func (e *userOnlineEntry) collectOnline(out *[]api.OnlineUser) {
+	e.ips.Range(func(key, value interface{}) bool {
+		entry := value.(connIP)
+		*out = append(*out, api.OnlineUser{UID: entry.UID, IP: key.(string)})
+		return true
+	})
+}
+
 type InboundInfo struct {
 	Tag            string
 	NodeSpeedLimit uint64
 	UserInfo       *sync.Map // Key: user tag (buildUserTag) -> UserInfo
 	BucketHub      *sync.Map // Key: user tag -> *rate.Limiter
-	UserOnlineIP   *sync.Map // Key: user tag -> {Key: IP, value: UID}
+	UserOnlineIP   *sync.Map // Key: user tag -> *userOnlineEntry
 	GlobalLimit    struct {
 		config         *GlobalDeviceLimitConfig
 		globalOnlineIP *marshaler.Marshaler
@@ -129,34 +194,34 @@ func (l *Limiter) DeleteInboundLimiter(tag string) error {
 	return nil
 }
 
-func (l *Limiter) GetOnlineDevice(tag string) (*[]api.OnlineUser, error) {
-	var onlineUser []api.OnlineUser
+// ipTTL is the time-to-live for online IP entries. IPs not seen within this
+// duration are considered stale and cleaned up during GetOnlineDevice.
+const ipTTL int64 = 120 // seconds
 
+func (l *Limiter) GetOnlineDevice(tag string) (*[]api.OnlineUser, error) {
 	if value, ok := l.InboundInfo.Load(tag); ok {
 		inboundInfo := value.(*InboundInfo)
-		// Clear Speed Limiter bucket for users who are not online
-		inboundInfo.BucketHub.Range(func(key, value interface{}) bool {
-			email := key.(string)
-			if _, exists := inboundInfo.UserOnlineIP.Load(email); !exists {
-				inboundInfo.BucketHub.Delete(email)
-			}
-			return true
-		})
-		inboundInfo.UserOnlineIP.Range(func(_, value interface{}) bool {
-			ipMap := value.(*sync.Map)
-			ipMap.Range(func(key, value interface{}) bool {
-				uid := value.(int)
-				ip := key.(string)
-				onlineUser = append(onlineUser, api.OnlineUser{UID: uid, IP: ip})
-				return true
-			})
-			return true
-		})
-	} else {
-		return nil, fmt.Errorf("no such inbound in limiter: %s", tag)
-	}
+		// Pre-allocate with a reasonable capacity to reduce slice growth
+		onlineUser := make([]api.OnlineUser, 0, 256)
 
-	return &onlineUser, nil
+		// Single pass: collect online IPs and clean stale entries
+		inboundInfo.UserOnlineIP.Range(func(userKey, value interface{}) bool {
+			entry := value.(*userOnlineEntry)
+			// Clean stale IPs (not seen within TTL)
+			remaining := entry.cleanStale(ipTTL)
+			if remaining == 0 {
+				// No IPs left — remove the entry and its rate bucket
+				inboundInfo.UserOnlineIP.Delete(userKey)
+				inboundInfo.BucketHub.Delete(userKey)
+				return true
+			}
+			entry.collectOnline(&onlineUser)
+			return true
+		})
+
+		return &onlineUser, nil
+	}
+	return nil, fmt.Errorf("no such inbound in limiter: %s", tag)
 }
 
 func (l *Limiter) GetUserBucket(tag string, userKey string, ip string) (limiter *rate.Limiter, SpeedLimit bool, Reject bool) {
@@ -176,22 +241,13 @@ func (l *Limiter) GetUserBucket(tag string, userKey string, ip string) (limiter 
 			deviceLimit = u.DeviceLimit
 		}
 
-		// Local device limit
-		ipMap := new(sync.Map)
-		ipMap.Store(ip, uid)
-		if v, ok := inboundInfo.UserOnlineIP.LoadOrStore(userKey, ipMap); ok {
-			ipMap := v.(*sync.Map)
-			if _, ok := ipMap.LoadOrStore(ip, uid); !ok {
-				counter := 0
-				ipMap.Range(func(key, value interface{}) bool {
-					counter++
-					return true
-				})
-				if counter > deviceLimit && deviceLimit > 0 {
-					ipMap.Delete(ip)
-					return nil, false, true
-				}
-			}
+		// Local device limit — O(1) via atomic counter instead of O(N) Range()
+		entry := newUserOnlineEntry()
+		if v, loaded := inboundInfo.UserOnlineIP.LoadOrStore(userKey, entry); loaded {
+			entry = v.(*userOnlineEntry)
+		}
+		if entry.addIP(ip, uid, deviceLimit) {
+			return nil, false, true // device limit exceeded
 		}
 
 		if inboundInfo.GlobalLimit.config != nil && inboundInfo.GlobalLimit.config.Enable {
@@ -202,12 +258,15 @@ func (l *Limiter) GetUserBucket(tag string, userKey string, ip string) (limiter 
 
 		limit := determineRate(nodeLimit, userLimit)
 		if limit > 0 {
-			limiter := rate.NewLimiter(rate.Limit(limit), int(limit))
-			if v, ok := inboundInfo.BucketHub.LoadOrStore(userKey, limiter); ok {
-				bucket := v.(*rate.Limiter)
-				return bucket, true, false
+			// Reuse existing bucket if available; only create new one on first access
+			if v, ok := inboundInfo.BucketHub.Load(userKey); ok {
+				return v.(*rate.Limiter), true, false
 			}
-			return limiter, true, false
+			newLimiter := rate.NewLimiter(rate.Limit(limit), int(limit))
+			if v, loaded := inboundInfo.BucketHub.LoadOrStore(userKey, newLimiter); loaded {
+				return v.(*rate.Limiter), true, false
+			}
+			return newLimiter, true, false
 		}
 		return nil, false, false
 	}
@@ -259,21 +318,17 @@ func pushIP(inboundInfo *InboundInfo, uniqueKey string, ipMap *map[string]int) {
 
 // determineRate returns the minimum non-zero rate
 func determineRate(nodeLimit, userLimit uint64) (limit uint64) {
-	if nodeLimit == 0 || userLimit == 0 {
-		if nodeLimit > userLimit {
-			return nodeLimit
-		} else if nodeLimit < userLimit {
-			return userLimit
-		} else {
-			return 0
-		}
-	} else {
-		if nodeLimit > userLimit {
-			return userLimit
-		} else if nodeLimit < userLimit {
-			return nodeLimit
-		} else {
-			return nodeLimit
-		}
+	if nodeLimit == 0 && userLimit == 0 {
+		return 0
 	}
+	if nodeLimit == 0 {
+		return userLimit
+	}
+	if userLimit == 0 {
+		return nodeLimit
+	}
+	if nodeLimit < userLimit {
+		return nodeLimit
+	}
+	return userLimit
 }

@@ -16,7 +16,7 @@ func getDefaultConnectionConfig() *ConnectionConfig {
 		ConnIdle:     30,
 		UplinkOnly:   2,
 		DownlinkOnly: 4,
-		BufferSize:   64,
+		BufferSize:   4, // 4KB per connection; 64KB was too high for 10k-50k users (would consume 3.2GB+ RAM)
 	}
 }
 

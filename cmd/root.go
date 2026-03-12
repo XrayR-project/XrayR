@@ -25,7 +25,8 @@ var (
 		Use: "XrayR",
 		Run: func(cmd *cobra.Command, args []string) {
 			if err := run(); err != nil {
-				log.Fatal(err)
+				log.Error("XrayR failed to start")
+				os.Exit(1)
 			}
 		},
 	}
@@ -133,7 +134,7 @@ func run() error {
 
 		// Swap to the new config and panel instance after successful parse.
 		if err := p.Close(); err != nil {
-			log.Errorf("Hot reload: failed to close old panel: %v", err)
+			log.Error("Hot reload: failed to close old panel")
 		}
 		// Delete old instance and trigger GC
 		runtime.GC()
@@ -148,7 +149,7 @@ func run() error {
 		p = panel.New(panelConfig)
 
 		if err := p.Start(); err != nil {
-			log.Errorf("Hot reload: failed to start new panel: %v", err)
+			log.Error("Hot reload: failed to start new panel")
 			return
 		}
 		lastTime = time.Now()
@@ -159,7 +160,7 @@ func run() error {
 	}
 	defer func() {
 		if err := p.Close(); err != nil {
-			log.Errorf("Failed to close panel: %v", err)
+			log.Error("Failed to close panel")
 		}
 	}()
 

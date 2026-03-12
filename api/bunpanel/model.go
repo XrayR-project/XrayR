@@ -12,6 +12,9 @@ type Server struct {
 	RealitySettings json.RawMessage `json:"realitySettings"`
 	GrpcSettings json.RawMessage `json:"grpcSettings"`
 	TcpSettings json.RawMessage `json:"tcpSettings"`
+	SplitHTTPSettings json.RawMessage `json:"splithttpSettings"`
+	XHTTPSettings json.RawMessage `json:"xhttpSettings"`
+	HttpUpgradeSettings json.RawMessage `json:"httpupgradeSettings"`
 }
 
 type WsSettings struct {
@@ -27,6 +30,36 @@ type GrpcSettigns struct {
 
 type TcpSettings struct {
 	Header json.RawMessage `json:"header"`
+}
+
+type SplitHTTPSettings struct {
+	Path                string            `json:"path"`
+	Host                string            `json:"host"`
+	Headers             map[string]string `json:"headers"`
+	Mode                string            `json:"mode"`
+	Extra               json.RawMessage   `json:"extra"`
+	XPaddingBytes       *[2]int32         `json:"xPaddingBytes"`
+	XPaddingObfsMode    bool              `json:"xPaddingObfsMode"`
+	XPaddingKey         string            `json:"xPaddingKey"`
+	XPaddingHeader      string            `json:"xPaddingHeader"`
+	XPaddingPlacement   string            `json:"xPaddingPlacement"`
+	XPaddingMethod      string            `json:"xPaddingMethod"`
+	UplinkHTTPMethod    string            `json:"uplinkHTTPMethod"`
+	SessionPlacement    string            `json:"sessionPlacement"`
+	SessionKey          string            `json:"sessionKey"`
+	SeqPlacement        string            `json:"seqPlacement"`
+	SeqKey              string            `json:"seqKey"`
+	UplinkDataPlacement string            `json:"uplinkDataPlacement"`
+	UplinkDataKey       string            `json:"uplinkDataKey"`
+	UplinkChunkSize     uint32            `json:"uplinkChunkSize"`
+	NoGRPCHeader        bool              `json:"noGRPCHeader"`
+	NoSSEHeader         bool              `json:"noSSEHeader"`
+}
+
+type HttpUpgradeSettings struct {
+	Path    string            `json:"path"`
+	Host    string            `json:"host"`
+	Headers map[string]string `json:"headers"`
 }
 
 type RealitySettings struct {

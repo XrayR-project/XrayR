@@ -7,6 +7,8 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+
+	log "github.com/sirupsen/logrus"
 )
 
 var defaultPath string
@@ -59,8 +61,15 @@ func (l *LegoCMD) DNSCert() (CertPath string, KeyPath string, err error) {
 	}()
 
 	// Set Env for DNS configuration
+	// Only allow known DNS provider environment variable prefixes to prevent
+	// arbitrary environment variable injection (e.g., PATH, LD_PRELOAD).
 	for key, value := range l.C.DNSEnv {
-		os.Setenv(strings.ToUpper(key), value)
+		envKey := strings.ToUpper(key)
+		if !isAllowedDNSEnvKey(envKey) {
+			log.Warnf("Skipping disallowed DNS env key: %s", envKey)
+			continue
+		}
+		os.Setenv(envKey, value)
 	}
 
 	// First check if the certificate exists
@@ -146,6 +155,65 @@ func (l *LegoCMD) RenewCert() (CertPath string, KeyPath string, ok bool, err err
 	}
 
 	return
+}
+
+// allowedDNSEnvPrefixes is a whitelist of environment variable prefixes
+// used by known DNS providers in lego. This prevents arbitrary env var injection
+// (e.g., PATH, LD_PRELOAD) through the DNSEnv configuration.
+var allowedDNSEnvPrefixes = []string{
+	// Cloudflare
+	"CF_", "CLOUDFLARE_",
+	// Alibaba Cloud (AliDNS)
+	"ALICLOUD_",
+	// AWS Route53
+	"AWS_",
+	// GoDaddy
+	"GODADDY_",
+	// Gandi
+	"GANDI_",
+	// DigitalOcean
+	"DO_",
+	// DNSPod / Tencent Cloud
+	"DNSPOD_", "TENCENTCLOUD_",
+	// Namecheap
+	"NAMECHEAP_",
+	// Vultr
+	"VULTR_",
+	// Linode
+	"LINODE_",
+	// Name.com
+	"NAMECOM_",
+	// NS1
+	"NS1_",
+	// OVH
+	"OVH_",
+	// Hetzner
+	"HETZNER_",
+	// Google Cloud DNS
+	"GCE_",
+	// Azure
+	"AZURE_",
+	// Porkbun
+	"PORKBUN_",
+	// Duck DNS
+	"DUCKDNS_",
+	// Hurricane Electric
+	"HURRICANE_",
+	// Desec
+	"DESEC_",
+	// ACME_DNS
+	"ACME_DNS_",
+	// Generic lego
+	"LEGO_",
+}
+
+func isAllowedDNSEnvKey(key string) bool {
+	for _, prefix := range allowedDNSEnvPrefixes {
+		if strings.HasPrefix(key, prefix) {
+			return true
+		}
+	}
+	return false
 }
 
 func checkCertFile(domain string) (string, string, error) {

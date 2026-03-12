@@ -77,9 +77,14 @@ func readLocalRuleList(path string) (LocalRuleList []api.DetectRule) {
 
 		// read line by line
 		for fileScanner.Scan() {
+			pattern, err := regexp.Compile(fileScanner.Text())
+			if err != nil {
+				log.Printf("Invalid rule regex: %s, skipping", err)
+				continue
+			}
 			LocalRuleList = append(LocalRuleList, api.DetectRule{
 				ID:      -1,
-				Pattern: regexp.MustCompile(fileScanner.Text()),
+				Pattern: pattern,
 			})
 		}
 		// handle first encountered error while reading
@@ -233,7 +238,7 @@ func (c *APIClient) ReportUserTraffic(userTraffic *[]api.UserTraffic) (err error
 }
 
 func (c *APIClient) Describe() api.ClientInfo {
-	return api.ClientInfo{APIHost: c.APIHost, NodeID: c.NodeID, Key: c.Key, NodeType: c.NodeType}
+	return api.ClientInfo{APIHost: c.APIHost, NodeID: c.NodeID, Key: "", NodeType: c.NodeType}
 }
 
 // GetXrayRCertConfig is not provided by GoV2Panel; return nil to indicate absence.
@@ -264,9 +269,14 @@ func (c *APIClient) GetNodeRule() (*[]api.DetectRule, error) {
 	for i := range routes {
 		if routes[i].Action == "block" {
 			for _, v := range routes[i].Match {
+				pattern, err := regexp.Compile(v)
+				if err != nil {
+					log.Printf("Invalid route rule regex (index=%d): %s, skipping", i, err)
+					continue
+				}
 				ruleList = append(ruleList, api.DetectRule{
 					ID:      i,
-					Pattern: regexp.MustCompile(v),
+					Pattern: pattern,
 				})
 			}
 

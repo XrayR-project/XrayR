@@ -2,22 +2,17 @@
 package rule
 
 import (
-	"context"
-	"fmt"
 	"reflect"
 	"strconv"
 	"strings"
 	"sync"
-
-	mapset "github.com/deckarep/golang-set"
-	"github.com/xtls/xray-core/common/errors"
 
 	"github.com/XrayR-project/XrayR/api"
 )
 
 type Manager struct {
 	InboundRule         *sync.Map // Key: Tag, Value: []api.DetectRule
-	InboundDetectResult *sync.Map // key: Tag, Value: mapset.NewSet []api.DetectResult
+	InboundDetectResult *sync.Map // key: Tag, Value: *sync.Map of api.DetectResult -> struct{}
 }
 
 func New() *Manager {
@@ -40,49 +35,56 @@ func (r *Manager) UpdateRule(tag string, newRuleList []api.DetectRule) error {
 func (r *Manager) GetDetectResult(tag string) (*[]api.DetectResult, error) {
 	detectResult := make([]api.DetectResult, 0)
 	if value, ok := r.InboundDetectResult.LoadAndDelete(tag); ok {
-		resultSet := value.(mapset.Set)
-		it := resultSet.Iterator()
-		for result := range it.C {
-			detectResult = append(detectResult, result.(api.DetectResult))
-		}
+		resultMap := value.(*sync.Map)
+		resultMap.Range(func(key, _ interface{}) bool {
+			detectResult = append(detectResult, key.(api.DetectResult))
+			return true
+		})
 	}
 	return &detectResult, nil
 }
 
 func (r *Manager) Detect(tag string, destination string, userKey string, srcIP string) (reject bool) {
-	reject = false
-	var hitRuleID = -1
-	// If we have some rule for this inbound
-	if value, ok := r.InboundRule.Load(tag); ok {
-		ruleList := value.([]api.DetectRule)
-		for _, r := range ruleList {
-			if r.Pattern.Match([]byte(destination)) {
-				hitRuleID = r.ID
-				reject = true
-				break
-			}
-		}
-		// If we hit some rule
-		if reject && hitRuleID != -1 {
-			uid, err := strconv.Atoi(userKey)
-			if err != nil {
-				parts := strings.Split(userKey, "|")
-				uid, err = strconv.Atoi(parts[len(parts)-1])
-			}
-			if err != nil {
-				errors.LogDebug(context.Background(), fmt.Sprintf("Record illegal behavior failed! Cannot find user's uid: %s", userKey))
-				return reject
-			}
-			newSet := mapset.NewSetWith(api.DetectResult{UID: uid, RuleID: hitRuleID, IP: srcIP})
-			// If there are any hit history
-			if v, ok := r.InboundDetectResult.LoadOrStore(tag, newSet); ok {
-				resultSet := v.(mapset.Set)
-				// If this is a new record
-				if resultSet.Add(api.DetectResult{UID: uid, RuleID: hitRuleID, IP: srcIP}) {
-					r.InboundDetectResult.Store(tag, resultSet)
-				}
-			}
+	// Fast path: no rules loaded for this tag
+	value, ok := r.InboundRule.Load(tag)
+	if !ok {
+		return false
+	}
+
+	ruleList := value.([]api.DetectRule)
+	hitRuleID := -1
+	for _, rule := range ruleList {
+		if rule.Pattern.Match([]byte(destination)) {
+			hitRuleID = rule.ID
+			break
 		}
 	}
-	return reject
+
+	if hitRuleID == -1 {
+		return false
+	}
+
+	// Parse UID from userKey (format: "tag|email|uid")
+	uid := 0
+	if parts := strings.Split(userKey, "|"); len(parts) > 0 {
+		uid, _ = strconv.Atoi(parts[len(parts)-1])
+	}
+	if uid == 0 {
+		uid, _ = strconv.Atoi(userKey)
+	}
+
+	result := api.DetectResult{UID: uid, RuleID: hitRuleID, IP: srcIP}
+	// Use sync.Map instead of mapset.Set to avoid external dependency overhead
+	if v, ok := r.InboundDetectResult.Load(tag); ok {
+		resultMap := v.(*sync.Map)
+		resultMap.LoadOrStore(result, struct{}{})
+	} else {
+		newMap := &sync.Map{}
+		newMap.Store(result, struct{}{})
+		if v, loaded := r.InboundDetectResult.LoadOrStore(tag, newMap); loaded {
+			v.(*sync.Map).LoadOrStore(result, struct{}{})
+		}
+	}
+
+	return true
 }

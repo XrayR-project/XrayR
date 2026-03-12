@@ -39,7 +39,7 @@ type NodeStatus struct {
 type NodeInfo struct {
 	AcceptProxyProtocol bool
 	Authority           string
-	NodeType            string // V2ray/Vmess, VLESS, Trojan, Shadowsocks, Hysteria2, AnyTLS, Tuic
+	NodeType            string // V2ray/Vmess, VLESS, Trojan, Shadowsocks, Hysteria2, AnyTLS, Tuic, Socks, HTTP
 	NodeID              int
 	Port                uint32
 	SpeedLimit          uint64 // Bps
@@ -82,6 +82,37 @@ type NodeInfo struct {
 	Hysteria2Config     *Hysteria2Config
 	AnyTLSConfig        *AnyTLSConfig
 	TuicConfig          *TuicConfig
+
+	// XHTTP (SplitHTTP) bypass CDN fields — new in Xray-core v26.2+
+	XHTTPMode             string          // auto, packet-up, stream-up, stream-one
+	XHTTPExtra            json.RawMessage // raw "extra" JSON for full override
+	XPaddingBytes         *[2]int32       // [from, to] range for xPaddingBytes
+	XPaddingObfsMode      bool            // xPaddingObfsMode
+	XPaddingKey           string          // xPaddingKey
+	XPaddingHeader        string          // xPaddingHeader
+	XPaddingPlacement     string          // queryInHeader, cookie, header, query
+	XPaddingMethod        string          // repeat-x, tokenish
+	UplinkHTTPMethod      string          // POST, GET
+	SessionPlacement      string          // path, cookie, header, query
+	SessionKey            string          // key for session placement
+	SeqPlacement          string          // path, cookie, header, query
+	SeqKey                string          // key for seq placement
+	UplinkDataPlacement   string          // body, cookie, header
+	UplinkDataKey         string          // key for uplink data placement
+	UplinkChunkSize       uint32          // chunk size for non-body uplink
+	NoGRPCHeader          bool            // disable gRPC header
+	NoSSEHeader           bool            // disable SSE header
+	ScMaxEachPostBytes    *[2]int32       // [from, to] range
+	ScMinPostsIntervalMs  *[2]int32       // [from, to] range
+	ScMaxBufferedPosts    int64           // max buffered posts
+	ScStreamUpServerSecs  *[2]int32       // [from, to] range
+	XmuxMaxConcurrency    *[2]int32       // [from, to] range
+	XmuxMaxConnections    *[2]int32       // [from, to] range
+	XmuxCMaxReuseTimes    *[2]int32       // [from, to] range
+	XmuxHMaxRequestTimes  *[2]int32       // [from, to] range
+	XmuxHMaxReusableSecs  *[2]int32       // [from, to] range
+	XmuxHKeepAlivePeriod  int64           // keep alive period
+	XHTTPDownloadSettings json.RawMessage // downloadSettings raw JSON
 }
 
 type UserInfo struct {
@@ -153,6 +184,7 @@ type TuicConfig struct {
 	UDPRelayMode      string
 	ZeroRTTHandshake  bool
 	Heartbeat         int
+	AuthTimeout       int
 	ALPN              []string
 }
 
