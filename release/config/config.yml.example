@@ -11,17 +11,17 @@ ConnectionConfig:
   ConnIdle: 30 # Connection idle time limit, Second
   UplinkOnly: 2 # Time limit when the connection downstream is closed, Second
   DownlinkOnly: 4 # Time limit when the connection is closed after the uplink is closed, Second
-  BufferSize: 64 # The internal cache size of each connection, kB
+  BufferSize: 4 # The internal cache size of each connection, kB
 Nodes:
-  - PanelType: "SSpanel" # Panel type: SSpanel, NewV2board, PMpanel, Proxypanel, V2RaySocks, GoV2Panel, BunPanel
+  - PanelType: "SSPanel" # Panel type: SSPanel/SSpanel, NewV2board (also works with Xboard), PMpanel, Proxypanel, V2RaySocks, GoV2Panel, BunPanel
     ApiConfig:
       ApiHost: "http://127.0.0.1:667"
       ApiKey: "123"
-      NodeID: 41
-      NodeType: V2ray # Node type: V2ray, Vmess, Vless, Shadowsocks, Trojan, Shadowsocks-Plugin
+      NodeID: 41 # Single node ID (int). For multiple nodes, add multiple entries under Nodes.
+      NodeType: V2ray # Node type: V2ray, Vmess, Vless, Shadowsocks, Trojan, Shadowsocks-Plugin, Hysteria2, Tuic, AnyTLS, Socks, HTTP
       Timeout: 30 # Timeout for the api request
       EnableVless: false # Enable Vless for V2ray Type
-      VlessFlow: "xtls-rprx-vision" # Only support vless
+      VlessFlow: "xtls-rprx-vision" # Only for direct TLS/REALITY over TCP. Keep empty for ws/grpc/httpupgrade/splithttp(xhttp).
       SpeedLimit: 0 # Mbps, Local settings will replace remote settings, 0 means disable
       DeviceLimit: 0 # Local settings will replace remote settings, 0 means disable
       RuleListPath: # /etc/XrayR/rulelist Path to local rulelist file
@@ -32,6 +32,10 @@ Nodes:
       UpdatePeriodic: 60 # Time to update the nodeinfo, how many sec.
       EnableDNS: false # Use custom DNS config, Please ensure that you set the dns.json well
       DNSType: AsIs # AsIs, UseIP, UseIPv4, UseIPv6, DNS strategy
+      DisableSniffing: false # Disable sniffing
+      DisableUploadTraffic: false # Disable upload traffic reporting
+      DisableGetRule: false # Disable fetching rules from panel
+      DisableIVCheck: false # Disable Shadowsocks IV check (legacy compatibility only; keep false unless required)
       EnableProxyProtocol: false # Only works for WebSocket and TCP
       AutoSpeedLimitConfig:
         Limit: 0 # Warned speed. Set to 0 to disable AutoSpeedLimit (mbps)
@@ -57,7 +61,6 @@ Nodes:
       DisableLocalREALITYConfig: false  # disable local reality config
       EnableREALITY: false # Enable REALITY
       REALITYConfigs:
-        Show: true # Show REALITY debug
         Dest: www.amazon.com:443 # Required, Same as fallback
         ProxyProtocolVer: 0 # Send PROXY protocol version, 0 for disable
         ServerNames: # Required, list of available serverNames for the client, * wildcard is not supported at the moment.
@@ -69,23 +72,27 @@ Nodes:
         ShortIds: # Required, list of available shortIds for the client, can be used to differentiate between different clients.
           - ""
           - 0123456789abcdef
-      CertConfig:
-        CertMode: dns # Option about how to get certificate: none, file, http, tls, dns. Choose "none" will forcedly disable the tls config.
-        CertDomain: "node1.test.com" # Domain to cert
-        CertFile: /etc/XrayR/cert/node1.test.com.cert # Provided if the CertMode is file
-        KeyFile: /etc/XrayR/cert/node1.test.com.key
-        Provider: alidns # DNS cert provider, Get the full support list here: https://go-acme.github.io/lego/dns/
-        Email: test@me.com
-        DNSEnv: # DNS ENV option used by DNS provider
-          ALICLOUD_ACCESS_KEY: aaa
-          ALICLOUD_SECRET_KEY: bbb
+      # CertConfig:
+      # - Required for Hysteria2, Tuic, AnyTLS nodes.
+      # - For other node types, it is optional and can be managed by panel/local settings.
+      # Uncomment and fill the fields below when needed:
+      # CertConfig:
+      #   CertMode: dns # none, file, http, tls, dns
+      #   CertDomain: "node1.test.com"
+      #   CertFile: /etc/XrayR/cert/node1.test.com.cert
+      #   KeyFile: /etc/XrayR/cert/node1.test.com.key
+      #   Provider: alidns
+      #   Email: test@me.com
+      #   DNSEnv:
+      #     ALICLOUD_ACCESS_KEY: aaa
+      #     ALICLOUD_SECRET_KEY: bbb
 
-#  - PanelType: "SSpanel" # Panel type: SSpanel, V2board, NewV2board, PMpanel, Proxypanel, V2RaySocks, GoV2Panel
+#  - PanelType: "SSpanel" # Panel type: SSpanel, NewV2board (also works with Xboard), PMpanel, Proxypanel, V2RaySocks, GoV2Panel, BunPanel
 #    ApiConfig:
 #      ApiHost: "http://127.0.0.1:668"
 #      ApiKey: "123"
 #      NodeID: 41
-#      NodeType: V2ray # Node type: V2ray, Shadowsocks, Trojan, Shadowsocks-Plugin
+#      NodeType: V2ray # Node type: V2ray, Vmess, Vless, Shadowsocks, Trojan, Shadowsocks-Plugin, Hysteria2, Tuic, AnyTLS, Socks, HTTP
 #      Timeout: 30 # Timeout for the api request
 #      EnableVless: false # Enable Vless for V2ray Type
 #      VlessFlow: "xtls-rprx-vision" # Only support vless
@@ -106,7 +113,9 @@ Nodes:
 #        LimitDuration: 0 # How many minutes will the limiting last (unit: minute)
 #      GlobalDeviceLimitConfig:
 #        Enable: false # Enable the global device limit of a user
-#        RedisAddr: 127.0.0.1:6379 # The redis server address
+#        RedisNetwork: tcp # Redis protocol, tcp or unix
+#        RedisAddr: 127.0.0.1:6379 # Redis server address, or unix socket path
+#        RedisUsername: # Redis username
 #        RedisPassword: YOUR PASSWORD # Redis password
 #        RedisDB: 0 # Redis DB
 #        Timeout: 5 # Timeout for redis request
@@ -120,7 +129,6 @@ Nodes:
 #          ProxyProtocolVer: 0 # Send PROXY protocol version, 0 for disable
 #      EnableREALITY: true # Enable REALITY
 #      REALITYConfigs:
-#        Show: true # Show REALITY debug
 #        Dest: www.amazon.com:443 # Required, Same as fallback
 #        ProxyProtocolVer: 0 # Send PROXY protocol version, 0 for disable
 #        ServerNames: # Required, list of available serverNames for the client, * wildcard is not supported at the moment.
@@ -142,3 +150,57 @@ Nodes:
 #        DNSEnv: # DNS ENV option used by DNS provider
 #          ALICLOUD_ACCESS_KEY: aaa
 #          ALICLOUD_SECRET_KEY: bbb
+
+#  - PanelType: "NewV2board" # Example: Tuic node (Xboard/NewV2board)
+#    ApiConfig:
+#      ApiHost: "https://panel.example.com"
+#      ApiKey: "your_api_key"
+#      NodeID: 1
+#      NodeType: Tuic
+#      Timeout: 30
+#      RuleListPath: # /etc/XrayR/rulelist
+#    ControllerConfig:
+#      ListenIP: 0.0.0.0
+#      SendIP: 0.0.0.0
+#      UpdatePeriodic: 60
+#      DisableUploadTraffic: false
+#      DisableGetRule: false
+#      CertConfig: # Required for Tuic
+#        CertMode: file # none, file, http, tls, dns
+#        CertDomain: "tuic.example.com"
+#        CertFile: /etc/XrayR/cert/tuic.example.com.cert
+#        KeyFile: /etc/XrayR/cert/tuic.example.com.key
+
+#  - PanelType: "NewV2board" # Example: Hysteria2 node
+#    ApiConfig:
+#      ApiHost: "https://panel.example.com"
+#      ApiKey: "your_api_key"
+#      NodeID: 2
+#      NodeType: Hysteria2
+#      Timeout: 30
+#    ControllerConfig:
+#      ListenIP: 0.0.0.0
+#      SendIP: 0.0.0.0
+#      UpdatePeriodic: 60
+#      CertConfig: # Required for Hysteria2
+#        CertMode: file
+#        CertDomain: "hy2.example.com"
+#        CertFile: /etc/XrayR/cert/hy2.example.com.cert
+#        KeyFile: /etc/XrayR/cert/hy2.example.com.key
+
+#  - PanelType: "NewV2board" # Example: AnyTLS node
+#    ApiConfig:
+#      ApiHost: "https://panel.example.com"
+#      ApiKey: "your_api_key"
+#      NodeID: 3
+#      NodeType: AnyTLS
+#      Timeout: 30
+#    ControllerConfig:
+#      ListenIP: 0.0.0.0
+#      SendIP: 0.0.0.0
+#      UpdatePeriodic: 60
+#      CertConfig: # Required for AnyTLS
+#        CertMode: file
+#        CertDomain: "anytls.example.com"
+#        CertFile: /etc/XrayR/cert/anytls.example.com.cert
+#        KeyFile: /etc/XrayR/cert/anytls.example.com.key

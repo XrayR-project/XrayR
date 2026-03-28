@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"regexp"
 
 	"github.com/xtls/xray-core/infra/conf"
@@ -28,6 +29,27 @@ type Config struct {
 	DisableCustomConfig bool    `mapstructure:"DisableCustomConfig"`
 }
 
+type RemotePanelConfigFetchOptions struct {
+	DNS      bool
+	Route    bool
+	Inbound  bool
+	Outbound bool
+}
+
+func (o *RemotePanelConfigFetchOptions) Any() bool {
+	if o == nil {
+		return false
+	}
+	return o.DNS || o.Route || o.Inbound || o.Outbound
+}
+
+type RemotePanelConfigFiles struct {
+	DNS      []byte
+	Route    []byte
+	Inbound  []byte
+	Outbound []byte
+}
+
 // NodeStatus Node status
 type NodeStatus struct {
 	CPU    float64
@@ -39,7 +61,7 @@ type NodeStatus struct {
 type NodeInfo struct {
 	AcceptProxyProtocol bool
 	Authority           string
-	NodeType            string // Must be V2ray, Trojan, and Shadowsocks
+	NodeType            string // V2ray/Vmess, VLESS, Trojan, Shadowsocks, Hysteria2, AnyTLS, Tuic, Socks, HTTP
 	NodeID              int
 	Port                uint32
 	SpeedLimit          uint64 // Bps
@@ -47,6 +69,7 @@ type NodeInfo struct {
 	TransportProtocol   string
 	FakeType            string
 	Host                string
+	SNI                 string
 	Path                string
 	EnableTLS           bool
 	EnableSniffing      bool
@@ -78,11 +101,46 @@ type NodeInfo struct {
 	Security            string
 	Key                 string
 	RejectUnknownSni    bool
+	Hysteria2Config     *Hysteria2Config
+	AnyTLSConfig        *AnyTLSConfig
+	TuicConfig          *TuicConfig
+
+	// XHTTP (SplitHTTP) bypass CDN fields — new in Xray-core v26.2+
+	XHTTPMode             string          // auto, packet-up, stream-up, stream-one
+	XHTTPExtra            json.RawMessage // raw "extra" JSON for full override
+	XPaddingBytes         *[2]int32       // [from, to] range for xPaddingBytes
+	XPaddingObfsMode      bool            // xPaddingObfsMode
+	XPaddingKey           string          // xPaddingKey
+	XPaddingHeader        string          // xPaddingHeader
+	XPaddingPlacement     string          // queryInHeader, cookie, header, query
+	XPaddingMethod        string          // repeat-x, tokenish
+	UplinkHTTPMethod      string          // POST, GET
+	SessionPlacement      string          // path, cookie, header, query
+	SessionKey            string          // key for session placement
+	SeqPlacement          string          // path, cookie, header, query
+	SeqKey                string          // key for seq placement
+	UplinkDataPlacement   string          // body, cookie, header
+	UplinkDataKey         string          // key for uplink data placement
+	UplinkChunkSize       uint32          // chunk size for non-body uplink
+	NoGRPCHeader          bool            // disable gRPC header
+	NoSSEHeader           bool            // disable SSE header
+	ScMaxEachPostBytes    *[2]int32       // [from, to] range
+	ScMinPostsIntervalMs  *[2]int32       // [from, to] range
+	ScMaxBufferedPosts    int64           // max buffered posts
+	ScStreamUpServerSecs  *[2]int32       // [from, to] range
+	XmuxMaxConcurrency    *[2]int32       // [from, to] range
+	XmuxMaxConnections    *[2]int32       // [from, to] range
+	XmuxCMaxReuseTimes    *[2]int32       // [from, to] range
+	XmuxHMaxRequestTimes  *[2]int32       // [from, to] range
+	XmuxHMaxReusableSecs  *[2]int32       // [from, to] range
+	XmuxHKeepAlivePeriod  int64           // keep alive period
+	XHTTPDownloadSettings json.RawMessage // downloadSettings raw JSON
 }
 
 type UserInfo struct {
 	UID         int
 	Email       string
+	RuntimeKey  string
 	UUID        string
 	Passwd      string
 	Port        uint32
@@ -90,6 +148,17 @@ type UserInfo struct {
 	Method      string
 	SpeedLimit  uint64 // Bps
 	DeviceLimit int
+}
+
+// GetRuntimeKey returns the identifier that xray-core uses for per-user
+// runtime behavior such as stats, online IP tracking, and rate limiting.
+// For most protocols this is the managed tag form; for Socks/HTTP it is the
+// authenticated username from the inbound session.
+func (u UserInfo) GetRuntimeKey(tag string) string {
+	if u.RuntimeKey != "" {
+		return u.RuntimeKey
+	}
+	return fmt.Sprintf("%s|%s|%d", tag, u.Email, u.UID)
 }
 
 type OnlineUser struct {
@@ -119,6 +188,38 @@ type DetectRule struct {
 type DetectResult struct {
 	UID    int
 	RuleID int
+	IP     string
+}
+
+// XrayRCertConfig carries optional panel-provided certificate settings
+// (e.g., DNS provider, ACME email, and DNS-01 environment variables).
+type XrayRCertConfig struct {
+	Provider string            `json:"provider"`
+	Email    string            `json:"email"`
+	DNSEnv   map[string]string `json:"dns_env"`
+}
+
+type Hysteria2Config struct {
+	Obfs                  string
+	ObfsPassword          string
+	UpMbps                int
+	DownMbps              int
+	IgnoreClientBandwidth bool
+	PortHopEnabled        bool
+	PortHopPorts          string
+}
+
+type AnyTLSConfig struct {
+	PaddingScheme []string
+}
+
+type TuicConfig struct {
+	CongestionControl string
+	UDPRelayMode      string
+	ZeroRTTHandshake  bool
+	Heartbeat         int
+	AuthTimeout       int
+	ALPN              []string
 }
 
 type REALITYConfig struct {

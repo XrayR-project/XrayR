@@ -18,3 +18,4 @@ error.log
 .lego
 cert
 config.yml
+*.DS_Store

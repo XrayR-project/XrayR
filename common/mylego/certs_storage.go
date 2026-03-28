@@ -159,5 +159,9 @@ func sanitizedDomain(domain string) string {
 	if err != nil {
 		log.Panic(err)
 	}
+	// Prevent path traversal: strip directory separators and parent-directory sequences
+	safe = strings.ReplaceAll(safe, "..", "")
+	safe = strings.ReplaceAll(safe, "/", "")
+	safe = strings.ReplaceAll(safe, "\\", "")
 	return safe
 }

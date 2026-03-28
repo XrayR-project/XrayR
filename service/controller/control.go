@@ -3,7 +3,10 @@ package controller
 import (
 	"context"
 	"fmt"
+	"strings"
 
+	log "github.com/sirupsen/logrus"
+	"github.com/xtls/xray-core/common"
 	"github.com/xtls/xray-core/common/protocol"
 	"github.com/xtls/xray-core/common/session"
 	"github.com/xtls/xray-core/core"
@@ -23,18 +26,117 @@ func (c *Controller) removeInbound(tag string) error {
 	return err
 }
 
-// statsOutboundWrapper wraps outbound.Handler to ensure user downlink traffic is counted.
-type statsOutboundWrapper struct {
-	outbound.Handler
-	pm policy.Manager
-	sm stats.Manager
+// xrayRManagedPrefixes defines all protocol prefixes that XrayR manages.
+// Tags with these prefixes follow the format: {Protocol}_{IP}_{Port}_{NodeID}
+var xrayRManagedPrefixes = []string{
+	"VLESS_",
+	"Trojan_",
+	"Vmess_",
+	"Shadowsocks_",
+	"Socks_",
+	"HTTP_",
 }
 
-func (w *statsOutboundWrapper) Dispatch(ctx context.Context, link *transport.Link) {
-	// Disable kernel splice to avoid Vision/REALITY bypassing userland stats path
+// isXrayRManagedTag checks if a tag is managed by XrayR (i.e., it belongs to a specific node).
+// XrayR-managed tags have the format: {Protocol}_{IP}_{Port}_{NodeID}
+func isXrayRManagedTag(tag string) bool {
+	for _, prefix := range xrayRManagedPrefixes {
+		if strings.HasPrefix(tag, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+// dataPathWrapper wraps outbound.Handler to enforce device limit, user/node speed limit,
+// audit rules and ensure userland path is used for stats.
+type dataPathWrapper struct {
+	outbound.Handler
+	pm      policy.Manager
+	sm      stats.Manager
+	limiter *limiter.Limiter
+	// ruleMgr provides audit detection
+	ruleMgr interface {
+		Detect(tag string, destination string, email string, srcIP string) bool
+	}
+	// tag identifies this node/inbound tag for limiter and rules
+	tag string
+	// obm allows us to look up the correct outbound handler by tag, so we can
+	// enforce "same node in, same node out" routing without touching xray-core
+	// dispatcher internals.
+	obm outbound.Manager
+}
+
+// Tag returns the outbound tag. This MUST match the inbound tag to ensure
+// correct routing (same NodeID in, same NodeID out).
+func (w *dataPathWrapper) Tag() string {
+	return w.tag
+}
+
+func (w *dataPathWrapper) Dispatch(ctx context.Context, link *transport.Link) {
+	// Force userland path to keep stats/limit in effect
 	if sess := session.InboundFromContext(ctx); sess != nil {
 		sess.CanSpliceCopy = 3
 	}
+
+	// --- FIRST: Enforce "same node in, same node out" semantics -------------
+	// This runs on EVERY connection so it must be as fast as possible.
+	if sess := session.InboundFromContext(ctx); sess != nil {
+		inTag := sess.Tag
+		if inTag != "" && inTag != w.tag && isXrayRManagedTag(inTag) {
+			if w.obm != nil {
+				if h := w.obm.GetHandler(inTag); h != nil && h != w {
+					h.Dispatch(ctx, link)
+					return
+				}
+			}
+			// No matching outbound found or obm is nil — reject
+			common.Close(link.Writer)
+			common.Interrupt(link.Reader)
+			return
+		}
+	}
+
+	// --- Now we're in the correct wrapper (inTag matches w.tag) -------------
+	if sess := session.InboundFromContext(ctx); sess != nil && sess.User != nil {
+		email := sess.User.Email
+		if email != "" {
+			srcIP := sess.Source.Address.IP().String()
+			nodeTag := w.tag
+			ruleUserKey := email
+			if w.limiter != nil {
+				if info, ok := w.limiter.GetUserInfo(nodeTag, email); ok && info.UID != 0 {
+					ruleUserKey = fmt.Sprintf("%d", info.UID)
+				}
+			}
+
+			// Rule check (single pass — dispatcher no longer duplicates this)
+			if w.ruleMgr != nil {
+				var destStr string
+				if outs := session.OutboundsFromContext(ctx); len(outs) > 0 {
+					destStr = outs[len(outs)-1].Target.String()
+				}
+				if destStr != "" && w.ruleMgr.Detect(nodeTag, destStr, ruleUserKey, srcIP) {
+					common.Close(link.Writer)
+					common.Interrupt(link.Reader)
+					return
+				}
+			}
+
+			// Device limit + rate limit (single pass — dispatcher no longer duplicates this)
+			if w.limiter != nil {
+				if bucket, ok, reject := w.limiter.GetUserBucket(nodeTag, email, srcIP); reject {
+					common.Close(link.Writer)
+					common.Interrupt(link.Reader)
+					return
+				} else if ok && bucket != nil {
+					link.Reader = w.limiter.RateReader(link.Reader, bucket)
+					link.Writer = w.limiter.RateWriter(link.Writer, bucket)
+				}
+			}
+		}
+	}
+
 	w.Handler.Dispatch(ctx, link)
 }
 
@@ -67,9 +169,17 @@ func (c *Controller) addOutbound(config *core.OutboundHandlerConfig) error {
 	if !ok {
 		return fmt.Errorf("not an InboundHandler: %s", err)
 	}
-	// Wrap outbound handler to ensure downlink stats are always counted (e.g., REALITY/VLESS cases)
-	handler = &statsOutboundWrapper{Handler: handler, pm: c.pm, sm: c.stm}
-	if err := c.obm.AddHandler(context.Background(), handler); err != nil {
+	wrapper := &dataPathWrapper{
+		Handler: handler,
+		pm:      c.pm,
+		sm:      c.stm,
+		limiter: c.dispatcher.Limiter,
+		ruleMgr: c.dispatcher.RuleManager,
+		tag:     c.Tag,
+		obm:     c.obm,
+	}
+	log.Infof("Adding outbound handler: configTag=%s handlerTag=%s wrapperTag=%s controllerTag=%s", config.Tag, handler.Tag(), wrapper.Tag(), c.Tag)
+	if err := c.obm.AddHandler(context.Background(), wrapper); err != nil {
 		return err
 	}
 	return nil
@@ -135,21 +245,24 @@ func (c *Controller) removeUsers(users []string, tag string) error {
 }
 
 func (c *Controller) getTraffic(email string) (up int64, down int64, upCounter stats.Counter, downCounter stats.Counter) {
-	upName := "user>>>" + email + ">>>traffic>>>uplink"
-	downName := "user>>>" + email + ">>>traffic>>>downlink"
-	upCounter = c.stm.GetCounter(upName)
-	downCounter = c.stm.GetCounter(downName)
-	if upCounter != nil && upCounter.Value() != 0 {
-		up = upCounter.Value()
-	} else {
-		upCounter = nil
+	// Use pre-known prefixes/suffixes to reduce string allocation.
+	// The stats manager lookups are the expensive part — avoid calling Value() twice.
+	const prefix = "user>>>"
+	const upSuffix = ">>>traffic>>>uplink"
+	const downSuffix = ">>>traffic>>>downlink"
+	upCounter = c.stm.GetCounter(prefix + email + upSuffix)
+	downCounter = c.stm.GetCounter(prefix + email + downSuffix)
+	if upCounter != nil {
+		if up = upCounter.Value(); up == 0 {
+			upCounter = nil
+		}
 	}
-	if downCounter != nil && downCounter.Value() != 0 {
-		down = downCounter.Value()
-	} else {
-		downCounter = nil
+	if downCounter != nil {
+		if down = downCounter.Value(); down == 0 {
+			downCounter = nil
+		}
 	}
-	return up, down, upCounter, downCounter
+	return
 }
 
 func (c *Controller) resetTraffic(upCounterList *[]stats.Counter, downCounterList *[]stats.Counter) {
@@ -178,6 +291,11 @@ func (c *Controller) DeleteInboundLimiter(tag string) error {
 
 func (c *Controller) GetOnlineDevice(tag string) (*[]api.OnlineUser, error) {
 	return c.dispatcher.Limiter.GetOnlineDevice(tag)
+}
+
+func (c *Controller) SyncAliveList(tag string, aliveList map[int][]string) error {
+	err := c.dispatcher.Limiter.SyncAliveList(tag, aliveList)
+	return err
 }
 
 func (c *Controller) UpdateRule(tag string, newRuleList []api.DetectRule) error {

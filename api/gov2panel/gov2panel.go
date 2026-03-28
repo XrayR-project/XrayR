@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"regexp"
 	"time"
 
 	"github.com/XrayR-project/XrayR/api"
+	"github.com/XrayR-project/XrayR/common"
 	"github.com/gogf/gf/v2/encoding/gjson"
 	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/net/gclient"
@@ -72,23 +72,27 @@ func readLocalRuleList(path string) (LocalRuleList []api.DetectRule) {
 			log.Printf("Error when opening file: %s", err)
 			return LocalRuleList
 		}
+		defer file.Close()
 
 		fileScanner := bufio.NewScanner(file)
 
 		// read line by line
 		for fileScanner.Scan() {
+			pattern, err := common.SafeCompileRegex(fileScanner.Text())
+			if err != nil {
+				log.Printf("Invalid rule regex: %s, skipping", err)
+				continue
+			}
 			LocalRuleList = append(LocalRuleList, api.DetectRule{
 				ID:      -1,
-				Pattern: regexp.MustCompile(fileScanner.Text()),
+				Pattern: pattern,
 			})
 		}
 		// handle first encountered error while reading
 		if err := fileScanner.Err(); err != nil {
-			log.Fatalf("Error while reading file: %s", err)
+			log.Printf("Error while reading file: %s", err)
 			return
 		}
-
-		file.Close()
 	}
 
 	return LocalRuleList
@@ -207,6 +211,11 @@ func (c *APIClient) ReportNodeStatus(nodeStatus *api.NodeStatus) (err error) {
 	return
 }
 
+// GetAliveList implements api.API
+func (c *APIClient) GetAliveList() (aliveList map[int][]string, err error) {
+	return nil, nil
+}
+
 func (c *APIClient) ReportNodeOnlineUsers(onlineUser *[]api.OnlineUser) (err error) {
 	return
 }
@@ -233,7 +242,12 @@ func (c *APIClient) ReportUserTraffic(userTraffic *[]api.UserTraffic) (err error
 }
 
 func (c *APIClient) Describe() api.ClientInfo {
-	return api.ClientInfo{APIHost: c.APIHost, NodeID: c.NodeID, Key: c.Key, NodeType: c.NodeType}
+	return api.ClientInfo{APIHost: c.APIHost, NodeID: c.NodeID, Key: "", NodeType: c.NodeType}
+}
+
+// GetXrayRCertConfig is not provided by GoV2Panel; return nil to indicate absence.
+func (c *APIClient) GetXrayRCertConfig() (*api.XrayRCertConfig, error) {
+	return nil, nil
 }
 
 // GetNodeRule implements the API interface
@@ -259,9 +273,14 @@ func (c *APIClient) GetNodeRule() (*[]api.DetectRule, error) {
 	for i := range routes {
 		if routes[i].Action == "block" {
 			for _, v := range routes[i].Match {
+				pattern, err := common.SafeCompileRegex(v)
+				if err != nil {
+					log.Printf("Invalid route rule regex (index=%d): %s, skipping", i, err)
+					continue
+				}
 				ruleList = append(ruleList, api.DetectRule{
 					ID:      i,
-					Pattern: regexp.MustCompile(v),
+					Pattern: pattern,
 				})
 			}
 
@@ -318,7 +337,7 @@ func (c *APIClient) sendRequest(headerM map[string]string, method string, url st
 
 	reslutJson = gjson.New(gResponse.ReadAllString())
 	if reslutJson == nil {
-		err = fmt.Errorf("http reslut to json, err : %s", gResponse.ReadAllString())
+		err = fmt.Errorf("http response is not valid JSON")
 	}
 	if reslutJson.Get("code").Int() != 0 {
 		err = errors.New(reslutJson.Get("message").String())

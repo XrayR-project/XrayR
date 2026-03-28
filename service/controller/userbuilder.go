@@ -3,7 +3,6 @@ package controller
 import (
 	"context"
 	"encoding/base64"
-	"fmt"
 	"strings"
 
 	"github.com/sagernet/sing-shadowsocks/shadowaead_2022"
@@ -45,10 +44,18 @@ func (c *Controller) buildVmessUser(userInfo *[]api.UserInfo) (users []*protocol
 
 func (c *Controller) buildVlessUser(userInfo *[]api.UserInfo) (users []*protocol.User) {
 	users = make([]*protocol.User, len(*userInfo))
+	flow := strings.TrimSpace(c.nodeInfo.VlessFlow)
+	if flow != "" {
+		transport := strings.ToLower(strings.TrimSpace(c.nodeInfo.TransportProtocol))
+		// XTLS Vision is only valid on direct TLS/REALITY over TCP.
+		if transport != "tcp" || (!c.nodeInfo.EnableTLS && !c.nodeInfo.EnableREALITY) || c.nodeInfo.Header != nil {
+			flow = ""
+		}
+	}
 	for i, user := range *userInfo {
 		vlessAccount := &vless.Account{
 			Id:   user.UUID,
-			Flow: c.nodeInfo.VlessFlow,
+			Flow: flow,
 		}
 		users[i] = &protocol.User{
 			Level:   0,
@@ -90,7 +97,7 @@ func (c *Controller) buildSSUser(userInfo *[]api.UserInfo, method string) (users
 				Level: 0,
 				Email: e,
 				Account: serial.ToTypedMessage(&shadowsocks_2022.Account{
-					Key:   userKey,
+					Key: userKey,
 				}),
 			}
 		} else {
@@ -123,7 +130,7 @@ func (c *Controller) buildSSPluginUser(userInfo *[]api.UserInfo) (users []*proto
 				Level: 0,
 				Email: e,
 				Account: serial.ToTypedMessage(&shadowsocks_2022.Account{
-					Key:   userKey,
+					Key: userKey,
 				}),
 			}
 		} else {
@@ -160,7 +167,7 @@ func cipherFromString(c string) shadowsocks.CipherType {
 }
 
 func (c *Controller) buildUserTag(user *api.UserInfo) string {
-	return fmt.Sprintf("%s|%s|%d", c.Tag, user.Email, user.UID)
+	return user.GetRuntimeKey(c.Tag)
 }
 
 func (c *Controller) checkShadowsocksPassword(password string, method string) (string, error) {

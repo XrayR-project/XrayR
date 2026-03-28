@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	"reflect"
-	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -18,6 +17,7 @@ import (
 	"github.com/go-resty/resty/v2"
 
 	"github.com/XrayR-project/XrayR/api"
+	"github.com/XrayR-project/XrayR/common"
 )
 
 type APIClient struct {
@@ -44,6 +44,11 @@ func (*APIClient) ReportIllegal(detectResultList *[]api.DetectResult) (err error
 // ReportNodeStatus implements api.API.
 func (*APIClient) ReportNodeStatus(nodeStatus *api.NodeStatus) (err error) {
 	return nil
+}
+
+// GetXrayRCertConfig is not supported by BunPanel; return nil to indicate absence.
+func (*APIClient) GetXrayRCertConfig() (*api.XrayRCertConfig, error) {
+	return nil, nil
 }
 
 // GetNodeRule implements api.API.
@@ -110,14 +115,19 @@ func readLocalRuleList(path string) (LocalRuleList []api.DetectRule) {
 
 		// read line by line
 		for fileScanner.Scan() {
+			pattern, err := common.SafeCompileRegex(fileScanner.Text())
+			if err != nil {
+				log.Printf("Invalid rule regex: %s, skipping", err)
+				continue
+			}
 			LocalRuleList = append(LocalRuleList, api.DetectRule{
 				ID:      -1,
-				Pattern: regexp.MustCompile(fileScanner.Text()),
+				Pattern: pattern,
 			})
 		}
 		// handle first encountered error while reading
 		if err := fileScanner.Err(); err != nil {
-			log.Fatalf("Error while reading file: %s", err)
+			log.Printf("Error while reading file: %s", err)
 			return
 		}
 	}
@@ -127,7 +137,7 @@ func readLocalRuleList(path string) (LocalRuleList []api.DetectRule) {
 
 // Describe return a description of the client
 func (c *APIClient) Describe() api.ClientInfo {
-	return api.ClientInfo{APIHost: c.APIHost, NodeID: c.NodeID, Key: c.Key, NodeType: c.NodeType}
+	return api.ClientInfo{APIHost: c.APIHost, NodeID: c.NodeID, Key: "", NodeType: c.NodeType}
 }
 
 // Debug set the client debug for client
@@ -144,15 +154,13 @@ func (c *APIClient) parseResponse(res *resty.Response, path string, err error) (
 		return nil, fmt.Errorf("request %s failed: %s", c.assembleURL(path), err)
 	}
 
-	if res.StatusCode() > 400 {
-		body := res.Body()
-		return nil, fmt.Errorf("request %s failed: %s, %v", c.assembleURL(path), string(body), err)
+	if res.StatusCode() >= 400 {
+		return nil, fmt.Errorf("request %s failed: status %d", c.assembleURL(path), res.StatusCode())
 	}
 	response := res.Result().(*Response)
 
 	if response.StatusCode != 200 {
-		res, _ := json.Marshal(&response)
-		return nil, fmt.Errorf("statusCode %s invalid", string(res))
+		return nil, fmt.Errorf("request %s returned unexpected status code: %d", c.assembleURL(path), response.StatusCode)
 	}
 	return response, nil
 }
@@ -188,11 +196,6 @@ func (c *APIClient) GetNodeInfo() (nodeInfo *api.NodeInfo, err error) {
 	if err != nil {
 		res, _ := json.Marshal(nodeInfoResponse)
 		return nil, fmt.Errorf("parse node info failed: %s, \nError: %s, \nPlease check the doc of custom_config for help: https://xrayr-project.github.io/XrayR-doc/dui-jie-sspanel/sspanel/sspanel_custom_config", string(res), err)
-	}
-
-	if err != nil {
-		res, _ := json.Marshal(nodeInfoResponse)
-		return nil, fmt.Errorf("parse node info failed: %s, \nError: %s", string(res), err)
 	}
 
 	return nodeInfo, nil
@@ -260,6 +263,11 @@ func (c *APIClient) ReportNodeOnlineUsers(onlineUserList *[]api.OnlineUser) erro
 	}
 
 	return nil
+}
+
+// GetAliveList implements the API interface (not supported by BunPanel)
+func (c *APIClient) GetAliveList() (aliveList map[int][]string, err error) {
+	return nil, nil
 }
 
 func (c *APIClient) ReportUserTraffic(userTraffic *[]api.UserTraffic) error {
@@ -376,7 +384,9 @@ func (c *APIClient) ParseNodeInfo(nodeInfoResponse *Server) (*api.NodeInfo, erro
 	realityConfig := new(api.REALITYConfig)
 	if nodeConfig.RealitySettings != nil {
 		r := new(RealitySettings)
-		json.Unmarshal(nodeConfig.RealitySettings, r)
+		if err := json.Unmarshal(nodeConfig.RealitySettings, r); err != nil {
+			return nil, fmt.Errorf("unmarshal RealitySettings failed: %w", err)
+		}
 		realityConfig = &api.REALITYConfig{
 			Dest:             r.Dest,
 			ProxyProtocolVer: r.ProxyProtocolVer,
@@ -390,17 +400,69 @@ func (c *APIClient) ParseNodeInfo(nodeInfoResponse *Server) (*api.NodeInfo, erro
 	}
 	wsConfig := new(WsSettings)
 	if nodeConfig.WsSettings != nil {
-		json.Unmarshal(nodeConfig.WsSettings, wsConfig)
+		if err := json.Unmarshal(nodeConfig.WsSettings, wsConfig); err != nil {
+			return nil, fmt.Errorf("unmarshal WsSettings failed: %w", err)
+		}
 	}
 
 	grpcConfig := new(GrpcSettigns)
 	if nodeConfig.GrpcSettings != nil {
-		json.Unmarshal(nodeConfig.GrpcSettings, grpcConfig)
+		if err := json.Unmarshal(nodeConfig.GrpcSettings, grpcConfig); err != nil {
+			return nil, fmt.Errorf("unmarshal GrpcSettings failed: %w", err)
+		}
 	}
 
 	tcpConfig := new(TcpSettings)
 	if nodeConfig.TcpSettings != nil {
-		json.Unmarshal(nodeConfig.TcpSettings, tcpConfig)
+		if err := json.Unmarshal(nodeConfig.TcpSettings, tcpConfig); err != nil {
+			return nil, fmt.Errorf("unmarshal TcpSettings failed: %w", err)
+		}
+	}
+
+	// Parse SplitHTTP/XHTTP settings
+	splithttpConfig := new(SplitHTTPSettings)
+	if nodeConfig.XHTTPSettings != nil {
+		if err := json.Unmarshal(nodeConfig.XHTTPSettings, splithttpConfig); err != nil {
+			return nil, fmt.Errorf("unmarshal XHTTPSettings failed: %w", err)
+		}
+	} else if nodeConfig.SplitHTTPSettings != nil {
+		if err := json.Unmarshal(nodeConfig.SplitHTTPSettings, splithttpConfig); err != nil {
+			return nil, fmt.Errorf("unmarshal SplitHTTPSettings failed: %w", err)
+		}
+	}
+
+	// Parse HttpUpgrade settings
+	httpupgradeConfig := new(HttpUpgradeSettings)
+	if nodeConfig.HttpUpgradeSettings != nil {
+		if err := json.Unmarshal(nodeConfig.HttpUpgradeSettings, httpupgradeConfig); err != nil {
+			return nil, fmt.Errorf("unmarshal HttpUpgradeSettings failed: %w", err)
+		}
+	}
+
+	// Determine Host and Path based on transport protocol
+	var host, path, serviceName string
+	var header json.RawMessage
+	var headers map[string]string
+
+	switch transportProtocol {
+	case "ws":
+		host = wsConfig.Headers.Host
+		path = wsConfig.Path
+	case "grpc":
+		serviceName = grpcConfig.ServiceName
+	case "tcp":
+		header = tcpConfig.Header
+	case "splithttp", "xhttp":
+		host = splithttpConfig.Host
+		path = splithttpConfig.Path
+		headers = splithttpConfig.Headers
+	case "httpupgrade":
+		host = httpupgradeConfig.Host
+		path = httpupgradeConfig.Path
+		headers = httpupgradeConfig.Headers
+	default:
+		host = wsConfig.Headers.Host
+		path = wsConfig.Path
 	}
 
 	// Create GeneralNodeInfo
@@ -411,16 +473,36 @@ func (c *APIClient) ParseNodeInfo(nodeInfoResponse *Server) (*api.NodeInfo, erro
 		SpeedLimit:        speedLimit,
 		AlterID:           alterID,
 		TransportProtocol: transportProtocol,
-		Host:              wsConfig.Headers.Host,
-		Path:              wsConfig.Path,
+		Host:              host,
+		Path:              path,
 		EnableTLS:         enableTLS,
 		EnableVless:       enableVless,
 		VlessFlow:         nodeConfig.Flow,
 		CypherMethod:      nodeConfig.Method,
-		ServiceName:       grpcConfig.ServiceName,
-		Header:            tcpConfig.Header,
+		ServiceName:       serviceName,
+		Header:            header,
+		Headers:           headers,
 		EnableREALITY:     enableREALITY,
 		REALITYConfig:     realityConfig,
+		// XHTTP bypass CDN fields
+		XHTTPMode:           splithttpConfig.Mode,
+		XHTTPExtra:          splithttpConfig.Extra,
+		XPaddingBytes:       splithttpConfig.XPaddingBytes,
+		XPaddingObfsMode:    splithttpConfig.XPaddingObfsMode,
+		XPaddingKey:         splithttpConfig.XPaddingKey,
+		XPaddingHeader:      splithttpConfig.XPaddingHeader,
+		XPaddingPlacement:   splithttpConfig.XPaddingPlacement,
+		XPaddingMethod:      splithttpConfig.XPaddingMethod,
+		UplinkHTTPMethod:    splithttpConfig.UplinkHTTPMethod,
+		SessionPlacement:    splithttpConfig.SessionPlacement,
+		SessionKey:          splithttpConfig.SessionKey,
+		SeqPlacement:        splithttpConfig.SeqPlacement,
+		SeqKey:              splithttpConfig.SeqKey,
+		UplinkDataPlacement: splithttpConfig.UplinkDataPlacement,
+		UplinkDataKey:       splithttpConfig.UplinkDataKey,
+		UplinkChunkSize:     splithttpConfig.UplinkChunkSize,
+		NoGRPCHeader:        splithttpConfig.NoGRPCHeader,
+		NoSSEHeader:         splithttpConfig.NoSSEHeader,
 	}
 
 	return nodeInfo, nil

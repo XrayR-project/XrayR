@@ -1,6 +1,8 @@
 package newV2board_test
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/XrayR-project/XrayR/api"
@@ -98,4 +100,44 @@ func TestGetNodeRule(t *testing.T) {
 	}
 
 	t.Log(ruleList)
+}
+
+func TestGetSocksAndHTTPUserListRuntimeKey(t *testing.T) {
+	tests := []struct {
+		name     string
+		nodeType string
+	}{
+		{name: "socks", nodeType: "Socks"},
+		{name: "http", nodeType: "HTTP"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path != "/api/v1/server/UniProxy/user" {
+					t.Fatalf("unexpected path: %s", r.URL.Path)
+				}
+				_, _ = w.Write([]byte(`{"users":[{"id":72,"uuid":"C1FFFAEC-739B-4ECF-8121-73A456C93EF7","speed_limit":1000,"device_limit":10}]}`))
+			}))
+			defer server.Close()
+
+			client := newV2board.New(&api.Config{
+				APIHost:  server.URL,
+				Key:      "secret",
+				NodeID:   1,
+				NodeType: tt.nodeType,
+			})
+
+			userList, err := client.GetUserList()
+			if err != nil {
+				t.Fatalf("GetUserList failed: %v", err)
+			}
+			if len(*userList) != 1 {
+				t.Fatalf("unexpected user count: %d", len(*userList))
+			}
+			if (*userList)[0].RuntimeKey != "C1FFFAEC-739B-4ECF-8121-73A456C93EF7" {
+				t.Fatalf("unexpected runtime key: %s", (*userList)[0].RuntimeKey)
+			}
+		})
+	}
 }

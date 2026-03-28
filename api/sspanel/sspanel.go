@@ -18,6 +18,7 @@ import (
 	"github.com/go-resty/resty/v2"
 
 	"github.com/XrayR-project/XrayR/api"
+	"github.com/XrayR-project/XrayR/common"
 )
 
 var (
@@ -96,30 +97,30 @@ func readLocalRuleList(path string) (LocalRuleList []api.DetectRule) {
 		// open the file
 		file, err := os.Open(path)
 
-		defer func(file *os.File) {
-			err := file.Close()
-			if err != nil {
-				log.Printf("Error when closing file: %s", err)
-			}
-		}(file)
 		// handle errors while opening
 		if err != nil {
 			log.Printf("Error when opening file: %s", err)
 			return LocalRuleList
 		}
+		defer file.Close()
 
 		fileScanner := bufio.NewScanner(file)
 
 		// read line by line
 		for fileScanner.Scan() {
+			pattern, err := common.SafeCompileRegex(fileScanner.Text())
+			if err != nil {
+				log.Printf("Invalid rule regex: %s, skipping", err)
+				continue
+			}
 			LocalRuleList = append(LocalRuleList, api.DetectRule{
 				ID:      -1,
-				Pattern: regexp.MustCompile(fileScanner.Text()),
+				Pattern: pattern,
 			})
 		}
 		// handle first encountered error while reading
 		if err := fileScanner.Err(); err != nil {
-			log.Fatalf("Error while reading file: %s", err)
+			log.Printf("Error while reading file: %s", err)
 			return
 		}
 	}
@@ -129,7 +130,7 @@ func readLocalRuleList(path string) (LocalRuleList []api.DetectRule) {
 
 // Describe return a description of the client
 func (c *APIClient) Describe() api.ClientInfo {
-	return api.ClientInfo{APIHost: c.APIHost, NodeID: c.NodeID, Key: c.Key, NodeType: c.NodeType}
+	return api.ClientInfo{APIHost: c.APIHost, NodeID: c.NodeID, Key: "", NodeType: c.NodeType}
 }
 
 // Debug set the client debug for client
@@ -146,15 +147,13 @@ func (c *APIClient) parseResponse(res *resty.Response, path string, err error) (
 		return nil, fmt.Errorf("request %s failed: %s", c.assembleURL(path), err)
 	}
 
-	if res.StatusCode() > 400 {
-		body := res.Body()
-		return nil, fmt.Errorf("request %s failed: %s, %v", c.assembleURL(path), string(body), err)
+	if res.StatusCode() >= 400 {
+		return nil, fmt.Errorf("request %s failed: status %d", c.assembleURL(path), res.StatusCode())
 	}
 	response := res.Result().(*Response)
 
 	if response.Ret != 1 {
-		res, _ := json.Marshal(&response)
-		return nil, fmt.Errorf("ret %s invalid", string(res))
+		return nil, fmt.Errorf("request %s returned unexpected ret code", c.assembleURL(path))
 	}
 	return response, nil
 }
@@ -227,6 +226,31 @@ func (c *APIClient) GetNodeInfo() (nodeInfo *api.NodeInfo, err error) {
 	return nodeInfo, nil
 }
 
+// GetXrayRCertConfig fetches optional global certificate configuration
+// (DNS provider, ACME email, DNS-01 env variables) from the panel.
+func (c *APIClient) GetXrayRCertConfig() (*api.XrayRCertConfig, error) {
+	path := "/mod_mu/nodes/config"
+	payload := map[string]string{"type": "xrayr_cert"}
+
+	res, err := c.client.R().
+		SetBody(payload).
+		SetResult(&Response{}).
+		ForceContentType("application/json").
+		Post(path)
+
+	response, err := c.parseResponse(res, path, err)
+	if err != nil {
+		return nil, err
+	}
+
+	cfg := new(api.XrayRCertConfig)
+	if err := json.Unmarshal(response.Data, cfg); err != nil {
+		return nil, fmt.Errorf("unmarshal %s failed: %s", reflect.TypeOf(cfg), err)
+	}
+
+	return cfg, nil
+}
+
 // GetUserList will pull user form ssPanel
 func (c *APIClient) GetUserList() (UserList *[]api.UserInfo, err error) {
 	path := "/mod_mu/users"
@@ -265,25 +289,23 @@ func (c *APIClient) GetUserList() (UserList *[]api.UserInfo, err error) {
 
 // ReportNodeStatus reports the node status to the ssPanel
 func (c *APIClient) ReportNodeStatus(nodeStatus *api.NodeStatus) (err error) {
-	// Determine whether a status report is in need
-	if compareVersion(c.version, "2023.2") == -1 {
-		path := fmt.Sprintf("/mod_mu/nodes/%d/info", c.NodeID)
-		systemLoad := SystemLoad{
-			Uptime: strconv.FormatUint(nodeStatus.Uptime, 10),
-			Load:   fmt.Sprintf("%.2f %.2f %.2f", nodeStatus.CPU/100, nodeStatus.Mem/100, nodeStatus.Disk/100),
-		}
-
-		res, err := c.client.R().
-			SetBody(systemLoad).
-			SetResult(&Response{}).
-			ForceContentType("application/json").
-			Post(path)
-
-		_, err = c.parseResponse(res, path, err)
-		if err != nil {
-			return err
-		}
+	path := fmt.Sprintf("/mod_mu/nodes/%d/info", c.NodeID)
+	systemLoad := SystemLoad{
+		Uptime: strconv.FormatUint(nodeStatus.Uptime, 10),
+		Load:   fmt.Sprintf("%.2f %.2f %.2f", nodeStatus.CPU/100, nodeStatus.Mem/100, nodeStatus.Disk/100),
 	}
+
+	res, err := c.client.R().
+		SetBody(systemLoad).
+		SetResult(&Response{}).
+		ForceContentType("application/json").
+		Post(path)
+
+	_, err = c.parseResponse(res, path, err)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -315,6 +337,11 @@ func (c *APIClient) ReportNodeOnlineUsers(onlineUserList *[]api.OnlineUser) erro
 	}
 
 	return nil
+}
+
+// GetAliveList implements the API interface (not supported by SSPanel)
+func (c *APIClient) GetAliveList() (aliveList map[int][]string, err error) {
+	return nil, nil
 }
 
 // ReportUserTraffic reports the user traffic
@@ -374,9 +401,14 @@ func (c *APIClient) GetNodeRule() (*[]api.DetectRule, error) {
 	}
 
 	for _, r := range *ruleListResponse {
+		pattern, err := common.SafeCompileRegex(r.Content)
+		if err != nil {
+			log.Printf("Invalid rule regex from panel (ID=%d): %s, skipping", r.ID, err)
+			continue
+		}
 		ruleList = append(ruleList, api.DetectRule{
 			ID:      r.ID,
-			Pattern: regexp.MustCompile(r.Content),
+			Pattern: pattern,
 		})
 	}
 	return &ruleList, nil
@@ -390,6 +422,7 @@ func (c *APIClient) ReportIllegal(detectResultList *[]api.DetectResult) error {
 		data[i] = IllegalItem{
 			ID:  r.RuleID,
 			UID: r.UID,
+			IP:  r.IP,
 		}
 	}
 	postData := &PostData{Data: data}
@@ -423,7 +456,11 @@ func (c *APIClient) ParseV2rayNodeResponse(nodeInfoResponse *NodeInfoResponse) (
 	if err != nil {
 		return nil, err
 	}
-	port := uint32(parsedPort)
+	if parsedPort < 1 || parsedPort > 65535 {
+		return nil, fmt.Errorf("invalid port %d: must be between 1 and 65535", parsedPort)
+	}
+	port16 := uint16(parsedPort)
+	port := uint32(port16)
 
 	parsedAlterID, err := strconv.ParseInt(serverConf[2], 10, 16)
 	if err != nil {
@@ -639,7 +676,11 @@ func (c *APIClient) ParseTrojanNodeResponse(nodeInfoResponse *NodeInfoResponse) 
 	if err != nil {
 		return nil, err
 	}
-	port := uint32(parsedPort)
+	if parsedPort < 1 || parsedPort > 65535 {
+		return nil, fmt.Errorf("invalid port %d: must be between 1 and 65535", parsedPort)
+	}
+	port16 := uint16(parsedPort)
+	port := uint32(port16)
 
 	serverConf := strings.Split(nodeInfoResponse.RawServerString, ";")
 	extraServerConf := strings.Split(serverConf[1], "|")
@@ -683,11 +724,7 @@ func (c *APIClient) ParseTrojanNodeResponse(nodeInfoResponse *NodeInfoResponse) 
 // ParseUserListResponse parse the response for the given node info format
 func (c *APIClient) ParseUserListResponse(userInfoResponse *[]UserResponse) (*[]api.UserInfo, error) {
 	c.access.Lock()
-	// Clear Last report log
-	defer func() {
-		c.LastReportOnline = make(map[int]int)
-		c.access.Unlock()
-	}()
+	defer c.access.Unlock()
 
 	var deviceLimit, localDeviceLimit = 0, 0
 	var speedLimit uint64 = 0
@@ -740,10 +777,10 @@ func (c *APIClient) ParseUserListResponse(userInfoResponse *[]UserResponse) (*[]
 // Only available for SSPanel version >= 2021.11
 func (c *APIClient) ParseSSPanelNodeInfo(nodeInfoResponse *NodeInfoResponse) (*api.NodeInfo, error) {
 	var (
-		speedLimit             uint64 = 0
-		enableTLS, enableVless bool
-		alterID                uint16 = 0
-		transportProtocol      string
+		speedLimit                            uint64 = 0
+		enableTLS, enableVless, enableREALITY bool
+		alterID                               uint16 = 0
+		transportProtocol                     string
 	)
 
 	// Check if custom_config is null
@@ -767,8 +804,12 @@ func (c *APIClient) ParseSSPanelNodeInfo(nodeInfoResponse *NodeInfoResponse) (*a
 	if err != nil {
 		return nil, err
 	}
+	if parsedPort < 1 || parsedPort > 65535 {
+		return nil, fmt.Errorf("invalid port %d: must be between 1 and 65535", parsedPort)
+	}
 
-	port := uint32(parsedPort)
+	port16 := uint16(parsedPort)
+	port := uint32(port16)
 
 	switch c.NodeType {
 	case "Shadowsocks":
@@ -776,12 +817,20 @@ func (c *APIClient) ParseSSPanelNodeInfo(nodeInfoResponse *NodeInfoResponse) (*a
 	case "V2ray":
 		transportProtocol = nodeConfig.Network
 
-		tlsType := nodeConfig.Security
+		tlsType := strings.ToLower(nodeConfig.Security)
 		if tlsType == "tls" || tlsType == "xtls" {
 			enableTLS = true
 		}
+		if tlsType == "reality" {
+			enableREALITY = true
+			enableVless = true
+		}
 
-		if nodeConfig.EnableVless == "1" {
+		if nodeConfig.EnableREALITY {
+			enableREALITY = true
+		}
+
+		if nodeConfig.EnableVless == "1" || strings.EqualFold(nodeConfig.EnableVless, "true") {
 			enableVless = true
 		}
 	case "Trojan":
@@ -794,13 +843,21 @@ func (c *APIClient) ParseSSPanelNodeInfo(nodeInfoResponse *NodeInfoResponse) (*a
 		}
 	}
 
+	if transportProtocol == "" {
+		transportProtocol = "tcp"
+	}
+
 	// parse reality config
 	realityConfig := new(api.REALITYConfig)
 	if nodeConfig.RealityOpts != nil {
 		r := nodeConfig.RealityOpts
+		proxyVer := r.ProxyProtocolVer
+		if proxyVer == 0 {
+			proxyVer = nodeConfig.ProxyProtocolVer
+		}
 		realityConfig = &api.REALITYConfig{
 			Dest:             r.Dest,
-			ProxyProtocolVer: r.ProxyProtocolVer,
+			ProxyProtocolVer: proxyVer,
 			ServerNames:      r.ServerNames,
 			PrivateKey:       r.PrivateKey,
 			MinClientVer:     r.MinClientVer,
@@ -810,25 +867,56 @@ func (c *APIClient) ParseSSPanelNodeInfo(nodeInfoResponse *NodeInfoResponse) (*a
 		}
 	}
 
+	sni := nodeConfig.Sni
+	if sni == "" {
+		if nodeConfig.ServerName != "" {
+			sni = nodeConfig.ServerName
+		} else {
+			sni = nodeConfig.Host
+		}
+	}
+
 	// Create GeneralNodeInfo
 	nodeInfo := &api.NodeInfo{
-		NodeType:          c.NodeType,
-		NodeID:            c.NodeID,
-		Port:              port,
-		SpeedLimit:        speedLimit,
-		AlterID:           alterID,
-		TransportProtocol: transportProtocol,
-		Host:              nodeConfig.Host,
-		Path:              nodeConfig.Path,
-		EnableTLS:         enableTLS,
-		EnableVless:       enableVless,
-		VlessFlow:         nodeConfig.Flow,
-		CypherMethod:      nodeConfig.Method,
-		ServerKey:         nodeConfig.ServerKey,
-		ServiceName:       nodeConfig.Servicename,
-		Header:            nodeConfig.Header,
-		EnableREALITY:     nodeConfig.EnableREALITY,
-		REALITYConfig:     realityConfig,
+		NodeType:            c.NodeType,
+		NodeID:              c.NodeID,
+		Port:                port,
+		SpeedLimit:          speedLimit,
+		AlterID:             alterID,
+		TransportProtocol:   transportProtocol,
+		Host:                nodeConfig.Host,
+		SNI:                 sni,
+		Path:                nodeConfig.Path,
+		EnableTLS:           enableTLS,
+		EnableVless:         enableVless,
+		VlessFlow:           nodeConfig.Flow,
+		CypherMethod:        nodeConfig.Method,
+		ServerKey:           nodeConfig.ServerKey,
+		ServiceName:         nodeConfig.Servicename,
+		Header:              nodeConfig.Header,
+		EnableREALITY:       enableREALITY,
+		REALITYConfig:       realityConfig,
+		AcceptProxyProtocol: nodeConfig.EnableProxyProtocol,
+		ProxyProtocolVer:    nodeConfig.ProxyProtocolVer,
+		// XHTTP bypass CDN fields
+		XHTTPMode:           nodeConfig.XHTTPMode,
+		XHTTPExtra:          nodeConfig.XHTTPExtra,
+		XPaddingBytes:       nodeConfig.XPaddingBytes,
+		XPaddingObfsMode:    nodeConfig.XPaddingObfsMode,
+		XPaddingKey:         nodeConfig.XPaddingKey,
+		XPaddingHeader:      nodeConfig.XPaddingHeader,
+		XPaddingPlacement:   nodeConfig.XPaddingPlacement,
+		XPaddingMethod:      nodeConfig.XPaddingMethod,
+		UplinkHTTPMethod:    nodeConfig.UplinkHTTPMethod,
+		SessionPlacement:    nodeConfig.SessionPlacement,
+		SessionKey:          nodeConfig.SessionKey,
+		SeqPlacement:        nodeConfig.SeqPlacement,
+		SeqKey:              nodeConfig.SeqKey,
+		UplinkDataPlacement: nodeConfig.UplinkDataPlacement,
+		UplinkDataKey:       nodeConfig.UplinkDataKey,
+		UplinkChunkSize:     nodeConfig.UplinkChunkSize,
+		NoGRPCHeader:        nodeConfig.NoGRPCHeader,
+		NoSSEHeader:         nodeConfig.NoSSEHeader,
 	}
 
 	return nodeInfo, nil
