@@ -24,7 +24,31 @@ var (
 	firstPortRe  = regexp.MustCompile(`(?m)port=(?P<outport>\d+)#?`) // First Port
 	secondPortRe = regexp.MustCompile(`(?m)port=\d+#(\d+)`)          // Second Port
 	hostRe       = regexp.MustCompile(`(?m)host=([\w.]+)\|?`)        // Host
+
+	// allowInsecureDeprecationOnce ensures the deprecation warning for the
+	// `allow_insecure` custom_config field is emitted at most once per process.
+	//
+	// The field has never been read by any XrayR code path (confirmed 2026-04-24
+	// review, see docs/plans/2026-04-24-001-feat-hysteria2-support-plan.md R11/F5).
+	// Xray-core v26.x upstream is additionally scheduled to hard-reject
+	// `allowInsecure` in TLS config after 2026-06-01. Operators relying on this
+	// field should replace it with proper certificates.
+	allowInsecureDeprecationOnce sync.Once
 )
+
+// warnAllowInsecureDeprecated emits a one-shot WARN if `allow_insecure` was
+// present in any parsed custom_config. It is safe to call from any parse path
+// (ParseSSPanelNodeInfo, legacy ParseXxxNodeResponse).
+func warnAllowInsecureDeprecated(value string) {
+	if value == "" || value == "0" || value == "false" {
+		return
+	}
+	allowInsecureDeprecationOnce.Do(func() {
+		log.Warn("SSPanel custom_config `allow_insecure` is deprecated and never enforced by XrayR; " +
+			"Xray-core >= 2026-06-01 rejects `allowInsecure` in TLS config. " +
+			"Remove the field from panel custom_config and use proper certificates.")
+	})
+}
 
 // APIClient create a api client to the panel.
 type APIClient struct {
@@ -761,6 +785,7 @@ func (c *APIClient) ParseSSPanelNodeInfo(nodeInfoResponse *NodeInfoResponse) (*a
 	if err != nil {
 		return nil, fmt.Errorf("custom_config format error: %v", err)
 	}
+	warnAllowInsecureDeprecated(nodeConfig.AllowInsecure)
 
 	if c.SpeedLimit > 0 {
 		speedLimit = uint64((c.SpeedLimit * 1000000) / 8)

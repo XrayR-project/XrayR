@@ -178,8 +178,10 @@ func (d *DefaultDispatcher) WrapLink(ctx context.Context, link *transport.Link) 
 		}
 	}
 
-	// Delegate to the embedded official dispatcher's WrapLink for stats handling
-	return d.DefaultDispatcher.WrapLink(ctx, link)
+	// Delegate to the upstream package-level WrapLink for stats handling.
+	// Xray-core v26.x refactored WrapLink from a *DefaultDispatcher method
+	// into a package-level function taking policy.Manager and stats.Manager.
+	return dispatcher.WrapLink(ctx, d.policy, d.stats, link)
 }
 
 func (d *DefaultDispatcher) getLink(ctx context.Context) (*transport.Link, *transport.Link, error) {
@@ -249,10 +251,9 @@ func (d *DefaultDispatcher) getLink(ctx context.Context) (*transport.Link, *tran
 
 func (d *DefaultDispatcher) shouldOverride(ctx context.Context, result SniffResult, request session.SniffingRequest, destination net.Destination) bool {
 	domain := result.Domain()
-	for _, d := range request.ExcludeForDomain {
-		if strings.ToLower(domain) == d {
-			return false
-		}
+	// Xray-core v26.x changed ExcludeForDomain from []string to geodata.DomainMatcher (interface).
+	if request.ExcludeForDomain != nil && request.ExcludeForDomain.MatchAny(strings.ToLower(domain)) {
+		return false
 	}
 	protocolString := result.Protocol()
 	if resComp, ok := result.(SnifferResultComposite); ok {

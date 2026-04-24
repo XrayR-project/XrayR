@@ -39,9 +39,10 @@ func InboundBuilder(config *Config, nodeInfo *api.NodeInfo, tag string) (*core.I
 	// Build Tag
 	inboundDetourConfig.Tag = tag
 	// SniffingConfig
+	// Xray-core v26.x changed SniffingConfig.DestOverride from *StringList to StringList (value type).
 	sniffingConfig := &conf.SniffingConfig{
 		Enabled:      true,
-		DestOverride: &conf.StringList{"http", "tls", "quic", "fakedns"},
+		DestOverride: conf.StringList{"http", "tls", "quic", "fakedns"},
 	}
 	if config.DisableSniffing {
 		sniffingConfig.Enabled = false
@@ -119,10 +120,9 @@ func InboundBuilder(config *Config, nodeInfo *api.NodeInfo, tag string) (*core.I
 		}
 
 		proxySetting.NetworkList = &conf.NetworkList{"tcp", "udp"}
-		proxySetting.IVCheck = true
-		if config.DisableIVCheck {
-			proxySetting.IVCheck = false
-		}
+		// IVCheck field was removed from ShadowsocksServerConfig in Xray-core v26.x.
+		// The legacy Shadowsocks IV collision check no longer applies; modern 2022-blake3
+		// ciphers handle replay protection internally. config.DisableIVCheck is now a no-op.
 
 	case "dokodemo-door":
 		protocol = "dokodemo-door"
